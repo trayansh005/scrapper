@@ -426,7 +426,7 @@ app.put("/get-property-url-by-listing-page/:agent_id", async (req, res) => {
 
 				const { data } = await axios.get(
 					"https://www.dexters.co.uk/property-sales/properties-available-for-sale-in-london/page-" +
-					i,
+						i,
 					{
 						headers: {
 							"User-Agent":
@@ -713,7 +713,9 @@ async function updatePriceByPropertyURL(
 				);
 
 				if (result.affectedRows > 0) {
-					console.log(`✅ Successfully updated property: ${link} with price: ${price} latitude: ${latitude}longitude: ${longitude}`);
+					console.log(
+						`✅ Successfully updated property: ${link} with price: ${price} latitude: ${latitude}longitude: ${longitude}`
+					);
 				} else {
 					console.log(
 						`⚠️ No property updated for URL: ${link} — maybe it doesn't exist or already has same data.`
@@ -761,30 +763,30 @@ async function updateRemoveStatus(agent_id) {
 	}
 }
 
-app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_req, res) => {
+app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (req, res) => {
 	try {
-		//const agent_id = req.params.agent_id;
+		const agent_id = parseInt(req.params.agent_id);
 
-		// const agent_ids = [5, 3, 12, 42, 13, 4, 44, 45, 37, 14, 109, 46, 47, 48, 51, 52, 108, 38, 55, 115, 56, 36, 58, 69, 84, 60, 61, 77, 59, 70, 63, 75, 72, 39, 67, 66, 76, 80, 32, 74, 5, 35, 110, 71, 33, 6, 8, 107, 78, 83, 68, 86, 7, 88, 34, 89, 92, 93, 94, 95, 96, 97, 98, 100, 103, 104, 105, 106, 28, 27, 24, 23, 22, 20, 19, 18, 17, 11, 9, 10, 113, 111, 114, 116, 117, 118, 119];
+		// Validate agent_id
+		if (!agent_id || isNaN(agent_id)) {
+			return res.status(400).json({ error: "Invalid agent_id provided" });
+		}
 
-		// const agent_ids = [100, 103, 98, 22, 21, 60, 64, 120, 113, 44, 62, 48, 109, 70, 49, 91, 112, 97, 52, 116, 75, 74, 39, 18, 118, 33, 119, 90, 79, 16, 121, 123, 124, 82, 34, 65, 26, 87, 2,25,101, 43,85,31,50, 41,29,102, 54, 81, 15, 40];
+		// Supported agents with working code
+		const supportedAgents = [
+			5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207,
+		];
 
-		// 21, 64, 120, 62, 90, 79, 121, 123, 124, 65, 101, 50, 29, 102, 81, 15 - No code for these agents ( Have issues or no pages or rent or no agents in db)
+		if (!supportedAgents.includes(agent_id)) {
+			return res.status(400).json({
+				error: `Agent ID ${agent_id} is not supported or has no implementation`,
+				supportedAgents: supportedAgents,
+			});
+		}
 
-		// 82 (showing blocked)
+		const agent_ids = [agent_id];
 
-		// 87 (bot protection)
-
-		//98, 22, 60, 113, 44, 48, 109, 70, 49, 91, 112, 97, 52, 116, 75, 74, 39, 18, 118, 33, 119, 16, 34, 2, 25, 43, 85, 31, 41, 54, 40
-
-		// 98, 22, 48, 112, 116, 2, 25, 43, 85, 41, 54 (Timeout net issue)
-
-		// 91 (1st page done, loader)
-
-		//const agent_ids = [54];
-		const agent_ids = [127];
-
-		console.log("Start script for number of agents => " + agent_ids.length);
+		console.log(`Start script for agent ID: ${agent_id}`);
 		for (const agent_id of agent_ids) {
 			if (agent_id == 71) {
 				// Helper function to get latitude and longitude from property detail page
@@ -838,7 +840,8 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 							const properties = $(".property");
 							console.log(
-								`✅ Found ${properties.length
+								`✅ Found ${
+									properties.length
 								} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 							);
 
@@ -1098,7 +1101,8 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 									});
 
 									console.log(
-										`✅ Found ${properties.length
+										`✅ Found ${
+											properties.length
 										} ${departmentLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 									);
 
@@ -1230,7 +1234,8 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 									const propertyCards = $(".property-card");
 
 									console.log(
-										`✅ Found ${propertyCards.length
+										`✅ Found ${
+											propertyCards.length
 										} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 									);
 
@@ -1398,7 +1403,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							const propertyCards = $(".card");
 
 							console.log(
-								`✅ Found ${propertyCards.length} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
+								`✅ Found ${
+									propertyCards.length
+								} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 							);
 
 							// Collect all properties from this page first
@@ -1513,23 +1520,23 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 					// Override navigator properties
 					await page.evaluateOnNewDocument(() => {
-						Object.defineProperty(navigator, 'webdriver', { get: () => false });
-						Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-						Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+						Object.defineProperty(navigator, "webdriver", { get: () => false });
+						Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+						Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] });
 						window.chrome = { runtime: {} };
 					});
 
 					// Set realistic headers
 					await page.setExtraHTTPHeaders({
-						'Accept-Language': 'en-US,en;q=0.9',
-						'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-						'Accept-Encoding': 'gzip, deflate, br',
-						'Connection': 'keep-alive',
-						'Upgrade-Insecure-Requests': '1',
-						'Sec-Fetch-Dest': 'document',
-						'Sec-Fetch-Mode': 'navigate',
-						'Sec-Fetch-Site': 'none',
-						'Cache-Control': 'max-age=0',
+						"Accept-Language": "en-US,en;q=0.9",
+						Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+						"Accept-Encoding": "gzip, deflate, br",
+						Connection: "keep-alive",
+						"Upgrade-Insecure-Requests": "1",
+						"Sec-Fetch-Dest": "document",
+						"Sec-Fetch-Mode": "navigate",
+						"Sec-Fetch-Site": "none",
+						"Cache-Control": "max-age=0",
 					});
 				};
 
@@ -1538,7 +1545,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 					try {
 						await page.goto(link, {
 							waitUntil: "domcontentloaded",
-							timeout: 20000
+							timeout: 20000,
 						});
 
 						const coords = await page.evaluate(() => {
@@ -1586,7 +1593,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 							await page.goto(listing_url, {
 								waitUntil: "domcontentloaded",
-								timeout: 30000
+								timeout: 30000,
 							});
 
 							// Wait for property cards to load
@@ -1602,10 +1609,14 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 									try {
 										const linkEl = card.querySelector("a");
 										const link = linkEl?.href || null;
-										const title = card.querySelector(".card__text-content")?.textContent.trim() || null;
-										const bedroomsText = card.querySelector(".card-content__spec-list-number")?.textContent.trim() || "";
+										const title =
+											card.querySelector(".card__text-content")?.textContent.trim() || null;
+										const bedroomsText =
+											card.querySelector(".card-content__spec-list-number")?.textContent.trim() ||
+											"";
 										const bedrooms = bedroomsText.match(/\d+/)?.[0] || null;
-										const priceText = card.querySelector(".card__heading")?.textContent.trim() || "";
+										const priceText =
+											card.querySelector(".card__heading")?.textContent.trim() || "";
 										const price = priceText.match(/£([\d,]+)/)?.[1] || null;
 
 										if (link && title && price) {
@@ -1620,7 +1631,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							});
 
 							console.log(
-								`✅ Found ${properties.length} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
+								`✅ Found ${
+									properties.length
+								} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 							);
 
 							await page.close();
@@ -1751,7 +1764,11 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							const content = await page.content();
 
 							// Check for blocking/error messages
-							if (content.includes("Access Denied") || content.includes("blocked") || content.includes("captcha")) {
+							if (
+								content.includes("Access Denied") ||
+								content.includes("blocked") ||
+								content.includes("captcha")
+							) {
 								console.error(`⚠️ Page ${i} appears to be blocked or requires captcha`);
 								await page.close();
 								break;
@@ -1761,7 +1778,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							const propertyCards = $(".hf-property-results .card");
 
 							console.log(
-								`✅ Found ${propertyCards.length} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
+								`✅ Found ${
+									propertyCards.length
+								} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 							);
 
 							// If no properties found, stop pagination
@@ -1921,7 +1940,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							const propertyCards = $(".hf-property-results .card");
 
 							console.log(
-								`✅ Found ${propertyCards.length} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
+								`✅ Found ${
+									propertyCards.length
+								} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 							);
 
 							// Collect all properties from this page first
@@ -1982,10 +2003,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							}
 						} catch (error) {
 							await page.close();
-							console.error(
-								`Error fetching ${typeLabel.toLowerCase()} page ${i}:`,
-								error.message
-							);
+							console.error(`Error fetching ${typeLabel.toLowerCase()} page ${i}:`, error.message);
 						}
 					}
 				};
@@ -2032,7 +2050,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 						try {
 							await page.goto(propertyUrl, {
 								waitUntil: "domcontentloaded",
-								timeout: 60000
+								timeout: 60000,
 							});
 							await page.waitForTimeout(2000 + Math.random() * 2000); // Random delay 2-4s
 
@@ -2057,7 +2075,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 							// Also check for coordinates in script tags or data attributes
 							if (!latitude || !longitude) {
-								$('script').each((i, elem) => {
+								$("script").each((i, elem) => {
 									const scriptContent = $(elem).html();
 									if (scriptContent) {
 										const latMatch = scriptContent.match(/latitude[:\s=]+([+-]?\d+\.\d+)/i);
@@ -2088,7 +2106,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 						try {
 							await page.goto(listing_url, {
 								waitUntil: "domcontentloaded",
-								timeout: 60000
+								timeout: 60000,
 							});
 							await page.waitForTimeout(3000 + Math.random() * 2000); // Random delay 3-5s
 
@@ -2124,7 +2142,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							await page.close();
 
 							console.log(
-								`📄 Page ${pageNum}/${totalPages}: Found ${properties.length} ${typeLabel.toLowerCase()} properties`
+								`📄 Page ${pageNum}/${totalPages}: Found ${
+									properties.length
+								} ${typeLabel.toLowerCase()} properties`
 							);
 
 							return properties;
@@ -2187,7 +2207,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 					args: [
 						"--no-sandbox",
 						"--disable-setuid-sandbox",
-						"--disable-blink-features=AutomationControlled"
+						"--disable-blink-features=AutomationControlled",
 					],
 				});
 
@@ -2277,7 +2297,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							const propertyCards = $(".hf-property-results .card");
 
 							console.log(
-								`✅ Found ${propertyCards.length} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
+								`✅ Found ${
+									propertyCards.length
+								} ${typeLabel.toLowerCase()} properties on page ${i}/${totalPages}`
 							);
 
 							// Collect all properties from this page first
@@ -2442,7 +2464,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 								const propertyCards = $(".hf-property-results .card");
 
 								console.log(
-									`✅ Found ${propertyCards.length} ${typeLabel.toLowerCase()} properties on page ${pageNum}/${totalPages}`
+									`✅ Found ${
+										propertyCards.length
+									} ${typeLabel.toLowerCase()} properties on page ${pageNum}/${totalPages}`
 								);
 
 								// Collect all properties from this page first
@@ -2505,7 +2529,10 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 									await new Promise((resolve) => setTimeout(resolve, 500));
 								}
 							} catch (error) {
-								console.error(`Error fetching ${typeLabel.toLowerCase()} page ${pageNum}:`, error.message);
+								console.error(
+									`Error fetching ${typeLabel.toLowerCase()} page ${pageNum}:`,
+									error.message
+								);
 								await page.close();
 							}
 						}
@@ -2606,7 +2633,8 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 														const bedroomsMatch = bedroomsText.match(/\d+/);
 														const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
 
-														const priceText = element.querySelector(".amount")?.textContent?.trim() || "";
+														const priceText =
+															element.querySelector(".amount")?.textContent?.trim() || "";
 														const priceMatch = priceText.match(/£([\d,]+)/);
 														const price = priceMatch ? priceMatch[1] : null;
 
@@ -2620,7 +2648,9 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 												return items;
 											});
 
-											console.log(`   Found ${properties.length} properties on page ${currentPage}`);
+											console.log(
+												`   Found ${properties.length} properties on page ${currentPage}`
+											);
 
 											// Fetch geo data from detail pages one by one
 											for (const property of properties) {
@@ -2643,7 +2673,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 																		longitude: data.geo.longitude,
 																	};
 																}
-															} catch (e) { }
+															} catch (e) {}
 														}
 														return null;
 													});
@@ -2667,7 +2697,10 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 														console.error(`❌ Error saving property:`, error.message);
 													});
 												} catch (detailErr) {
-													console.error(`Error fetching geo data for ${property.link}:`, detailErr.message);
+													console.error(
+														`Error fetching geo data for ${property.link}:`,
+														detailErr.message
+													);
 												}
 											}
 										} catch (pageErr) {
@@ -2793,14 +2826,18 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 													items,
 													cardCount,
 													hasNoResults: !!document.querySelector(".no-results, .no-properties"),
-													bodyText: document.body.innerText.substring(0, 200)
+													bodyText: document.body.innerText.substring(0, 200),
 												};
 											});
 
-											console.log(`   Found ${properties.items.length} properties on page ${currentPage} (${properties.cardCount} cards total)`);
+											console.log(
+												`   Found ${properties.items.length} properties on page ${currentPage} (${properties.cardCount} cards total)`
+											);
 
 											if (properties.items.length === 0 && properties.cardCount === 0) {
-												console.log(`   ⚠️ No property cards found. Page might be empty or structure changed.`);
+												console.log(
+													`   ⚠️ No property cards found. Page might be empty or structure changed.`
+												);
 												if (properties.hasNoResults) {
 													console.log(`   ℹ️ "No results" message detected on page.`);
 												}
@@ -2845,7 +2882,10 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 														property.longitude
 													);
 												} catch (error) {
-													console.error(`❌ Error processing property ${property.link}:`, error.message);
+													console.error(
+														`❌ Error processing property ${property.link}:`,
+														error.message
+													);
 												}
 											}
 										} catch (pageErr) {
@@ -3034,8 +3074,8 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 						await page.setUserAgent(
 							"Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-							"AppleWebKit/537.36 (KHTML, like Gecko) " +
-							"Chrome/123.0.0.0 Safari/537.36"
+								"AppleWebKit/537.36 (KHTML, like Gecko) " +
+								"Chrome/123.0.0.0 Safari/537.36"
 						);
 
 						await page.goto(listing_url, { waitUntil: "networkidle2" });
@@ -3140,8 +3180,8 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 						await page.setUserAgent(
 							"Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-							"AppleWebKit/537.36 (KHTML, like Gecko) " +
-							"Chrome/123.0.0.0 Safari/537.36"
+								"AppleWebKit/537.36 (KHTML, like Gecko) " +
+								"Chrome/123.0.0.0 Safari/537.36"
 						);
 
 						await page.goto(listing_url, { waitUntil: "networkidle2" });
@@ -3826,7 +3866,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 							try {
 								const link = $(element).find(".property-card-images__link").attr("href")
 									? "https://www.connells.co.uk" +
-									$(element).find(".property-card-images__link").attr("href")
+									  $(element).find(".property-card-images__link").attr("href")
 									: null;
 
 								const title = $(element).find(".property__address").text().trim() || null;
@@ -4618,7 +4658,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 
 								const link = $element.find(".development-link-wrap").attr("href")
 									? "https://www.redrow.co.uk" +
-									$element.find(".development-link-wrap").attr("href")
+									  $element.find(".development-link-wrap").attr("href")
 									: null;
 
 								const title = $element.find("h3").text().trim() || null;
@@ -6455,7 +6495,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 								const $element = $(element);
 								const link = $element.find(".card-image-container").attr("href")
 									? "https://livinestateagents.co.uk" +
-									$element.find(".card-image-container").attr("href")
+									  $element.find(".card-image-container").attr("href")
 									: null;
 								const title = $element.find(".property__title").text().trim().split("in")[1];
 								const bedroomsText = $element.find(".bedroom").first().text().trim();
@@ -6584,7 +6624,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (_
 								const $element = $(element);
 								const link = $element.find(".text-lg.text-primary").attr("href")
 									? "https://www.gibsonlane.co.uk" +
-									$element.find(".text-lg.text-primary").attr("href")
+									  $element.find(".text-lg.text-primary").attr("href")
 									: null;
 								const title = $element.find(".text-lg.text-primary").first().text().trim();
 								const bedroomsText = $element.find(".inline-block.ml-2").first().text().trim();
