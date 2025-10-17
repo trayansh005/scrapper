@@ -1,33 +1,35 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Play, AlertCircle } from 'lucide-react';
-import { useScraper } from '../hooks/useScraper';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { useState } from "react";
+import { Play, AlertCircle } from "lucide-react";
+import { useScraper } from "../hooks/useScraper";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-const SUPPORTED_AGENTS = [5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207];
+const SUPPORTED_AGENTS = [
+	5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207,
+];
 
 const AGENT_NAMES: Record<number, string> = {
-	5: 'Patrick Gardner',
-	3: 'Agent 3',
-	4: 'Agent 4',
-	12: 'Agent 12',
-	13: 'Bairstow Eves',
-	42: 'Agent 42',
-	63: 'BHHS London Properties',
-	70: 'Fine & Country',
-	71: 'Hawes & Co',
-	103: 'Alan de Maid',
-	107: 'Agent 107',
-	111: 'The Agency UK',
-	116: 'Agent 116',
-	118: 'Agent 118',
-	127: 'BridgFords',
-	134: 'Agent 134',
-	135: 'Agent 135',
-	208: 'Agent 208',
-	207: 'Agent 207',
+	5: "Patrick Gardner",
+	3: "Agent 3",
+	4: "Agent 4",
+	12: "Agent 12",
+	13: "Bairstow Eves",
+	42: "Agent 42",
+	63: "BHHS London Properties",
+	70: "Fine & Country",
+	71: "Hawes & Co",
+	103: "Alan de Maid",
+	107: "Agent 107",
+	111: "The Agency UK",
+	116: "Agent 116",
+	118: "Agent 118",
+	127: "BridgFords",
+	134: "Agent 134",
+	135: "Agent 135",
+	208: "Agent 208",
+	207: "Agent 207",
 };
 
 export default function ScraperDashboard() {
@@ -41,12 +43,12 @@ export default function ScraperDashboard() {
 
 		if (result) {
 			toast.success(`✅ Agent ${agentId} (${AGENT_NAMES[agentId]}) started scraping!`, {
-				position: 'top-right',
+				position: "top-right",
 				autoClose: 4000,
 			});
 		} else if (error) {
 			toast.error(`❌ Error: ${error.error}`, {
-				position: 'top-right',
+				position: "top-right",
 				autoClose: 4000,
 			});
 		}
@@ -59,8 +61,8 @@ export default function ScraperDashboard() {
 	};
 
 	const handleRunAll = async () => {
-		toast.info('🚀 Starting scraper for all agents...', {
-			position: 'top-right',
+		toast.info("🚀 Starting scraper for all agents...", {
+			position: "top-right",
 			autoClose: 2000,
 		});
 
@@ -75,8 +77,8 @@ export default function ScraperDashboard() {
 			});
 		}
 
-		toast.success('✅ All agents scraping jobs queued!', {
-			position: 'top-right',
+		toast.success("✅ All agents scraping jobs queued!", {
+			position: "top-right",
 			autoClose: 3000,
 		});
 	};
@@ -89,7 +91,9 @@ export default function ScraperDashboard() {
 			<div className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
 				<div className="max-w-7xl mx-auto px-6 py-12">
 					<h1 className="text-4xl font-bold text-white mb-2">🏠 Property Scraper Dashboard</h1>
-					<p className="text-blue-100">Manage and run property scraping jobs for different agents</p>
+					<p className="text-blue-100">
+						Manage and run property scraping jobs for different agents
+					</p>
 				</div>
 			</div>
 
@@ -122,7 +126,7 @@ export default function ScraperDashboard() {
 						<Play size={20} />
 						{loading || runningAgents.size > 0
 							? `Running (${runningAgents.size} agents)...`
-							: 'Run All Agents'}
+							: "Run All Agents"}
 					</button>
 				</div>
 
@@ -133,8 +137,8 @@ export default function ScraperDashboard() {
 							key={agentId}
 							className={`rounded-lg shadow-lg p-6 border transition-all duration-200 ${
 								runningAgents.has(agentId)
-									? 'bg-blue-700 border-blue-500 ring-2 ring-blue-400'
-									: 'bg-slate-700 border-slate-600 hover:border-slate-500'
+									? "bg-blue-700 border-blue-500 ring-2 ring-blue-400"
+									: "bg-slate-700 border-slate-600 hover:border-slate-500"
 							}`}
 						>
 							<div className="flex items-start justify-between mb-4">
@@ -155,7 +159,7 @@ export default function ScraperDashboard() {
 								className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
 							>
 								<Play size={16} />
-								{runningAgents.has(agentId) ? 'Running...' : 'Start Scraper'}
+								{runningAgents.has(agentId) ? "Running..." : "Start Scraper"}
 							</button>
 						</div>
 					))}
@@ -170,7 +174,7 @@ export default function ScraperDashboard() {
 							<p className="text-red-100">{error.error}</p>
 							{error.supportedAgents && (
 								<p className="text-red-100 text-sm mt-2">
-									Supported agents: {error.supportedAgents.join(', ')}
+									Supported agents: {error.supportedAgents.join(", ")}
 								</p>
 							)}
 						</div>
@@ -188,11 +192,11 @@ export default function ScraperDashboard() {
 							<strong>Total Supported Agents:</strong> {SUPPORTED_AGENTS.length}
 						</p>
 						<p>
-							<strong>Agents:</strong> {SUPPORTED_AGENTS.join(', ')}
+							<strong>Agents:</strong> {SUPPORTED_AGENTS.join(", ")}
 						</p>
 						<p className="text-yellow-300 mt-4">
-							⚠️ Each agent scraping job may take several minutes. Monitor your backend server logs for
-							progress.
+							⚠️ Each agent scraping job may take several minutes. Monitor your backend server logs
+							for progress.
 						</p>
 					</div>
 				</div>

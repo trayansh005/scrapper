@@ -1,4 +1,4 @@
-import ScraperDashboard from './components/ScraperDashboard';
+import ScraperDashboard from "./components/ScraperDashboard";
 
 export default function Home() {
 	return <ScraperDashboard />;

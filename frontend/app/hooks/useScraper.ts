@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useCallback } from 'react';
-import axios from 'axios';
+import { useState, useCallback } from "react";
+import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://31.97.75.157:4080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://31.97.75.157:4080";
 
 export interface ScraperError {
 	error: string;
@@ -19,7 +19,10 @@ export function useScraper() {
 		setError(null);
 
 		try {
-			await axios.put(`${API_BASE_URL}/get-property-url-by-listing-page-and-update-price/${agentId}`, {});
+			await axios.put(
+				`${API_BASE_URL}/get-property-url-by-listing-page-and-update-price/${agentId}`,
+				{}
+			);
 
 			return {
 				success: true,
@@ -27,7 +30,9 @@ export function useScraper() {
 				agentId,
 			};
 		} catch (err) {
-			const errorData = axios.isAxiosError(err) ? err.response?.data : { error: 'Unknown error occurred' };
+			const errorData = axios.isAxiosError(err)
+				? err.response?.data
+				: { error: "Unknown error occurred" };
 
 			setError(errorData);
 			return null;

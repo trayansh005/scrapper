@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
@@ -9,6 +10,14 @@ const cheerio = require("cheerio");
 const vm = require("vm");
 
 const app = express();
+
+// Enable CORS
+app.use(cors({
+	origin: "*",
+	methods: ["GET", "POST", "PUT", "DELETE"],
+	allowedHeaders: ["Content-Type"],
+}));
+
 app.use(express.json());
 
 const PORT = 4080;
