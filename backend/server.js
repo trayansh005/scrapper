@@ -11,14 +11,9 @@ const vm = require("vm");
 
 const app = express();
 
-// Enable CORS
-app.use(
-	cors({
-		origin: "*",
-		methods: ["GET", "POST", "PUT", "DELETE"],
-		allowedHeaders: ["Content-Type"],
-	})
-);
+// Enable CORS (allow all origins) and handle preflight requests
+app.use(cors({ origin: true, credentials: false }));
+app.options("*", cors({ origin: true, credentials: false }));
 
 app.use(express.json());
 
