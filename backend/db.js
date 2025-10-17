@@ -5,7 +5,6 @@ const pool = mysql.createPool({
 	host: "localhost",
 	user: "admin",
 	password: "SecurePassword", // Change to your actual password
-	password: "", // Change to your actual password
 	database: "scrapper",
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
