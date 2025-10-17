@@ -43,6 +43,11 @@ function agentLog(agentId, ...args) {
 	console.log(`AGENT-${agentId}: ${msg}`);
 }
 
+function shouldStop(agentId) {
+	const state = ensureAgentState(agentId);
+	return !!state.stopRequested;
+}
+
 // Expose endpoints to read logs and request stop
 app.get("/scraper-logs/:agent_id", (req, res) => {
 	const id = parseInt(req.params.agent_id);
@@ -890,6 +895,10 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 					);
 
 					for (let i = 1; i <= totalPages; i++) {
+						if (shouldStop(agent_id)) {
+							agentLog(agent_id, `Stop detected before page ${i} for ${typeLabel}`);
+							return; // exit scraping this type
+						}
 						const listing_url = `https://www.hawesandco.co.uk/${urlPath}/all-properties/!/page/${i}`;
 
 						try {
@@ -909,6 +918,10 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 							);
 
 							for (let index = 0; index < properties.length; index++) {
+								if (shouldStop(agent_id)) {
+									agentLog(agent_id, `Stop detected mid-page ${i} at property ${index + 1}`);
+									break;
+								}
 								const element = properties.eq(index);
 								try {
 									// Extract link from data-link attribute
