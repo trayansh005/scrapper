@@ -2,11 +2,11 @@ const mysql = require("mysql2"); // Use mysql2 for better performance
 
 // Create a connection pool
 const pool = mysql.createPool({
-	host: "localhost",
-	user: "root",
-	//password: 'XOofZQCmHvWVv95', // Change to your actual password
+	host: "locaalhost",
+	user: "admin",
+	password: "SecurePassword", // Change to your actual password
 	password: "", // Change to your actual password
-	database: "test",
+	database: "scrapper",
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
 	queueLimit: 0,
