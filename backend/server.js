@@ -19,6 +19,52 @@ app.use(express.json());
 
 const PORT = 4080;
 
+// In-memory runtime controls and logs (simple implementation)
+const scraperState = {
+	// agentId -> { running: boolean, stopRequested: boolean, logs: string[] }
+};
+
+function ensureAgentState(agentId) {
+	if (!scraperState[agentId]) {
+		scraperState[agentId] = { running: false, stopRequested: false, logs: [] };
+	}
+	return scraperState[agentId];
+}
+
+function agentLog(agentId, ...args) {
+	const state = ensureAgentState(agentId);
+	const msg = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+	const ts = new Date().toISOString();
+	const line = `[${ts}] ${msg}`;
+	// keep last 1000 lines
+	state.logs.push(line);
+	if (state.logs.length > 1000) state.logs.shift();
+	// also print to server console
+	console.log(`AGENT-${agentId}: ${msg}`);
+}
+
+// Expose endpoints to read logs and request stop
+app.get("/scraper-logs/:agent_id", (req, res) => {
+	const id = parseInt(req.params.agent_id);
+	if (isNaN(id)) return res.status(400).json({ error: "Invalid agent id" });
+	const state = ensureAgentState(id);
+	res.json({
+		agent: id,
+		running: state.running,
+		stopRequested: state.stopRequested,
+		logs: state.logs.slice(-200),
+	});
+});
+
+app.post("/stop-scraper/:agent_id", (req, res) => {
+	const id = parseInt(req.params.agent_id);
+	if (isNaN(id)) return res.status(400).json({ error: "Invalid agent id" });
+	const state = ensureAgentState(id);
+	state.stopRequested = true;
+	agentLog(id, "Stop requested via API");
+	res.json({ agent: id, stopRequested: true });
+});
+
 // Function to fetch property price from URL
 async function fetchPropertyPrice(page, url, agent_id) {
 	try {
@@ -357,6 +403,12 @@ app.put("/update-property-price/:agent_id", async (req, res) => {
 		res.status(200).json({ message: "Prices updated successfully!" });
 	} catch (error) {
 		console.error("Server error:", error);
+		// clear running flags for all agents to avoid stale running state
+		Object.keys(scraperState).forEach((k) => {
+			scraperState[k].running = false;
+			scraperState[k].stopRequested = false;
+			scraperState[k].logs.push(`[${new Date().toISOString()}] Server error: ${error.message}`);
+		});
 		res.status(500).json({ error: error.message });
 	}
 });
@@ -794,6 +846,11 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 
 		console.log(`Start script for agent ID: ${agent_id}`);
 		for (const agent_id of agent_ids) {
+			// initialize agent runtime state
+			const state = ensureAgentState(agent_id);
+			state.running = true;
+			state.stopRequested = false; // clear previous stop requests
+			agentLog(agent_id, "Starting scraper for agent");
 			if (agent_id == 71) {
 				// Helper function to get latitude and longitude from property detail page
 				const getLatLongFromDetail = async (link) => {
@@ -965,6 +1022,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 
 				// await updateRemoveStatus(agent_id);
 				console.log(`✅ Completed agent ${agent_id} - Hawes & Co (Sales + Rentals)`);
+				agentLog(agent_id, "Completed agent Hawes & Co (Sales + Rentals)");
 			}
 
 			if (agent_id == 111) {
@@ -1171,7 +1229,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 
 				await browser.close();
 				await updateRemoveStatus(agent_id);
-				console.log(`✅ Completed agent ${agent_id} - The Agency UK (Sales + Lettings)`);
+				agentLog(agent_id, `✅ Completed agent ${agent_id} - The Agency UK (Sales + Lettings)`);
 			}
 
 			if (agent_id == 63) {
@@ -1335,7 +1393,10 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 				await scrapeLettingsProperties();
 
 				await updateRemoveStatus(agent_id);
-				console.log(`✅ Completed agent ${agent_id} - BHHS London Properties (Sales + Lettings)`);
+				agentLog(
+					agent_id,
+					`✅ Completed agent ${agent_id} - BHHS London Properties (Sales + Lettings)`
+				);
 			}
 
 			if (agent_id == 103) {
@@ -7937,7 +7998,11 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 			// update remove status
 			await updateRemoveStatus(agent_id);
 
-			console.log("Done all " + agent_id);
+			agentLog(agent_id, "Done all " + agent_id);
+			// mark not running
+			const finalState = ensureAgentState(agent_id);
+			finalState.running = false;
+			finalState.stopRequested = false;
 		}
 	} catch (error) {
 		console.error("Server error:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, AlertCircle } from "lucide-react";
 import { useScraper } from "../hooks/useScraper";
 import { ToastContainer, toast } from "react-toastify";
@@ -35,6 +35,26 @@ const AGENT_NAMES: Record<number, string> = {
 export default function ScraperDashboard() {
 	const { runScraper, loading, error } = useScraper();
 	const [runningAgents, setRunningAgents] = useState<Set<number>>(new Set());
+	const [logsByAgent, setLogsByAgent] = useState<Record<number, string[]>>({});
+
+	// poll logs for running agents
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			for (const agentId of Array.from(runningAgents)) {
+				try {
+					const res = await fetch(`/scraper-logs/${agentId}`);
+					if (res.ok) {
+						const data = await res.json();
+						setLogsByAgent((prev) => ({ ...prev, [agentId]: data.logs || [] }));
+					}
+				} catch (err) {
+					// ignore polling errors
+				}
+			}
+		}, 3000);
+
+		return () => clearInterval(interval);
+	}, [runningAgents]);
 
 	const handleRunScraper = async (agentId: number) => {
 		setRunningAgents((prev) => new Set([...prev, agentId]));
@@ -58,6 +78,15 @@ export default function ScraperDashboard() {
 			updated.delete(agentId);
 			return updated;
 		});
+
+		// fetch final logs
+		try {
+			const res = await fetch(`/scraper-logs/${agentId}`);
+			if (res.ok) {
+				const data = await res.json();
+				setLogsByAgent((prev) => ({ ...prev, [agentId]: data.logs || [] }));
+			}
+		} catch (err) {}
 	};
 
 	const handleRunAll = async () => {
@@ -75,6 +104,15 @@ export default function ScraperDashboard() {
 				updated.delete(agentId);
 				return updated;
 			});
+
+			// fetch final logs for agent
+			try {
+				const res = await fetch(`/scraper-logs/${agentId}`);
+				if (res.ok) {
+					const data = await res.json();
+					setLogsByAgent((prev) => ({ ...prev, [agentId]: data.logs || [] }));
+				}
+			} catch (err) {}
 		}
 
 		toast.success("✅ All agents scraping jobs queued!", {
@@ -153,14 +191,38 @@ export default function ScraperDashboard() {
 								)}
 							</div>
 
-							<button
-								onClick={() => handleRunScraper(agentId)}
-								disabled={loading || runningAgents.size > 0}
-								className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-							>
-								<Play size={16} />
-								{runningAgents.has(agentId) ? "Running..." : "Start Scraper"}
-							</button>
+							<div className="flex gap-2">
+								<button
+									onClick={() => handleRunScraper(agentId)}
+									disabled={loading || runningAgents.size > 0}
+									className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+								>
+									<Play size={16} />
+									{runningAgents.has(agentId) ? "Running..." : "Start Scraper"}
+								</button>
+								<button
+									onClick={async () => {
+										try {
+											await fetch(`/stop-scraper/${agentId}`, { method: "POST" });
+											toast.info(`Stop requested for agent ${agentId}`);
+										} catch (err) {
+											toast.error("Failed to request stop");
+										}
+									}}
+									className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+								>
+									Stop
+								</button>
+							</div>
+
+							{/* Logs preview */}
+							<div className="mt-3 max-h-40 overflow-auto bg-black bg-opacity-20 p-2 rounded text-xs text-slate-300">
+								{(logsByAgent[agentId] || []).slice(-10).map((l, idx) => (
+									<div key={idx} className="whitespace-pre-wrap">
+										{l}
+									</div>
+								))}
+							</div>
 						</div>
 					))}
 				</div>
