@@ -1020,7 +1020,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 
 				// Separate functions for sales and rentals
 				const scrapeSalesProperties = async () => {
-					await scrapeHawesAndCoProperties(false, 200, 20, "properties-for-sale", "SALE");
+					await scrapeHawesAndCoProperties(false, 185, 12, "properties-for-sale", "SALE");
 					console.log(`✅ Completed sales scraping for agent ${agent_id}`);
 				};
 
@@ -1030,7 +1030,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 				};
 
 				// Call both functions (you can comment out one to run separately)
-				// await scrapeSalesProperties();
+				await scrapeSalesProperties();
 				await scrapeRentalProperties();
 
 				// await updateRemoveStatus(agent_id);
