@@ -6,7 +6,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { chromium } = require("playwright");
-const { promisePool, updatePriceByPropertyURL } = require("./db.js");
+const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -14,6 +14,31 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 135;
 let totalScraped = 0;
 let totalSaved = 0;
+
+function formatPrice(price) {
+	if (!price && price !== 0) return "N/A";
+	const num = Number(price);
+	if (isNaN(num)) return "N/A";
+	return "£" + num.toLocaleString("en-GB");
+}
+
+// Configuration for sales and lettings
+const PROPERTY_TYPES = [
+	{
+		urlPath: "properties/sales/status-available/most-recent-first",
+		totalRecords: 1075,
+		recordsPerPage: 10,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		urlPath: "properties/lettings/status-available/most-recent-first",
+		totalRecords: 208,
+		recordsPerPage: 10,
+		isRental: true,
+		label: "LETTINGS",
+	},
+];
 
 // Extract coordinates from script tags
 function extractCoordinatesFromHTML(html) {
@@ -46,7 +71,7 @@ async function scrapeTaylors() {
 		},
 
 		async requestHandler({ page, request }) {
-			const { isDetailPage, propertyData } = request.userData;
+			const { isDetailPage, propertyData, isRental } = request.userData;
 
 			if (isDetailPage) {
 				// Processing detail page to get coordinates
@@ -65,7 +90,7 @@ async function scrapeTaylors() {
 						propertyData.title,
 						propertyData.bedrooms,
 						AGENT_ID,
-						false, // Taylors is sales only
+						isRental,
 						coords.latitude,
 						coords.longitude
 					);
@@ -73,13 +98,13 @@ async function scrapeTaylors() {
 					totalSaved++;
 					totalScraped++;
 
-					if (coords.latitude && coords.longitude) {
-						console.log(
-							`✅ ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`
-						);
-					} else {
-						console.log(`✅ ${propertyData.title} - £${propertyData.price} - No coords`);
-					}
+					const coordsStr =
+						coords.latitude && coords.longitude
+							? `${coords.latitude}, ${coords.longitude}`
+							: "No coords";
+					console.log(
+						`✅ ${propertyData.title} - ${formatPrice(propertyData.price)} - ${coordsStr}`
+					);
 				} catch (error) {
 					console.error(`❌ Error saving property: ${error.message}`);
 				}
@@ -128,15 +153,12 @@ async function scrapeTaylors() {
 									title = titleEl.textContent.trim();
 								}
 
-								// Get the price from .card__heading
+								// Get the price from .card__heading and sanitize
 								let price = null;
 								const priceEl = card.querySelector(".card__heading");
 								if (priceEl) {
 									const priceText = priceEl.textContent.trim();
-									const priceMatch = priceText.match(/£([\d,]+)/);
-									if (priceMatch) {
-										price = priceMatch[1].replace(/,/g, "");
-									}
+									price = priceText.replace(/[^0-9]/g, "");
 								}
 
 								// Get bedrooms - first .card-content__spec-list-number
@@ -181,6 +203,7 @@ async function scrapeTaylors() {
 					userData: {
 						isDetailPage: true,
 						propertyData: property,
+						isRental,
 					},
 				}));
 
@@ -193,35 +216,34 @@ async function scrapeTaylors() {
 		},
 	});
 
-	// Add listing page URLs - Taylors shows 128 pages of properties
-	const requests = [];
-	for (let pageNum = 1; pageNum <= 128; pageNum++) {
-		requests.push({
-			url: `https://www.taylorsestateagents.co.uk/properties/sales/status-available/most-recent-first/page-${pageNum}#/`,
-			userData: { isDetailPage: false },
-		});
-	}
+	// Add listing page URLs - process both sales and lettings sequentially
+	for (const propertyType of PROPERTY_TYPES) {
+		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
+		console.log(
+			`🏠 Processing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)\n`
+		);
 
-	await crawler.addRequests(requests);
-	await crawler.run();
+		// Add pages for this property type
+		const listingRequests = [];
+		for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+			listingRequests.push({
+				url: `https://www.taylorsestateagents.co.uk/${propertyType.urlPath}/page-${pageNum}#/`,
+				userData: {
+					isDetailPage: false,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
+			});
+		}
+
+		// Process this property type before moving to next
+		await crawler.addRequests(listingRequests);
+		await crawler.run();
+	}
 
 	console.log(
 		`\n✅ Completed Taylors - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
 	);
-}
-
-// Local implementation of updateRemoveStatus
-async function updateRemoveStatus(agent_id) {
-	try {
-		const remove_status = 1;
-		await promisePool.query(
-			`UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		console.log(`🧹 Removed old properties for agent ${agent_id}`);
-	} catch (error) {
-		console.error("Error updating remove status:", error.message);
-	}
 }
 
 // Main execution

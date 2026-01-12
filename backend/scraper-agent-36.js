@@ -5,13 +5,18 @@
 // node backend/scraper-agent-36.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, promisePool } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 36;
 let totalScraped = 0;
 let totalSaved = 0;
+
+function formatPrice(num) {
+	if (!num || isNaN(num)) return "£0";
+	return "£" + Number(num).toLocaleString("en-GB");
+}
 
 // Small helper utilities to avoid rate-limiting
 const userAgents = [
@@ -266,7 +271,7 @@ async function scrapeWinkworth() {
 					totalSaved++;
 
 					const coordsStr = latitude && longitude ? `${latitude}, ${longitude}` : "No coords";
-					console.log(`✅ ${p.title} - £${p.price} - ${coordsStr}`);
+					console.log(`✅ ${p.title} - ${formatPrice(p.price)} - ${coordsStr}`);
 				} catch (err) {
 					console.error(`❌ Error processing ${p.link}: ${err.message}`);
 				} finally {
@@ -307,23 +312,6 @@ async function scrapeWinkworth() {
 	console.log(
 		`\n✅ Completed Winkworth - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
 	);
-}
-
-async function updateRemoveStatus(agent_id) {
-	try {
-		const remove_status = 1;
-		await promisePool.query(
-			`UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		await promisePool.query(
-			`UPDATE property_for_rent SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		console.log(`🧹 Removed old properties for agent ${agent_id}`);
-	} catch (error) {
-		console.error("Error updating remove status:", error.message);
-	}
 }
 
 (async () => {

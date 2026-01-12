@@ -5,7 +5,7 @@ const pool = mysql.createPool({
 	host: "localhost",
 	user: "root",
 	password: "", // Change to your actual password
-	database: "test",
+	database: "scrape",
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
 	queueLimit: 0,
@@ -95,6 +95,40 @@ async function updatePriceByPropertyURL(
 	}
 }
 
-module.exports = { promisePool, updatePriceByPropertyURL };
+// Update remove status for old or future-dated properties
+async function updateRemoveStatus(agent_id) {
+	try {
+		const remove_status = 1;
+		const params = [remove_status, agent_id];
+
+		// Flag records that are stale or have clearly bad future timestamps
+		const [saleResult] = await promisePool.query(
+			`UPDATE property_for_sale
+             SET remove_status = ?
+             WHERE agent_id = ?
+             AND (updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY)`,
+			params
+		);
+
+		const [rentResult] = await promisePool.query(
+			`UPDATE property_for_rent
+             SET remove_status = ?
+             WHERE agent_id = ?
+             AND (updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY)`,
+			params
+		);
+
+		const removedCount = (saleResult?.affectedRows || 0) + (rentResult?.affectedRows || 0);
+		console.log(
+			`🧹 Removed old or future-dated properties for agent ${agent_id} (sale: ${
+				saleResult?.affectedRows || 0
+			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount})`
+		);
+	} catch (error) {
+		console.error("Error updating remove status:", error.message);
+	}
+}
+
+module.exports = { promisePool, updatePriceByPropertyURL, updateRemoveStatus };
 // Deprecated: backward compatibility if code uses pool.promise() directly
 module.exports.promise = () => promisePool;

@@ -7,7 +7,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const SUPPORTED_AGENTS = [
-	5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207,
+	5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207, 54, 15,
 ];
 
 const AGENT_NAMES: Record<number, string> = {
@@ -16,7 +16,9 @@ const AGENT_NAMES: Record<number, string> = {
 	4: "Agent 4",
 	12: "Agent 12",
 	13: "Bairstow Eves",
+	15: "Sequence Home",
 	42: "Agent 42",
+	54: "Leaders",
 	63: "BHHS London Properties",
 	70: "Fine & Country",
 	71: "Hawes & Co",

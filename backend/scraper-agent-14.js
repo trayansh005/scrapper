@@ -5,7 +5,7 @@
 // node backend/scraper-agent-14.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, promisePool } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -28,24 +28,29 @@ function randBetween(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function formatPrice(price) {
+	if (!price && price !== 0) return "N/A";
+	return "£" + Number(price).toLocaleString("en-GB");
+}
+
 // Start page
-const START_PAGE = 120;
+const START_PAGE = 1;
 
 const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
-		isRental: false,
-		label: "SALES",
-		totalRecords: 1747,
-		recordsPerPage: 12,
-	},
 	// {
-	// 	urlBase: "https://www.chestertons.co.uk/properties/lettings/status-available",
-	// 	isRental: true,
-	// 	label: "LETTINGS",
-	// 	totalRecords: 1132,
+	// 	urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
+	// 	isRental: false,
+	// 	label: "SALES",
+	// 	totalRecords: 1747,
 	// 	recordsPerPage: 12,
 	// },
+	{
+		urlBase: "https://www.chestertons.co.uk/properties/lettings/status-available",
+		isRental: true,
+		label: "LETTINGS",
+		totalRecords: 1132,
+		recordsPerPage: 12,
+	},
 ];
 
 async function scrapeChestertons() {
@@ -182,7 +187,7 @@ async function scrapeChestertons() {
 					totalSaved++;
 
 					const coordsStr = latitude && longitude ? `${latitude}, ${longitude}` : "No coords";
-					console.log(`✅ ${p.title} - £${p.price} - ${coordsStr}`);
+					console.log(`✅ ${p.title} - ${formatPrice(p.price)} - ${coordsStr}`);
 				} catch (err) {
 					console.error(`❌ Error processing ${p.link}: ${err.message}`);
 				} finally {
@@ -223,23 +228,6 @@ async function scrapeChestertons() {
 	console.log(
 		`\n✅ Completed Chestertons - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
 	);
-}
-
-async function updateRemoveStatus(agent_id) {
-	try {
-		const remove_status = 1;
-		await promisePool.query(
-			`UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		await promisePool.query(
-			`UPDATE property_for_rent SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		console.log(`🧹 Removed old properties for agent ${agent_id}`);
-	} catch (error) {
-		console.error("Error updating remove status:", error.message);
-	}
 }
 
 (async () => {

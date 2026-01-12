@@ -339,6 +339,19 @@ async function fetchPropertyPrice(page, url, agent_id) {
 				});
 			}
 
+			if (agent_id == 78) {
+				// Robert Holmes - extract from GeoCoordinates JSON
+				const geoMatch = pageContent.match(
+					/"@type":"GeoCoordinates","latitude":([0-9e.-]+),"longitude":([0-9e.-]+)/
+				);
+				var latitude = null;
+				var longitude = null;
+				if (geoMatch) {
+					latitude = parseFloat(geoMatch[1]);
+					longitude = parseFloat(geoMatch[2]);
+				}
+			}
+
 			return {
 				remove_status: 0,
 				price,
@@ -837,7 +850,7 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 
 		// Supported agents with working code
 		const supportedAgents = [
-			5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207,
+			5, 3, 12, 42, 4, 13, 71, 111, 63, 103, 116, 118, 134, 135, 107, 70, 208, 207, 78,
 		];
 
 		if (!supportedAgents.includes(agent_id)) {
@@ -8004,6 +8017,87 @@ app.put("/get-property-url-by-listing-page-and-update-price/:agent_id", async (r
 						});
 					} catch (err) {
 						console.error(`Error fetching data for page ${i}: ${err.message}`);
+					}
+				}
+			}
+
+			if (agent_id == 78) {
+				let page_no = 8; //8
+
+				for (let i = 1; i <= page_no; i++) {
+					try {
+						const listing_url = `https://robertholmes.co.uk/search/page/${i}/?address_keyword&department=residential-sales&availability=2`;
+
+						const { data } = await axios.get(listing_url);
+						const $ = cheerio.load(data);
+
+						$(".grid-box-card").each(async (index, element) => {
+							try {
+								const $element = $(element);
+
+								let link = $element.find("a").attr("href") || null;
+								if (link && !link.startsWith("http")) {
+									link = "https://robertholmes.co.uk" + link;
+								}
+
+								const title = $element.find(".property-archive-title h4").text().trim();
+
+								const bedroomsText = $element.find(".icons-list").first("li span").text().trim();
+								const bedroomsMatch = bedroomsText.match(/\d+/);
+								const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
+
+								const priceText = $element.find(".property-archive-price").text().trim();
+								const priceMatch = priceText.match(/£([\d,]+)/);
+								const price = priceMatch ? priceMatch[1] : null;
+								await updatePriceByPropertyURL(link, price, title, bedrooms, agent_id);
+							} catch (listingErr) {
+								console.error(`Error parsing listing on page ${i}, index ${index}:`, listingErr);
+							}
+						});
+					} catch (pageErr) {
+						console.error(`Error fetching Robert Holmes page ${i}:`, pageErr);
+					}
+				}
+
+				// Lettings
+				let lettings_page_no = 2; // 14 properties, 2 pages
+
+				for (let i = 1; i <= lettings_page_no; i++) {
+					try {
+						const listing_url = `https://robertholmes.co.uk/search/page/${i}/?address_keyword=&department=residential-lettings&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&minimum_bedrooms=&property_type=&availability=6`;
+
+						const { data } = await axios.get(listing_url);
+						const $ = cheerio.load(data);
+
+						$(".grid-box-card").each(async (index, element) => {
+							try {
+								const $element = $(element);
+
+								let link = $element.find("a").attr("href") || null;
+								if (link && !link.startsWith("http")) {
+									link = "https://robertholmes.co.uk" + link;
+								}
+
+								const title = $element.find(".property-archive-title h4").text().trim();
+
+								const bedroomsText = $element.find(".icons-list").first("li span").text().trim();
+								const bedroomsMatch = bedroomsText.match(/\d+/);
+								const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
+
+								const priceText = $element.find(".property-archive-price").text().trim();
+								const priceMatch = priceText.match(/£([\d,]+)/);
+								const price = priceMatch ? priceMatch[1] : null;
+								let is_rent = true;
+								await updatePriceByPropertyURL(link, price, title, bedrooms, agent_id, is_rent);
+							} catch (listingErr) {
+								console.error(
+									`Error parsing lettings listing on page ${i}, index ${index}:`,
+									listingErr
+								);
+							}
+						});
+					} catch (pageErr) {
+						console.error(`Error fetching Robert Holmes lettings page ${i}:`, pageErr);
 					}
 				}
 			}

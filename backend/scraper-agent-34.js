@@ -41,7 +41,7 @@ async function scrapeStruttAndParker() {
 
 		launchContext: {
 			launchOptions: {
-				headless: false,
+				headless: true,
 			},
 		},
 
@@ -56,7 +56,7 @@ async function scrapeStruttAndParker() {
 			await page.goto(`${request.url}&page=2`, { waitUntil: "domcontentloaded", timeout: 30000 });
 			await page.waitForTimeout(2000);
 
-			let currentPage = 2;
+			let currentPage = 1;
 			let hasNextPage = true;
 
 			while (hasNextPage && currentPage <= PAGES_TO_DO) {

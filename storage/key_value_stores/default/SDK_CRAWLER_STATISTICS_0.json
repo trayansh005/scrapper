@@ -1,0 +1,37 @@
+{
+  "requestsFinished": 0,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-01-09T12:56:43.711Z",
+  "crawlerFinishedAt": "2026-01-09T12:57:15.863Z",
+  "statsPersistedAt": "2026-01-09T12:57:15.863Z",
+  "crawlerRuntimeMillis": 32401,
+  "crawlerLastStartTimestamp": 1767963403462,
+  "requestRetryHistogram": [],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 0,
+  "requestsTotal": 0,
+  "requestsWithStatusCode": {
+    "200": 1
+  },
+  "errors": {},
+  "retryErrors": {
+    "at C:\\Users\\traya\\Downloads\\scrape\\backend\\scraper-agent-228.js:148:47": {
+      "missing error code": {
+        "Error": {
+          "browserContext.newPage: Target page, context or browser has been closed": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
+}

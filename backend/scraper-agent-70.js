@@ -16,8 +16,8 @@ let totalSaved = 0;
 
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
-    // { urlPath: 'sales/property-for-sale', totalPages: 583, recordsPerPage: 10, isRental: false, label: 'SALES' },
-    { urlPath: 'lettings/property-to-rent', totalPages: 21, recordsPerPage: 10, isRental: true, label: 'LETTINGS' }
+    { urlPath: 'sales/property-for-sale', totalPages: 355, recordsPerPage: 10, isRental: false, label: 'SALES' },
+    // { urlPath: 'lettings/property-to-rent', totalPages: 21, recordsPerPage: 10, isRental: true, label: 'LETTINGS' }
 ];
 
 async function scrapeFineAndCountry() {
@@ -268,7 +268,7 @@ async function updateRemoveStatus(agent_id) {
 // Main execution
 (async () => {
     try {
-        // await scrapeFineAndCountry();
+        await scrapeFineAndCountry();
         await updateRemoveStatus(AGENT_ID);
         console.log("\n✅ All done!");
         process.exit(0);

@@ -5,7 +5,7 @@
 // node backend/scraper-agent-37.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool } = require("./db.js");
+const { promisePool, updateRemoveStatus } = require("./db.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -28,26 +28,33 @@ function randBetween(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function formatPrice(raw) {
+	if (!raw) return null;
+	const digits = raw.replace(/[^0-9]/g, "");
+	if (!digits) return null;
+	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 // Start page
 const START_PAGE = 1;
 
 const PROPERTY_TYPES = [
-	// {
-	// 	// Sales
-	// 	urlBase: "https://www.chaseevans.com/property/for-sale/in-london/exclude-sale-agreed/",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// 	totalRecords: 263,
-	// 	recordsPerPage: 18,
-	// },
 	{
-		// Rent
-		urlBase: "https://www.chaseevans.com/property/to-rent/in-london/exclude-let-agreed/",
-		isRental: true,
-		label: "LETTINGS",
-		totalRecords: 118,
+		// Sales
+		urlBase: "https://www.chaseevans.com/property/for-sale/in-london/exclude-sale-agreed/",
+		isRental: false,
+		label: "SALES",
+		totalRecords: 263,
 		recordsPerPage: 18,
 	},
+	// {
+	// 	// Rent
+	// 	urlBase: "https://www.chaseevans.com/property/to-rent/in-london/exclude-let-agreed/",
+	// 	isRental: true,
+	// 	label: "LETTINGS",
+	// 	totalRecords: 118,
+	// 	recordsPerPage: 18,
+	// },
 ];
 
 async function scrapeChaseEvans() {
@@ -98,8 +105,7 @@ async function scrapeChaseEvans() {
 						const priceEl = c.querySelector(".highlight-text");
 						if (priceEl) {
 							const txt = priceEl.textContent || "";
-							const m = txt.match(/[£€]([\d,]+)/);
-							if (m) price = m[1].replace(/,/g, "");
+							price = formatPrice(txt);
 						}
 
 						// Title - from h3
@@ -317,23 +323,6 @@ async function scrapeChaseEvans() {
 	console.log(
 		`\n✅ Completed Chase Evans - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
 	);
-}
-
-async function updateRemoveStatus(agent_id) {
-	try {
-		const remove_status = 1;
-		await promisePool.query(
-			`UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		await promisePool.query(
-			`UPDATE property_for_rent SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		console.log(`🧹 Removed old properties for agent ${agent_id}`);
-	} catch (error) {
-		console.error("Error updating remove status:", error.message);
-	}
 }
 
 (async () => {

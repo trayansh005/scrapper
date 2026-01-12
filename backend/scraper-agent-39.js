@@ -5,7 +5,7 @@
 // node backend/scraper-agent-39.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool } = require("./db.js");
+const { promisePool, updateRemoveStatus } = require("./db.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -27,6 +27,13 @@ function sleep(ms) {
 
 function randBetween(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function formatPrice(raw) {
+	if (!raw) return null;
+	const digits = raw.replace(/[^0-9]/g, "");
+	if (!digits) return null;
+	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 // Start page and number of pages to process
@@ -252,7 +259,15 @@ async function scrapeJohnDWood() {
 			});
 
 			// Extract properties from results-page
-			const properties = await page.$$eval(".results-page .card--image.card--list", (cards) => {
+			const properties = await page.$$eval(".card--list .card", (cards) => {
+				// Define formatPrice inside the evaluation context
+				const formatPrice = (raw) => {
+					if (!raw) return null;
+					const digits = raw.replace(/[^0-9]/g, "");
+					if (!digits) return null;
+					return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+				};
+
 				const results = [];
 				cards.forEach((c) => {
 					try {
@@ -267,8 +282,7 @@ async function scrapeJohnDWood() {
 						const priceEl = c.querySelector(".card__heading");
 						if (priceEl) {
 							const txt = priceEl.textContent || "";
-							const m = txt.match(/[£€]\s*([\d,]+)/);
-							if (m) price = m[1].replace(/,/g, "");
+							price = formatPrice(txt);
 						}
 
 						// Title / short description
@@ -532,23 +546,6 @@ async function scrapeJohnDWood() {
 	console.log(
 		`\n✅ Completed John D Wood - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
 	);
-}
-
-async function updateRemoveStatus(agent_id) {
-	try {
-		const remove_status = 1;
-		await promisePool.query(
-			`UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		await promisePool.query(
-			`UPDATE property_for_rent SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		console.log(`🧹 Removed old properties for agent ${agent_id}`);
-	} catch (error) {
-		console.error("Error updating remove status:", error.message);
-	}
 }
 
 (async () => {

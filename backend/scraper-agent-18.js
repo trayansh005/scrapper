@@ -1,12 +1,12 @@
 // Moveli scraper using Playwright with Crawlee
 // Agent ID: 18
-// 
-// Usage: 
+//
+// Usage:
 // node backend/scraper-agent-18.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { firefox } = require("playwright");
-const { promisePool, updatePriceByPropertyURL } = require("./db.js");
+const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -17,237 +17,240 @@ let totalSaved = 0;
 
 // Extract coordinates from Google Maps initialization script
 function extractCoordinatesFromHTML(html) {
-    // Look for: const location = { lat: 51.5728027, lng: -0.1638948}
-    const locationMatch = html.match(/const location = \{\s*lat:\s*([0-9.-]+),\s*lng:\s*([0-9.-]+)\s*\}/);
-    if (locationMatch) {
-        return {
-            latitude: parseFloat(locationMatch[1]),
-            longitude: parseFloat(locationMatch[2])
-        };
-    }
-    return { latitude: null, longitude: null };
+	// Look for: const location = { lat: 51.5728027, lng: -0.1638948}
+	const locationMatch = html.match(
+		/const location = \{\s*lat:\s*([0-9.-]+),\s*lng:\s*([0-9.-]+)\s*\}/
+	);
+	if (locationMatch) {
+		return {
+			latitude: parseFloat(locationMatch[1]),
+			longitude: parseFloat(locationMatch[2]),
+		};
+	}
+	return { latitude: null, longitude: null };
 }
 
 async function scrapeMoveli() {
-    console.log(`\n🚀 Starting Moveli scraper (Agent ${AGENT_ID})...\n`);
+	console.log(`\n🚀 Starting Moveli scraper (Agent ${AGENT_ID})...\n`);
 
-    const crawler = new PlaywrightCrawler({
-        maxConcurrency: 1, // Process sequentially
-        maxRequestRetries: 2,
-        requestHandlerTimeoutSecs: 300,
+	const crawler = new PlaywrightCrawler({
+		maxConcurrency: 1, // Process sequentially
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
 
-        launchContext: {
-            launcher: firefox, // Use Firefox
-            launchOptions: {
-                headless: true,
-            },
-        },
+		launchContext: {
+			launcher: firefox, // Use Firefox
+			launchOptions: {
+				headless: true,
+			},
+		},
 
-        async requestHandler({ page, request }) {
-            const { category, isDetailPage, propertyData } = request.userData;
+		async requestHandler({ page, request }) {
+			const { category, isDetailPage, propertyData } = request.userData;
 
-            if (isDetailPage) {
-                // Processing detail page to get coordinates
-                try {
-                    // Wait for the map script to load
-                    await page.waitForTimeout(1000);
+			if (isDetailPage) {
+				// Processing detail page to get coordinates
+				try {
+					// Wait for the map script to load
+					await page.waitForTimeout(1000);
 
-                    // Extract coordinates from the page HTML
-                    const htmlContent = await page.content();
-                    const coords = extractCoordinatesFromHTML(htmlContent);
+					// Extract coordinates from the page HTML
+					const htmlContent = await page.content();
+					const coords = extractCoordinatesFromHTML(htmlContent);
 
-                    const is_rent = category === 'for-rent';
+					const is_rent = category === "for-rent";
 
-                    await updatePriceByPropertyURL(
-                        propertyData.link,
-                        propertyData.price,
-                        propertyData.title,
-                        propertyData.bedrooms,
-                        AGENT_ID,
-                        is_rent,
-                        coords.latitude,
-                        coords.longitude
-                    );
+					await updatePriceByPropertyURL(
+						propertyData.link,
+						propertyData.price,
+						propertyData.title,
+						propertyData.bedrooms,
+						AGENT_ID,
+						is_rent,
+						coords.latitude,
+						coords.longitude
+					);
 
-                    totalSaved++;
-                    totalScraped++;
+					totalSaved++;
+					totalScraped++;
 
-                    const typeLabel = is_rent ? 'RENT' : 'SALE';
-                    if (coords.latitude && coords.longitude) {
-                        console.log(`✅ [${typeLabel}] ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`);
-                    } else {
-                        console.log(`✅ [${typeLabel}] ${propertyData.title} - £${propertyData.price} - No coords`);
-                    }
-                } catch (error) {
-                    console.error(`❌ Error saving property: ${error.message}`);
-                }
-            } else {
-                // Processing listing page
-                const typeLabel = category === 'for-rent' ? 'RENT' : 'SALE';
-                console.log(`📋 Scraping ${typeLabel} - ${request.url}`);
+					const typeLabel = is_rent ? "RENT" : "SALE";
+					if (coords.latitude && coords.longitude) {
+						console.log(
+							`✅ [${typeLabel}] ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`
+						);
+					} else {
+						console.log(
+							`✅ [${typeLabel}] ${propertyData.title} - £${propertyData.price} - No coords`
+						);
+					}
+				} catch (error) {
+					console.error(`❌ Error saving property: ${error.message}`);
+				}
+			} else {
+				// Processing listing page
+				const typeLabel = category === "for-rent" ? "RENT" : "SALE";
+				console.log(`📋 Scraping ${typeLabel} - ${request.url}`);
 
-                // Wait for the properties container to appear
-                await page.waitForSelector('#properties-container', { timeout: 30000 }).catch(() => {
-                    console.log(`⚠️ No #properties-container found`);
-                });
+				// Wait for the properties container to appear
+				await page.waitForSelector("#properties-container", { timeout: 30000 }).catch(() => {
+					console.log(`⚠️ No #properties-container found`);
+				});
 
-                // Wait longer for dynamic content to load
-                console.log(`   Waiting for properties to load...`);
-                await page.waitForTimeout(5000); // Wait 5 seconds for React/Vue to render
+				// Wait longer for dynamic content to load
+				console.log(`   Waiting for properties to load...`);
+				await page.waitForTimeout(5000); // Wait 5 seconds for React/Vue to render
 
-                // Try to wait for property cards
-                const cardsLoaded = await page.waitForSelector('.property_card', { timeout: 10000 }).catch(() => {
-                    console.log(`⚠️ No .property_card elements loaded`);
-                    return null;
-                });
+				// Try to wait for property cards
+				const cardsLoaded = await page
+					.waitForSelector(".property_card", { timeout: 10000 })
+					.catch(() => {
+						console.log(`⚠️ No .property_card elements loaded`);
+						return null;
+					});
 
-                if (!cardsLoaded) {
-                    console.log(`   Trying alternative selector .property-item...`);
-                    await page.waitForSelector('.property-item', { timeout: 10000 }).catch(() => {
-                        console.log(`⚠️ No .property-item found either`);
-                    });
-                }
+				if (!cardsLoaded) {
+					console.log(`   Trying alternative selector .property-item...`);
+					await page.waitForSelector(".property-item", { timeout: 10000 }).catch(() => {
+						console.log(`⚠️ No .property-item found either`);
+					});
+				}
 
-                // Debug: Check what we have
-                const itemCount = await page.$$eval('.property-item', items => items.length).catch(() => 0);
-                console.log(`   Found ${itemCount} .property-item elements`);
+				// Debug: Check what we have
+				const itemCount = await page
+					.$$eval(".property-item", (items) => items.length)
+					.catch(() => 0);
+				console.log(`   Found ${itemCount} .property-item elements`);
 
-                const cardCount = await page.$$eval('.property_card', cards => cards.length).catch(() => 0);
-                console.log(`   Found ${cardCount} .property_card elements`);
+				const cardCount = await page
+					.$$eval(".property_card", (cards) => cards.length)
+					.catch(() => 0);
+				console.log(`   Found ${cardCount} .property_card elements`);
 
-                if (cardCount === 0 && itemCount === 0) {
-                    console.log(`   No properties found, skipping...`);
-                    return;
-                }
+				if (cardCount === 0 && itemCount === 0) {
+					console.log(`   No properties found, skipping...`);
+					return;
+				}
 
-                // Extract all properties from the page
-                const properties = await page.$$eval('.property_card', (cards) => {
-                    const results = [];
+				// Extract all properties from the page
+				const properties = await page.$$eval(".property_card", (cards) => {
+					const results = [];
 
-                    cards.forEach((card) => {
-                        try {
-                            // Get the link
-                            const link = card.getAttribute('href');
-                            if (!link) return;
+					const formatPrice = (raw) => {
+						if (!raw) return null;
+						const digits = raw.replace(/[^0-9]/g, "");
+						if (!digits) return null;
+						return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+					};
 
-                            // Get the title from h4
-                            const titleEl = card.querySelector('.property_label h4');
-                            const title = titleEl ? titleEl.textContent.trim() : null;
+					cards.forEach((card) => {
+						try {
+							// Get the link
+							const link = card.getAttribute("href");
+							if (!link) return;
 
-                            // Get the price from .format_price
-                            const priceEl = card.querySelector('.format_price');
-                            const priceText = priceEl ? priceEl.textContent.trim() : '';
-                            // Remove /mth, /pw, etc. and commas
-                            const priceMatch = priceText.match(/([\d,]+)/);
-                            const price = priceMatch ? priceMatch[1].replace(/,/g, '') : null;
+							// Get the title from h4
+							const titleEl = card.querySelector(".property_label h4");
+							const title = titleEl ? titleEl.textContent.trim() : null;
 
-                            // Get bedrooms - look for number before "beds"
-                            const allText = card.textContent || '';
-                            const bedroomsMatch = allText.match(/(\d+)\s*beds?/i);
-                            const bedrooms = bedroomsMatch ? bedroomsMatch[1] : null;
+							// Get the price from .format_price and sanitize
+							const priceEl = card.querySelector(".format_price");
+							const priceText = priceEl ? priceEl.textContent.trim() : "";
+							const price = formatPrice(priceText);
 
-                            // Check status - only include AVAILABLE properties
-                            const statusEl = card.querySelector('.status_label');
-                            const status = statusEl ? statusEl.textContent.trim().toUpperCase() : '';
+							// Get bedrooms - look for number before "beds"
+							const allText = card.textContent || "";
+							const bedroomsMatch = allText.match(/(\d+)\s*beds?/i);
+							const bedrooms = bedroomsMatch ? bedroomsMatch[1] : null;
 
-                            // Only add if we have a link, price, title, and status is AVAILABLE
-                            if (link && price && title && status === 'AVAILABLE') {
-                                results.push({
-                                    link: link.startsWith('http') ? link : 'https://www.moveli.co.uk' + link,
-                                    title,
-                                    price,
-                                    bedrooms
-                                });
-                            }
-                        } catch (err) {
-                            // Silent error
-                        }
-                    });
+							// Check status - only include AVAILABLE properties
+							const statusEl = card.querySelector(".status_label");
+							const status = statusEl ? statusEl.textContent.trim().toUpperCase() : "";
 
-                    return results;
-                });
+							// Only add if we have a link, price, title, and status is AVAILABLE
+							if (link && price && title && status === "AVAILABLE") {
+								results.push({
+									link: link.startsWith("http") ? link : "https://www.moveli.co.uk" + link,
+									title,
+									price,
+									bedrooms,
+								});
+							}
+						} catch (err) {
+							// Silent error
+						}
+					});
 
-                console.log(`🔗 Found ${properties.length} ${typeLabel} properties`);
+					return results;
+				});
 
-                // Debug: Show first property if available
-                if (properties.length > 0) {
-                    console.log(`   Sample: ${properties[0].title} - £${properties[0].price}`);
-                } else if (cardCount > 0) {
-                    // Debug: Check what's in the first card
-                    const sampleData = await page.evaluate(() => {
-                        const firstCard = document.querySelector('.property_card');
-                        if (firstCard) {
-                            return {
-                                href: firstCard.getAttribute('href'),
-                                text: firstCard.textContent.substring(0, 200),
-                                html: firstCard.innerHTML.substring(0, 300)
-                            };
-                        }
-                        return null;
-                    });
-                    console.log(`   Debug first card:`, sampleData);
-                }
+				console.log(`🔗 Found ${properties.length} ${typeLabel} properties`);
 
-                // Add detail page requests to the queue
-                const detailRequests = properties.map(property => ({
-                    url: property.link,
-                    userData: {
-                        isDetailPage: true,
-                        propertyData: property,
-                        category
-                    }
-                }));
+				// Debug: Show first property if available
+				if (properties.length > 0) {
+					console.log(`   Sample: ${properties[0].title} - £${properties[0].price}`);
+				} else if (cardCount > 0) {
+					// Debug: Check what's in the first card
+					const sampleData = await page.evaluate(() => {
+						const firstCard = document.querySelector(".property_card");
+						if (firstCard) {
+							return {
+								href: firstCard.getAttribute("href"),
+								text: firstCard.textContent.substring(0, 200),
+								html: firstCard.innerHTML.substring(0, 300),
+							};
+						}
+						return null;
+					});
+					console.log(`   Debug first card:`, sampleData);
+				}
 
-                await crawler.addRequests(detailRequests);
-            }
-        },
+				// Add detail page requests to the queue
+				const detailRequests = properties.map((property) => ({
+					url: property.link,
+					userData: {
+						isDetailPage: true,
+						propertyData: property,
+						category,
+					},
+				}));
 
-        failedRequestHandler({ request }) {
-            console.error(`❌ Failed: ${request.url}`);
-        },
-    });
+				await crawler.addRequests(detailRequests);
+			}
+		},
 
-    // Add listing page URLs for both sales and rentals
-    const requests = [
-        {
-            url: 'https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc',
-            userData: { category: 'for-sale', isDetailPage: false }
-        },
-        {
-            url: 'https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc',
-            userData: { category: 'for-rent', isDetailPage: false }
-        }
-    ];
+		failedRequestHandler({ request }) {
+			console.error(`❌ Failed: ${request.url}`);
+		},
+	});
 
-    await crawler.addRequests(requests);
-    await crawler.run();
+	// Add listing page URLs for both sales and rentals
+	const requests = [
+		{
+			url: "https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc",
+			userData: { category: "for-sale", isDetailPage: false },
+		},
+		{
+			url: "https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc",
+			userData: { category: "for-rent", isDetailPage: false },
+		},
+	];
 
-    console.log(`\n✅ Completed Moveli - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
-}
+	await crawler.addRequests(requests);
+	await crawler.run();
 
-// Local implementation of updateRemoveStatus
-async function updateRemoveStatus(agent_id) {
-    try {
-        const remove_status = 1;
-        await promisePool.query(
-            `UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-            [remove_status, agent_id]
-        );
-        console.log(`🧹 Removed old properties for agent ${agent_id}`);
-    } catch (error) {
-        console.error("Error updating remove status:", error.message);
-    }
+	console.log(`\n✅ Completed Moveli - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
 }
 
 // Main execution
 (async () => {
-    try {
-        await scrapeMoveli();
-        await updateRemoveStatus(AGENT_ID);
-        console.log("\n✅ All done!");
-        process.exit(0);
-    } catch (err) {
-        console.error("❌ Fatal error:", err?.message || err);
-        process.exit(1);
-    }
+	try {
+		await scrapeMoveli();
+		await updateRemoveStatus(AGENT_ID);
+		console.log("\n✅ All done!");
+		process.exit(0);
+	} catch (err) {
+		console.error("❌ Fatal error:", err?.message || err);
+		process.exit(1);
+	}
 })();
