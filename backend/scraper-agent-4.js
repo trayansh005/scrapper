@@ -24,7 +24,7 @@ async function scrapeMarshParsons() {
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
 			launchOptions: {
-				headless: false, // headful avoids some 403s
+				headless: true, 
 			},
 		},
 		maxConcurrency: 1,
