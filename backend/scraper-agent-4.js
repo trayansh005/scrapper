@@ -1,16 +1,14 @@
-const { PlaywrightCrawler, Configuration } = require("crawlee");
+const { PlaywrightCrawler } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { chromium } = require("playwright-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+
+// Use stealth plugin to avoid bot detection
+chromium.use(StealthPlugin());
 
 const AGENT_ID = 4; // Marsh & Parsons
 
 const PROPERTY_TYPES = [
-	// {
-	//  name: "Lettings",
-	//  baseUrl:
-	//      "https://www.marshandparsons.co.uk/properties-to-rent/london/?filters=exclude_sold%2Cexclude_under_offer",
-	//  isRent: true,
-	//  totalPages: 18,
-	// },
 	{
 		name: "Sales",
 		baseUrl:
@@ -23,40 +21,40 @@ const PROPERTY_TYPES = [
 async function scrapeMarshParsons() {
 	console.log(`Starting Marsh & Parsons Scraper (Agent ${AGENT_ID})...`);
 
-	// 1. Optimize Memory Config
-	const config = Configuration.getGlobalConfig();
-	config.set("availableMemoryRatio", 0.75);
-
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
 			launchOptions: {
-				headless: true,
+				headless: false, // headful avoids some 403s
 			},
 		},
-		// 2. Safe to increase concurrency slightly now that detail pages are lightweight
-		maxConcurrency: 2,
+		maxConcurrency: 1,
 		requestHandlerTimeoutSecs: 300,
-
-		// 3. Block heavy resources (Images, CSS, Fonts) on the Listing Page
 		preNavigationHooks: [
-			async ({ page }, gotoOptions) => {
+			async ({ page, request }) => {
+				// Block images and other unnecessary resources for ALL pages (Listing and Detail)
 				await page.route("**/*", (route) => {
-					const type = route.request().resourceType();
-					if (["image", "media", "font", "stylesheet"].includes(type)) {
-						return route.abort();
+					const resourceType = route.request().resourceType();
+					if (["image", "media", "font", "stylesheet"].includes(resourceType)) {
+						route.abort();
+					} else {
+						route.continue();
 					}
-					return route.continue();
+				});
+
+				// Set realistic headers for every page
+				await page.setExtraHTTPHeaders({
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.97 Safari/537.36",
+					"Accept-Language": "en-GB,en;q=0.9",
 				});
 			},
 		],
-
 		requestHandler: async ({ page, request, log }) => {
 			const { label, isRent } = request.userData;
 
 			if (label === "LISTING") {
 				log.info(`Processing listing page: ${request.url}`);
 
-				// Extract property basic info from the listing page
 				const properties = await page.evaluate((isRent) => {
 					const propertyCards = document.querySelectorAll("div.my-4.shadow-md.rounded-xl");
 					const results = [];
@@ -93,23 +91,25 @@ async function scrapeMarshParsons() {
 
 				log.info(`Found ${properties.length} properties on page.`);
 
-				// 4. Process properties using fast HTTP requests (No new tabs)
-				const batchSize = 10; // Can handle larger batches now
+				const batchSize = 2; // smaller batch reduces memory usage
 				for (let i = 0; i < properties.length; i += batchSize) {
 					const batch = properties.slice(i, i + batchSize);
 
 					await Promise.all(
 						batch.map(async (property) => {
+							const detailPage = await page.context().newPage();
 							try {
-								// Use page.request (API) instead of page.goto (Browser)
-								// This is ~10x faster and uses negligible memory
-								const response = await page.request.get(property.url);
+								// Block images and other unnecessary resources on detail page
+								await detailPage.route("**/*", (route) => {
+									const resourceType = route.request().resourceType();
+									if (["image", "media", "font", "stylesheet"].includes(resourceType)) {
+										route.abort();
+									} else {
+										route.continue();
+									}
+								});
 
-								if (!response.ok()) {
-									throw new Error(`HTTP ${response.status()}`);
-								}
-
-								const html = await response.text();
+								log.info(`Processing detail page: ${property.url}`);
 
 								let priceClean = property.priceRaw.replace(/[£,]/g, "");
 								if (property.isRent && priceClean.includes("p/w")) {
@@ -117,10 +117,16 @@ async function scrapeMarshParsons() {
 								}
 								const price = parseFloat(priceClean);
 
+								await detailPage.goto(property.url, {
+									waitUntil: "networkidle",
+									timeout: 60000,
+								});
+
+								const html = await detailPage.content();
+
 								let latitude = null;
 								let longitude = null;
 
-								// Regex patterns
 								const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
 								const scriptMatch = html.match(/lat:\s*([\d.-]+),\s*lng:\s*([\d.-]+)/);
 								const jsonMatch = html.match(/"latitude":\s*([\d.-]+),\s*"longitude":\s*([\d.-]+)/);
@@ -136,30 +142,31 @@ async function scrapeMarshParsons() {
 									longitude = parseFloat(jsonMatch[2]);
 								}
 
-								if (latitude !== null && longitude !== null) {
-									const fullTitle = `${property.title}, ${property.location}`;
-									await updatePriceByPropertyURL(
-										property.url,
-										price,
-										fullTitle,
-										property.bedrooms,
-										AGENT_ID,
-										isRent,
-										latitude,
-										longitude
-									);
-									log.info(`Updated: ${fullTitle} (£${price})`);
-								} else {
-									log.warning(`Coordinates not found for ${property.url}`);
-								}
+								const fullTitle = `${property.title}, ${property.location}`;
+
+								await updatePriceByPropertyURL(
+									property.url,
+									price,
+									fullTitle,
+									property.bedrooms,
+									AGENT_ID,
+									isRent,
+									latitude,
+									longitude
+								);
+
+								log.info(`Updated DB for: ${fullTitle} (${price})`);
 							} catch (error) {
 								log.error(`Failed for ${property.url}: ${error.message}`);
+							} finally {
+								await detailPage.close();
+								// Small random delay to avoid blocking
+								await new Promise((resolve) =>
+									setTimeout(resolve, Math.floor(Math.random() * 1500) + 500)
+								);
 							}
 						})
 					);
-
-					// Tiny delay to be polite to the server
-					await new Promise((resolve) => setTimeout(resolve, 200));
 				}
 			}
 		},
