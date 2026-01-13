@@ -32,11 +32,6 @@ async function scrapeMarshParsons() {
 		},
 		maxConcurrency: 1,
 		requestHandlerTimeoutSecs: 300,
-		autoscaledPoolOptions: {
-			// Set this higher if you want to use more of that 8GB
-			// 0.9 means 90% of the limit you set in CRAWLEE_MEMORY_MBYTES
-			maxMemoryUsagePercentage: 0.9,
-		},
 		requestHandler: async ({ page, request, log }) => {
 			const { label, isRent } = request.userData;
 
