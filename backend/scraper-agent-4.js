@@ -5,11 +5,11 @@ const AGENT_ID = 4; // Marsh & Parsons
 
 const PROPERTY_TYPES = [
 	// {
-	// 	name: "Lettings",
-	// 	baseUrl:
-	// 		"https://www.marshandparsons.co.uk/properties-to-rent/london/?filters=exclude_sold%2Cexclude_under_offer",
-	// 	isRent: true,
-	// 	totalPages: 18,
+	//  name: "Lettings",
+	//  baseUrl:
+	//      "https://www.marshandparsons.co.uk/properties-to-rent/london/?filters=exclude_sold%2Cexclude_under_offer",
+	//  isRent: true,
+	//  totalPages: 18,
 	// },
 	{
 		name: "Sales",
@@ -22,23 +22,41 @@ const PROPERTY_TYPES = [
 
 async function scrapeMarshParsons() {
 	console.log(`Starting Marsh & Parsons Scraper (Agent ${AGENT_ID})...`);
+
+	// 1. Optimize Memory Config
 	const config = Configuration.getGlobalConfig();
 	config.set("availableMemoryRatio", 0.75);
+
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
 			launchOptions: {
 				headless: true,
 			},
 		},
-		maxConcurrency: 1,
+		// 2. Safe to increase concurrency slightly now that detail pages are lightweight
+		maxConcurrency: 2,
 		requestHandlerTimeoutSecs: 300,
+
+		// 3. Block heavy resources (Images, CSS, Fonts) on the Listing Page
+		preNavigationHooks: [
+			async ({ page }, gotoOptions) => {
+				await page.route("**/*", (route) => {
+					const type = route.request().resourceType();
+					if (["image", "media", "font", "stylesheet"].includes(type)) {
+						return route.abort();
+					}
+					return route.continue();
+				});
+			},
+		],
+
 		requestHandler: async ({ page, request, log }) => {
 			const { label, isRent } = request.userData;
 
 			if (label === "LISTING") {
 				log.info(`Processing listing page: ${request.url}`);
 
-				// Extract property details from the listing page
+				// Extract property basic info from the listing page
 				const properties = await page.evaluate((isRent) => {
 					const propertyCards = document.querySelectorAll("div.my-4.shadow-md.rounded-xl");
 					const results = [];
@@ -75,16 +93,23 @@ async function scrapeMarshParsons() {
 
 				log.info(`Found ${properties.length} properties on page.`);
 
-				// Process properties in batches like Agent 50
-				const batchSize = 5;
+				// 4. Process properties using fast HTTP requests (No new tabs)
+				const batchSize = 10; // Can handle larger batches now
 				for (let i = 0; i < properties.length; i += batchSize) {
 					const batch = properties.slice(i, i + batchSize);
 
 					await Promise.all(
 						batch.map(async (property) => {
-							const detailPage = await page.context().newPage();
 							try {
-								log.info(`Processing detail page: ${property.url}`);
+								// Use page.request (API) instead of page.goto (Browser)
+								// This is ~10x faster and uses negligible memory
+								const response = await page.request.get(property.url);
+
+								if (!response.ok()) {
+									throw new Error(`HTTP ${response.status()}`);
+								}
+
+								const html = await response.text();
 
 								let priceClean = property.priceRaw.replace(/[£,]/g, "");
 								if (property.isRent && priceClean.includes("p/w")) {
@@ -92,22 +117,12 @@ async function scrapeMarshParsons() {
 								}
 								const price = parseFloat(priceClean);
 
-								await detailPage.goto(property.url, {
-									waitUntil: "networkidle",
-									timeout: 60000,
-								});
-
-								const html = await detailPage.content();
-
 								let latitude = null;
 								let longitude = null;
 
-								// Try multiple patterns for coordinates
-								// Pattern 1: maps.google.com?ll=51.48265,-0.01465
+								// Regex patterns
 								const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
-								// Pattern 2: {lat: 51.50564, lng: -0.19597}
 								const scriptMatch = html.match(/lat:\s*([\d.-]+),\s*lng:\s*([\d.-]+)/);
-								// Pattern 3: "latitude":51.48265,"longitude":-0.01465
 								const jsonMatch = html.match(/"latitude":\s*([\d.-]+),\s*"longitude":\s*([\d.-]+)/);
 
 								if (mapsMatch) {
@@ -122,33 +137,29 @@ async function scrapeMarshParsons() {
 								}
 
 								if (latitude !== null && longitude !== null) {
+									const fullTitle = `${property.title}, ${property.location}`;
+									await updatePriceByPropertyURL(
+										property.url,
+										price,
+										fullTitle,
+										property.bedrooms,
+										AGENT_ID,
+										isRent,
+										latitude,
+										longitude
+									);
+									log.info(`Updated: ${fullTitle} (£${price})`);
 								} else {
 									log.warning(`Coordinates not found for ${property.url}`);
 								}
-
-								const fullTitle = `${property.title}, ${property.location}`;
-
-								await updatePriceByPropertyURL(
-									property.url,
-									price,
-									fullTitle,
-									property.bedrooms,
-									AGENT_ID,
-									isRent,
-									latitude,
-									longitude
-								);
-								log.info(`Updated DB for: ${fullTitle} (${price})`);
 							} catch (error) {
 								log.error(`Failed for ${property.url}: ${error.message}`);
-							} finally {
-								await detailPage.close();
 							}
 						})
 					);
 
-					// Small delay between batches
-					await new Promise((resolve) => setTimeout(resolve, 500));
+					// Tiny delay to be polite to the server
+					await new Promise((resolve) => setTimeout(resolve, 200));
 				}
 			}
 		},
