@@ -8,6 +8,9 @@
 		"dev": "nodemon server.js"
 	},
 	"dependencies": {
+		"@ulixee/cloud": "^2.0.0-alpha.34",
+		"@ulixee/hero": "^2.0.0-alpha.34",
+		"@ulixee/hero-core": "^2.0.0-alpha.34",
 		"axios": "^1.12.2",
 		"camoufox-js": "^0.8.3",
 		"cheerio": "^1.1.2",
