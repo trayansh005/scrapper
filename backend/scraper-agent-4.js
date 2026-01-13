@@ -30,6 +30,9 @@ async function scrapeMarshParsons() {
 			},
 		},
 		maxConcurrency: 1,
+		autoscaledPoolOptions: {
+			maxAvailableMemoryRatio: 0.9, // allow Playwright to use ~90% of VPS RAM
+		},
 		requestHandlerTimeoutSecs: 300,
 		requestHandler: async ({ page, request, log }) => {
 			const { label, isRent } = request.userData;
