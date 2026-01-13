@@ -1,4 +1,4 @@
-const { PlaywrightCrawler, Dataset } = require("crawlee");
+const { PlaywrightCrawler, Configuration } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 
 const AGENT_ID = 4; // Marsh & Parsons
@@ -22,7 +22,8 @@ const PROPERTY_TYPES = [
 
 async function scrapeMarshParsons() {
 	console.log(`Starting Marsh & Parsons Scraper (Agent ${AGENT_ID})...`);
-
+	const config = Configuration.getGlobalConfig();
+	config.set("availableMemoryRatio", 0.75);
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
 			launchOptions: {
@@ -31,6 +32,11 @@ async function scrapeMarshParsons() {
 		},
 		maxConcurrency: 1,
 		requestHandlerTimeoutSecs: 300,
+		autoscaledPoolOptions: {
+			// Set this higher if you want to use more of that 8GB
+			// 0.9 means 90% of the limit you set in CRAWLEE_MEMORY_MBYTES
+			maxMemoryUsagePercentage: 0.9,
+		},
 		requestHandler: async ({ page, request, log }) => {
 			const { label, isRent } = request.userData;
 
