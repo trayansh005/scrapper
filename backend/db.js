@@ -4,7 +4,7 @@ const mysql = require("mysql2"); // Use mysql2 for better performance
 const pool = mysql.createPool({
 	host: "localhost",
 	user: "root",
-	password: "", // Change to your actual password
+	password: process.env.PASSWORD || "",
 	database: "scrape",
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
@@ -120,8 +120,7 @@ async function updateRemoveStatus(agent_id) {
 
 		const removedCount = (saleResult?.affectedRows || 0) + (rentResult?.affectedRows || 0);
 		console.log(
-			`🧹 Removed old or future-dated properties for agent ${agent_id} (sale: ${
-				saleResult?.affectedRows || 0
+			`🧹 Removed old or future-dated properties for agent ${agent_id} (sale: ${saleResult?.affectedRows || 0
 			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount})`
 		);
 	} catch (error) {

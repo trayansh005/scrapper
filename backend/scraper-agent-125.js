@@ -1,16 +1,14 @@
-// Pattinson scraper using Playwright with Crawlee
-// Agent ID: 125
-// Website: pattinson.co.uk
-// Usage:
-// node backend/scraper-agent-125.js
+// Pattinson scraper using Puppeteer with stealth plugin
+// This bypasses Cloudflare detection better than Hero
+// Install: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
 
-const { PlaywrightCrawler, log } = require("crawlee");
-const { launchOptions } = require("camoufox-js");
-const { firefox } = require("playwright");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 
-// Reduce verbosity
-log.setLevel(log.LEVELS.ERROR);
+puppeteer.use(StealthPlugin());
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const AGENT_ID = 125;
 let totalScraped = 0;
@@ -23,180 +21,208 @@ function formatPrice(price) {
 	return "£" + num.toLocaleString("en-GB");
 }
 
-// Configuration for sales and lettings
 const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.pattinson.co.uk/buy/property-search",
-		totalPages: 100, // 1986 properties / 20 per page = 100 pages (rounded up)
-		recordsPerPage: 20,
+		totalPages: 100,
 		isRental: false,
 		label: "SALES",
 	},
 	{
 		urlBase: "https://www.pattinson.co.uk/rent/property-search",
-		totalPages: 13, // 244 properties / 20 per page = 13 pages (rounded up)
-		recordsPerPage: 20,
+		totalPages: 13,
 		isRental: true,
 		label: "RENTALS",
 	},
 ];
 
-async function scrapePattinson() {
-	console.log(`\n🚀 Starting Pattinson scraper (Agent ${AGENT_ID})...\n`);
+async function scrapePage(page, url, propertyType, pageNum) {
+	try {
+		console.log(`\n📋 ${propertyType.label} - Page ${pageNum} - ${url}`);
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 3,
-		requestHandlerTimeoutSecs: 600,
+		// Navigate to page
+		await page.goto(url, {
+			waitUntil: "networkidle2",
+			timeout: 60000,
+		});
 
-		launchContext: {
-			launcher: firefox,
-			launchOptions: await launchOptions({
-				headless: false,
-				args: ["--start-maximized"],
-			}),
-		},
+		// Wait for property cards to load
+		try {
+			await page.waitForSelector("a.row.m-0.bg-white", { timeout: 15000 });
+			console.log("✅ Property cards loaded");
+		} catch (e) {
+			console.log("⚠️ Property cards selector not found, checking page content...");
 
-		browserPoolOptions: {
-			useFingerprints: false, // Camoufox handles this
-		},
+			const pageContent = await page.evaluate(() => document.body.innerText);
+			if (pageContent.includes("Verifying") || pageContent.includes("Just a moment")) {
+				console.log("❌ Stuck on Cloudflare - waiting longer...");
+				await delay(10000);
 
-		preNavigationHooks: [
-			async ({ page }, gotoOptions) => {
-				// Use a more common viewport
-				await page.setViewportSize({ width: 1366, height: 768 });
-				gotoOptions.waitUntil = "domcontentloaded";
-				gotoOptions.timeout = 60000;
-			},
-		],
+				// Try waiting for selector again
+				try {
+					await page.waitForSelector("a.row.m-0.bg-white", { timeout: 20000 });
+				} catch (e2) {
+					console.log("❌ Still no properties found");
+					return [];
+				}
+			}
+		}
 
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+		// Extract properties from page
+		const properties = await page.evaluate(() => {
+			const cards = document.querySelectorAll("a.row.m-0.bg-white");
+			const results = [];
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			cards.forEach((card) => {
+				try {
+					const href = card.getAttribute("href");
+					const link = href ? "https://www.pattinson.co.uk" + href : null;
 
-			try {
-				// --- 🛡️ CLOUDFLARE BYPASS LOGIC 🛡️ ---
-				console.log("⏳ Waiting for Cloudflare/Page Load (Max 60s)...");
+					const priceEl = card.querySelector("dt.display-5.text-primary");
+					const price = priceEl ? priceEl.innerText.trim() : "";
 
-				// Wait for the title to change from the Cloudflare challenge
-				// or for the characteristic listing selector to appear
-				await page
-					.waitForFunction(
-						() => {
-							const title = document.title;
-							const hasListings = !!document.querySelector("a.row.m-0.bg-white");
-							const isBlocked =
-								title.includes("Just a moment") ||
-								title.includes("Cloudflare") ||
-								title.includes("Access Denied");
-							return hasListings || !isBlocked;
-						},
-						{ timeout: 60000, polling: 1000 }
-					)
-					.catch(() => console.log("⚠️ Cloudflare wait timed out, attempting to proceed..."));
+					const titleEl = card.querySelector("div.text-primary-dark.fw-medium");
+					const title = titleEl ? titleEl.innerText.trim() : "";
 
-				// Small delay to let page settle after verification
-				await page.waitForTimeout(5000);
-
-				// Extract properties from the DOM
-				const properties = await page.evaluate(() => {
-					try {
-						const cards = Array.from(document.querySelectorAll("a.row.m-0.bg-white"));
-						return cards
-							.map((card) => {
-								const href = card.getAttribute("href");
-								const link = href ? "https://www.pattinson.co.uk" + href : null;
-
-								const priceEl = card.querySelector("dt.display-5.text-primary");
-								const price = priceEl ? priceEl.textContent.trim() : "";
-
-								const titleEl = card.querySelector("div.text-primary-dark.fw-medium");
-								const title = titleEl ? titleEl.textContent.trim() : "";
-
-								const specs = Array.from(card.querySelectorAll("div.d-flex.align-items-center"));
-								const bedrooms = specs[0]
-									? specs[0].querySelector("span.lh-1.fs-14")?.textContent.trim() || null
-									: null;
-
-								return { link, price, title, bedrooms };
-							})
-							.filter((p) => p.link);
-					} catch (e) {
-						return [];
+					const specs = card.querySelectorAll("div.d-flex.align-items-center");
+					let bedrooms = null;
+					if (specs.length > 0) {
+						const bedroomEl = specs[0].querySelector("span.lh-1.fs-14");
+						if (bedroomEl) {
+							bedrooms = bedroomEl.innerText.trim();
+						}
 					}
-				});
 
-				console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+					if (link) {
+						results.push({ link, price, title, bedrooms });
+					}
+				} catch (e) {
+					console.error("Error extracting card:", e.message);
+				}
+			});
 
-				// Process properties
+			return results;
+		});
+
+		console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+		return properties;
+	} catch (err) {
+		console.error(`❌ Error on page ${pageNum}: ${err.message}`);
+		return [];
+	}
+}
+
+async function extractCoordinates(page, link) {
+	try {
+		await page.goto(link, {
+			waitUntil: "networkidle2",
+			timeout: 30000,
+		});
+
+		// Extract coordinates from JSON-LD script
+		const coords = await page.evaluate(() => {
+			const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+
+			for (const script of scripts) {
+				try {
+					const data = JSON.parse(script.textContent);
+
+					if (data && data["@type"] === "GeoCoordinates") {
+						return { latitude: data.latitude, longitude: data.longitude };
+					}
+					if (data && data.geo && data.geo.latitude) {
+						return { latitude: data.geo.latitude, longitude: data.geo.longitude };
+					}
+				} catch (e) {}
+			}
+
+			return { latitude: null, longitude: null };
+		});
+
+		return coords;
+	} catch (err) {
+		console.error(`⚠️ Error extracting coords: ${err.message}`);
+		return { latitude: null, longitude: null };
+	}
+}
+
+async function scrapePattinson() {
+	console.log(`\n🚀 Starting Pattinson scraper with Puppeteer Stealth (Agent ${AGENT_ID})...\n`);
+
+	// Launch browser with realistic settings
+	const browser = await puppeteer.launch({
+		headless: false, // Set to true once working
+		args: [
+			"--no-sandbox",
+			"--disable-setuid-sandbox",
+			"--disable-dev-shm-usage",
+			"--disable-blink-features=AutomationControlled",
+			"--window-size=1920,1080",
+		],
+		defaultViewport: {
+			width: 1920,
+			height: 1080,
+		},
+	});
+
+	const page = await browser.newPage();
+
+	// Set realistic headers
+	await page.setExtraHTTPHeaders({
+		"Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+		Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+	});
+
+	// Override navigator properties to avoid detection
+	await page.evaluateOnNewDocument(() => {
+		Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+		Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+		Object.defineProperty(navigator, "languages", { get: () => ["en-GB", "en-US", "en"] });
+
+		window.chrome = {
+			runtime: {},
+		};
+	});
+
+	// Open detail page in new tab for coordinate extraction
+	const detailPage = await browser.newPage();
+	await detailPage.setExtraHTTPHeaders({
+		"Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+	});
+
+	try {
+		for (const propertyType of PROPERTY_TYPES) {
+			console.log(`\n🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)\n`);
+
+			for (let pageNum = 1; pageNum <= propertyType.totalPages; pageNum++) {
+				const url = `${propertyType.urlBase}?p=${pageNum}`;
+
+				const properties = await scrapePage(page, url, propertyType, pageNum);
+
+				if (properties.length === 0) {
+					console.log("⚠️ No properties found - skipping page");
+					await delay(5000);
+					continue;
+				}
+
+				// Process each property
 				for (const property of properties) {
 					if (!property.link) continue;
 
-					let coords = { latitude: null, longitude: null };
+					// Extract coordinates from detail page
+					const coords = await extractCoordinates(detailPage, property.link);
 
-					// Visit detail page to extract coordinates from JSON-LD
-					const detailPage = await page.context().newPage();
-					try {
-						await detailPage.goto(property.link, {
-							waitUntil: "domcontentloaded",
-							timeout: 30000,
-						});
-
-						// Brief Cloudflare check for detail page
-						await detailPage
-							.waitForFunction(
-								() => {
-									const title = document.title;
-									return !title.includes("Just a moment") && !title.includes("Cloudflare");
-								},
-								{ timeout: 10000 }
-							)
-							.catch(() => {});
-
-						await detailPage.waitForTimeout(1000);
-
-						const detailCoords = await detailPage.evaluate(() => {
-							try {
-								const scripts = Array.from(
-									document.querySelectorAll('script[type="application/ld+json"]')
-								);
-								for (const script of scripts) {
-									try {
-										const data = JSON.parse(script.textContent);
-										if (data && data["@type"] === "GeoCoordinates") {
-											return { lat: data.latitude, lng: data.longitude };
-										}
-										if (data && data.geo && data.geo.latitude) {
-											return { lat: data.geo.latitude, lng: data.geo.longitude };
-										}
-									} catch (e) {}
-								}
-								return null;
-							} catch (e) {
-								return null;
-							}
-						});
-
-						if (detailCoords) {
-							coords.latitude = detailCoords.lat;
-							coords.longitude = detailCoords.lng;
-						}
-					} catch (err) {
-						// ignore detail errors
-					} finally {
-						await detailPage.close();
-					}
-
+					// Save to database
 					try {
 						const priceClean = property.price ? property.price.replace(/[^0-9]/g, "").trim() : null;
+
 						await updatePriceByPropertyURL(
 							property.link,
 							priceClean,
 							property.title,
 							property.bedrooms,
 							AGENT_ID,
-							isRental,
+							propertyType.isRental,
 							coords.latitude,
 							coords.longitude
 						);
@@ -208,39 +234,28 @@ async function scrapePattinson() {
 						console.error(`❌ DB error: ${dbErr.message}`);
 					}
 
-					// Delay between properties
-					await new Promise((resolve) => setTimeout(resolve, 2000 + Math.random() * 2000));
+					// Human-like delay between properties
+					await delay(1000 + Math.random() * 2000);
 				}
-			} catch (err) {
-				console.error(`❌ Request handler error: ${err.message}`);
+
+				// Delay between pages
+				await delay(2000 + Math.random() * 3000);
+
+				// Take longer breaks periodically
+				if (pageNum % 10 === 0) {
+					console.log("☕ Taking a short break...");
+					await delay(10000 + Math.random() * 5000);
+				}
 			}
-		},
-
-		async failedRequestHandler({ request }) {
-			console.error(`❌ Permanent failure for ${request.url}`);
-		},
-	});
-
-	// Enqueue all listing pages
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
-
-		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url = `${propertyType.urlBase}?p=${pg}`;
-			requests.push({
-				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
 		}
 
-		await crawler.addRequests(requests);
-		await crawler.run();
+		console.log(`\n✅ Completed - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
+	} catch (error) {
+		console.error("❌ Fatal error:", error.message);
+		throw error;
+	} finally {
+		await browser.close();
 	}
-
-	console.log(
-		`\n✅ Completed Pattinson - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
 }
 
 (async () => {
