@@ -273,90 +273,83 @@ async function scrapeMarshParsons(browser, listingUrl, isRent) {
     console.log(`\n📋 Scraping Marsh & Parsons: ${listingUrl}`);
 
     try {
-        // Use Playwright instead of axios for Marsh & Parsons due to bot detection
-        const page = await browser.newPage();
+        // Add delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Block unnecessary resources for this page
-        await page.route('**/*', (route) => {
-            const resourceType = route.request().resourceType();
-            if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
-                route.abort();
-            } else {
-                route.continue();
-            }
+        const response = await axios.get(listingUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'max-age=0'
+            },
+            timeout: 30000
         });
 
-        await page.setExtraHTTPHeaders({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-GB,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        });
+        const $ = cheerio.load(response.data);
+        const propertyList = [];
 
-        try {
-            await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-            await page.waitForTimeout(2000);
+        $("div.my-4.shadow-md.rounded-xl").each((index, element) => {
+            try {
+                const $card = $(element);
+                const linkElement = $card.find('a[href*="/property/"]').first();
+                const titleElement = $card.find("h3").first();
+                const locationElement = $card.find("p").first();
 
-            const htmlContent = await page.content();
-            const $ = cheerio.load(htmlContent);
-            const propertyList = [];
+                const textContent = $card.text();
 
-            $("div.my-4.shadow-md.rounded-xl").each((index, element) => {
-                try {
-                    const $card = $(element);
-                    const linkElement = $card.find('a[href*="/property/"]').first();
-                    const titleElement = $card.find("h3").first();
-                    const locationElement = $card.find("p").first();
-
-                    const textContent = $card.text();
-
-                    // Check for sold keywords before processing
-                    if (isSoldProperty(textContent)) {
-                        console.log(`⏭️ Skipping sold property: ${textContent.substring(0, 50)}...`);
-                        return;
-                    }
-
-                    const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
-                    const priceRaw = priceMatch ? priceMatch[0] : null;
-
-                    const bedImg = $card.find('img[alt="bed"]').first();
-                    let bedrooms = null;
-                    if (bedImg.length) {
-                        const parent = bedImg.parent();
-                        const bedroomText = parent.text();
-                        const bedroomMatch = bedroomText.trim().match(/\d+/);
-                        bedrooms = bedroomMatch ? parseInt(bedroomMatch[0]) : null;
-                    }
-
-                    const url = linkElement.attr("href");
-                    const title = titleElement.text() || "";
-                    const location = locationElement.text() || "";
-
-                    if (url && priceRaw) {
-                        propertyList.push({
-                            url: url.startsWith("http") ? url : `https://www.marshandparsons.co.uk${url}`,
-                            title: title.trim(),
-                            location: location.trim(),
-                            priceRaw,
-                            bedrooms,
-                        });
-                    }
-                } catch (err) {
-                    console.error(`Error extracting Marsh & Parsons property: ${err.message}`);
+                // Check for sold keywords before processing
+                if (isSoldProperty(textContent)) {
+                    console.log(`⏭️ Skipping sold property: ${textContent.substring(0, 50)}...`);
+                    return;
                 }
-            });
 
-            console.log(`Found ${propertyList.length} available properties`);
+                const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
+                const priceRaw = priceMatch ? priceMatch[0] : null;
 
-            for (const property of propertyList) {
-                await processProperty(browser, { ...property, isRent }, 4);
+                const bedImg = $card.find('img[alt="bed"]').first();
+                let bedrooms = null;
+                if (bedImg.length) {
+                    const parent = bedImg.parent();
+                    const bedroomText = parent.text();
+                    const bedroomMatch = bedroomText.trim().match(/\d+/);
+                    bedrooms = bedroomMatch ? parseInt(bedroomMatch[0]) : null;
+                }
+
+                const url = linkElement.attr("href");
+                const title = titleElement.text() || "";
+                const location = locationElement.text() || "";
+
+                if (url && priceRaw) {
+                    propertyList.push({
+                        url: url.startsWith("http") ? url : `https://www.marshandparsons.co.uk${url}`,
+                        title: title.trim(),
+                        location: location.trim(),
+                        priceRaw,
+                        bedrooms,
+                    });
+                }
+            } catch (err) {
+                console.error(`Error extracting Marsh & Parsons property: ${err.message}`);
             }
+        });
 
-            return propertyList.length;
-        } finally {
-            await page.close();
+        console.log(`Found ${propertyList.length} available properties`);
+
+        for (const property of propertyList) {
+            await processProperty(browser, { ...property, isRent }, 4);
         }
+
+        return propertyList.length;
     } catch (error) {
-        console.error(`Error scraping Marsh & Parsons: ${error.message}`);
+        console.error(`Error scraping Marsh & Parsons with Playwright: ${error.message}`);
         return 0;
     }
 }
@@ -425,6 +418,172 @@ async function scrapeJackieQuinn(browser, listingUrl, isRent) {
         console.error(`Error scraping Jackie Quinn: ${error.message}`);
         return 0;
     }
+}
+
+async function scrapePurplebricks(browser, listingUrl, isRent) {
+} catch (error) {
+    console.error(`Error scraping Marsh & Parsons: ${error.message}`);
+    return 0;
+}
+}
+
+// Alternative Playwright-based scraper for Marsh & Parsons (use if axios fails)
+async function scrapeMarshParsonsPlaywright(browser, listingUrl, isRent) {
+    console.log(`\n📋 Scraping Marsh & Parsons with Playwright: ${listingUrl}`);
+
+    try {
+        const page = await browser.newPage();
+
+        // Set realistic viewport and user agent
+        await page.setViewportSize({ width: 1920, height: 1080 });
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'en-US,en;q=0.9'
+        });
+
+        // Block unnecessary resources
+        await page.route('**/*', (route) => {
+            const resourceType = route.request().resourceType();
+            if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+                route.abort();
+            } else {
+                route.continue();
+            }
+        });
+
+        try {
+            await page.goto(listingUrl, {
+                waitUntil: 'networkidle',
+                timeout: 30000
+            });
+            await page.waitForTimeout(3000);
+
+            const content = await page.content();
+            const $ = cheerio.load(content);
+            const propertyList = [];
+
+            $("div.my-4.shadow-md.rounded-xl").each((index, element) => {
+                try {
+                    const $card = $(element);
+                    const linkElement = $card.find('a[href*="/property/"]').first();
+                    const titleElement = $card.find("h3").first();
+                    const locationElement = $card.find("p").first();
+
+                    const textContent = $card.text();
+
+                    // Check for sold keywords before processing
+                    if (isSoldProperty(textContent)) {
+                        console.log(`⏭️ Skipping sold property: ${textContent.substring(0, 50)}...`);
+                        return;
+                    }
+
+                    const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
+                    const priceRaw = priceMatch ? priceMatch[0] : null;
+
+                    const bedImg = $card.find('img[alt="bed"]').first();
+                    let bedrooms = null;
+                    if (bedImg.length) {
+                        const parent = bedImg.parent();
+                        const bedroomText = parent.text();
+                        const bedroomMatch = bedroomText.trim().match(/\d+/);
+                        bedrooms = bedroomMatch ? parseInt(bedroomMatch[0]) : null;
+                    }
+
+                    const url = linkElement.attr("href");
+                    const title = titleElement.text() || "";
+                    const location = locationElement.text() || "";
+
+                    if (url && priceRaw) {
+                        propertyList.push({
+                            url: url.startsWith("http") ? url : `https://www.marshandparsons.co.uk${url}`,
+                            title: title.trim(),
+                            location: location.trim(),
+                            priceRaw,
+                            bedrooms,
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Error extracting Marsh & Parsons property: ${err.message}`);
+                }
+            });
+
+            console.log(`Found ${propertyList.length} available properties`);
+
+            for (const property of propertyList) {
+                await processProperty(browser, { ...property, isRent }, 4);
+            }
+
+            return propertyList.length;
+        } finally {
+            await page.close();
+        }
+    } catch (error) {
+        console.error(`Error scraping Marsh & Parsons with Playwright: ${error.message}`);
+        return 0;
+    }
+}
+console.log(`\n📋 Scraping Jackie Quinn: ${listingUrl}`);
+
+try {
+    const response = await axios.get(listingUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+    });
+
+    const $ = cheerio.load(response.data);
+    const propertyList = [];
+
+    $('.propertyBox').each((index, element) => {
+        try {
+            const $listing = $(element);
+            const linkEl = $listing.find('h2.searchProName a').first();
+            const link = linkEl.attr('href');
+
+            const titleEl = $listing.find('h2.searchProName a').first();
+            const title = titleEl.text();
+
+            const priceEl = $listing.find('h3 div').first();
+            const priceText = priceEl.text();
+
+            // Check for sold keywords
+            if (isSoldProperty(priceText) || priceText.includes('Sold Subject To Contract')) {
+                console.log(`⏭️ Skipping sold property: ${title}`);
+                return;
+            }
+
+            const priceMatch = priceText.match(/£([\d,]+)/);
+            const priceRaw = priceMatch ? priceMatch[0] : null;
+
+            const descEl = $listing.find('.featuredDescriptions').first();
+            const description = descEl.text();
+            const bedroomMatch = description.match(/(\d+)\s+BEDROOM/i);
+            const bedrooms = bedroomMatch ? bedroomMatch[1] : null;
+
+            if (link && title && priceRaw) {
+                propertyList.push({
+                    url: link.startsWith('http') ? link : 'https://www.jackiequinn.co.uk' + link,
+                    title: title.trim(),
+                    location: '',
+                    priceRaw,
+                    bedrooms
+                });
+            }
+        } catch (err) {
+            console.error(`Error extracting Jackie Quinn property: ${err.message}`);
+        }
+    });
+
+    console.log(`Found ${propertyList.length} available properties`);
+
+    for (const property of propertyList) {
+        await processProperty(browser, { ...property, isRent }, 8);
+    }
+
+    return propertyList.length;
+} catch (error) {
+    console.error(`Error scraping Jackie Quinn: ${error.message}`);
+    return 0;
+}
 }
 async function scrapePurplebricks(browser, listingUrl, isRent) {
     console.log(`\n📋 Scraping Purplebricks: ${listingUrl}`);
@@ -799,9 +958,9 @@ async function runOptimizedCombinedScraper() {
 
                     // Build URL based on agent
                     switch (agent.id) {
-                        case 4: // Marsh & Parsons
+                        case 4: // Marsh & Parsons - Use Playwright due to 403 errors
                             listingUrl = `${type.baseUrl}&page=${pageNum}`;
-                            processed = await scrapeMarshParsons(browser, listingUrl, type.isRent);
+                            processed = await scrapeMarshParsonsPlaywright(browser, listingUrl, type.isRent);
                             break;
 
                         case 8: // Jackie Quinn
