@@ -152,7 +152,11 @@ async function updatePriceByPropertyURLOptimized(
             }
         }
     } catch (error) {
-        console.error(`❌ Error checking property: ${error.message}`);
+        console.error(`❌ Error checking property ${link}:`);
+        console.error(`   Database error: ${error.message}`);
+        if (error.code) {
+            console.error(`   Error code: ${error.code}`);
+        }
         throw error;
     }
 }
@@ -265,7 +269,11 @@ async function processProperty(browser, property, agentId) {
             await page.close();
         }
     } catch (error) {
-        console.error(`✗ Failed ${url}: ${error.message}`);
+        console.error(`✗ Failed ${url}:`);
+        console.error(`   Error: ${error.message}`);
+        if (error.stack) {
+            console.error(`   Stack: ${error.stack.split('\n')[1]?.trim()}`);
+        }
     }
 }
 // Scraper functions for each agent with sold property filtering using Cheerio
