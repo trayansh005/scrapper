@@ -1,3 +1,10 @@
+FROM node:20-slim
+
+# Prevent Playwright from using ephemeral cache paths
+ENV PLAYWRIGHT_BROWSERS_PATH=0
+
+WORKDIR /app
+
 # Install system deps required by Playwright
 RUN apt-get update && apt-get install -y \
     libnss3 \
@@ -20,5 +27,14 @@ RUN apt-get update && apt-get install -y \
     nano \
  && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright browsers DURING BUILD
+# Install node deps FIRST
+COPY package*.json ./
+RUN npm ci
+
+# Install Playwright browsers DURING BUILD (PERMANENT)
 RUN npx playwright install chromium
+
+# Copy app source
+COPY . .
+
+CMD ["node", "combined-scraper.js"]
