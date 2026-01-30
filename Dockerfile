@@ -1,11 +1,10 @@
 FROM node:20-slim
 
-# Prevent Playwright from using ephemeral cache paths
 ENV PLAYWRIGHT_BROWSERS_PATH=0
 
-WORKDIR /app
+WORKDIR /app/backend
 
-# Install system deps required by Playwright
+# System deps
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk-bridge2.0-0 \
@@ -27,14 +26,14 @@ RUN apt-get update && apt-get install -y \
     nano \
  && rm -rf /var/lib/apt/lists/*
 
-# Install node deps FIRST
-COPY package*.json ./
+# Copy ONLY backend deps
+COPY backend/package*.json ./
 RUN npm ci
 
-# Install Playwright browsers DURING BUILD (PERMANENT)
+# Install Playwright browsers (NOW IT WORKS)
 RUN npx playwright install chromium
 
-# Copy app source
-COPY . .
+# Copy backend source
+COPY backend ./
 
 CMD ["node", "combined-scraper.js"]

@@ -1,9 +1,0 @@
-{
-	"id": "4Fkoo6JxbYw5Y7d",
-	"json": "{\"id\":\"4Fkoo6JxbYw5Y7d\",\"url\":\"https://www.starkingsandwatson.co.uk/letting/property-search/page/1/\",\"loadedUrl\":\"https://www.starkingsandwatson.co.uk/letting/property-search/\",\"uniqueKey\":\"https://www.starkingsandwatson.co.uk/letting/property-search/page/1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"browserContext.newPage: Target page, context or browser has been closed\\n    at C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\scraper-agent-228.js:148:47\\n    at PlaywrightCrawler.requestHandler (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\scraper-agent-228.js:143:12)\\n    at async wrap (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":true,\"label\":\"TO LET\",\"__crawlee\":{\"state\":5}}}",
-	"method": "GET",
-	"orderNo": 1767963435579,
-	"retryCount": 1,
-	"uniqueKey": "https://www.starkingsandwatson.co.uk/letting/property-search/page/1",
-	"url": "https://www.starkingsandwatson.co.uk/letting/property-search/page/1/"
-}
