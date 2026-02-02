@@ -2,7 +2,7 @@ const { CheerioCrawler, PlaywrightCrawler } = require("crawlee");
 const cheerio = require("cheerio");
 const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
 const { isSoldProperty } = require("./lib/property-helpers.js");
-const { logMemoryUsage, runAgent13Scraper } = require("./lib/scraper-utils.js");
+const { logMemoryUsage, runAgent13Scraper, runAgent14Scraper } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
@@ -46,18 +46,6 @@ const AGENTS = [
 					"https://www.purplebricks.co.uk/search/property-to-rent/greater-london/london?sortBy=2&betasearch=true&latitude=51.5072178&longitude=-0.1275862&location=london&searchRadius=2&searchType=ForRent&soldOrLet=false",
 				isRent: true,
 				totalPages: 2,
-			},
-		],
-	},
-	{
-		id: 14,
-		name: "Chestertons",
-		propertyTypes: [
-			{
-				name: "Lettings",
-				baseUrl: "https://www.chestertons.co.uk/properties/lettings/status-available",
-				isRent: true,
-				totalPages: 95,
 			},
 		],
 	},
@@ -627,9 +615,7 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 						case 12: // Purplebricks
 							listingUrl = type.baseUrl.replace(/page=\d+/, `page=${pageNum}`);
 							break;
-						case 14: // Chestertons
-							listingUrl = pageNum === 1 ? type.baseUrl : `${type.baseUrl}?page=${pageNum}`;
-							break;
+
 						case 15: // Sequence Home
 							listingUrl = pageNum === 1 ? `${type.baseUrl}/` : `${type.baseUrl}/page-${pageNum}/`;
 							break;
@@ -673,6 +659,7 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 const args = process.argv.slice(2);
 let selectedAgents = null;
 let agent13StartPage = 1;
+let agent14StartPage = 1;
 
 if (args.length > 0) {
 	if (args[0] === "--from") {
@@ -684,7 +671,7 @@ if (args.length > 0) {
 			console.log(`\n▶️  Starting from agent ${fromAgentId}`);
 		}
 	} else {
-		// Check if first argument is 13 (special handling for agent 13)
+		// Check if first argument is 13 or 14 (special handling)
 		const firstAgentId = parseInt(args[0]);
 		if (firstAgentId === 13) {
 			// Usage: node combined-scraper.js 13 [startPage]
@@ -699,6 +686,18 @@ if (args.length > 0) {
 				console.log(`\n▶️  Running Agent 13 from page 1`);
 			}
 			selectedAgents = [13];
+		} else if (firstAgentId === 14) {
+			// Usage: node combined-scraper.js 14 [startPage]
+			if (args.length > 1) {
+				const startPage = parseInt(args[1]);
+				if (!isNaN(startPage) && startPage > 0) {
+					agent14StartPage = startPage;
+					console.log(`\n▶️  Running Agent 14 from page ${agent14StartPage}`);
+				}
+			} else {
+				console.log(`\n▶️  Running Agent 14 from page 1`);
+			}
+			selectedAgents = [14];
 		} else {
 			// Usage: node combined-scraper.js 8 12
 			// Scrapes only agents 8 and 12
@@ -719,13 +718,24 @@ if (selectedAgents === null) {
 	console.log(`  node combined-scraper.js 8            # Scrape only agent 8`);
 	console.log(`  node combined-scraper.js 4 8 12       # Scrape agents 4, 8, and 12`);
 	console.log(`  node combined-scraper.js 13 20        # Scrape agent 13 starting from page 20`);
+	console.log(`  node combined-scraper.js 14 10        # Scrape agent 14 starting from page 10`);
 	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
 	console.log(`\n`);
 }
 
-// Handle agent 13 separately by spawning its dedicated script
+// Handle agents 13 and 14 separately by spawning their dedicated scripts
 if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 	runAgent13Scraper(agent13StartPage)
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 14) {
+	runAgent14Scraper(agent14StartPage)
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);

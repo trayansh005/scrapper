@@ -2,10 +2,14 @@
 // Agent ID: 14
 //
 // Usage:
-// node backend/scraper-agent-14.js
+// node backend/scraper-agent-14.js [startPage]
+// Example: node backend/scraper-agent-14.js 10 (starts from page 10)
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { logMemoryUsage } = require("./lib/scraper-utils.js");
+const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -37,13 +41,13 @@ function formatPrice(price) {
 const START_PAGE = 1;
 
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// 	totalRecords: 1747,
-	// 	recordsPerPage: 12,
-	// },
+	{
+		urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
+		isRental: false,
+		label: "SALES",
+		totalRecords: 1747,
+		recordsPerPage: 12,
+	},
 	{
 		urlBase: "https://www.chestertons.co.uk/properties/lettings/status-available",
 		isRental: true,
@@ -55,6 +59,14 @@ const PROPERTY_TYPES = [
 
 async function scrapeChestertons() {
 	console.log(`\n🚀 Starting Chestertons scraper (Agent ${AGENT_ID})...\n`);
+	logMemoryUsage("START");
+
+	// Browserless configuration
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
+
+	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -62,8 +74,9 @@ async function scrapeChestertons() {
 		requestHandlerTimeoutSecs: 300,
 
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 			},
 		},
 
@@ -106,7 +119,7 @@ async function scrapeChestertons() {
 
 							let bedrooms = null;
 							const bedroomSvg = Array.from(c.querySelectorAll("svg[aria-labelledby]")).find(
-								(svg) => svg.querySelector("title")?.textContent === "Bedrooms"
+								(svg) => svg.querySelector("title")?.textContent === "Bedrooms",
 							);
 							if (bedroomSvg) {
 								bedrooms = bedroomSvg.parentElement?.nextElementSibling?.textContent.trim();
@@ -124,74 +137,70 @@ async function scrapeChestertons() {
 
 			// Process each property one by one
 			for (const p of properties) {
-				const detailPage = await page.context().newPage();
-				try {
+				// First check if property exists using optimized method
+				const result = await updatePriceByPropertyURLOptimized(
+					p.link,
+					p.price,
+					p.title,
+					p.bedrooms,
+					AGENT_ID,
+					isRental,
+				);
+
+				// Only visit detail page for new properties
+				if (!result.isExisting && !result.error) {
+					const detailPage = await page.context().newPage();
 					try {
-						const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-						await detailPage.setUserAgent(ua);
-						await detailPage.setExtraHTTPHeaders({
-							"accept-language": "en-GB,en;q=0.9",
-							referer: request.url,
-						});
-					} catch (e) {}
+						try {
+							const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+							await detailPage.setUserAgent(ua);
+							await detailPage.setExtraHTTPHeaders({
+								"accept-language": "en-GB,en;q=0.9",
+								referer: request.url,
+							});
+						} catch (e) {}
 
-					await sleep(randBetween(800, 1800));
-					const resp = await detailPage.goto(p.link, {
-						waitUntil: "domcontentloaded",
-						timeout: 30000,
-					});
-
-					if (resp?.status?.() === 429) {
-						console.warn(`⚠️ 429 on ${p.link} — backing off`);
-						await sleep(60000);
-						throw new Error("429");
-					}
-
-					await detailPage.waitForTimeout(1000);
-
-					// Extract coordinates from Google Maps link
-					let latitude = null;
-					let longitude = null;
-
-					try {
-						const coordsFromLink = await detailPage.evaluate(() => {
-							const link = Array.from(
-								document.querySelectorAll("a[href*='google.com/maps/dir']")
-							).find((l) => l.getAttribute("href")?.match(/\/(\d+\.\d+),(-?\d+\.\d+)/));
-							if (link) {
-								const coordMatch = link.getAttribute("href").match(/\/(\d+\.\d+),(-?\d+\.\d+)/);
-								return coordMatch ? { lat: coordMatch[1], lng: coordMatch[2] } : null;
-							}
-							return null;
+						await sleep(randBetween(800, 1800));
+						const resp = await detailPage.goto(p.link, {
+							waitUntil: "domcontentloaded",
+							timeout: 30000,
 						});
 
-						if (coordsFromLink?.lat && coordsFromLink?.lng) {
-							latitude = parseFloat(coordsFromLink.lat);
-							longitude = parseFloat(coordsFromLink.lng);
+						if (resp?.status?.() === 429) {
+							console.warn(`⚠️ 429 on ${p.link} — backing off`);
+							await sleep(60000);
+							throw new Error("429");
 						}
-					} catch (e) {
-						console.error(`❌ Coords extraction error: ${e.message}`);
+
+						await detailPage.waitForTimeout(1000);
+
+						// Extract coordinates using helper function
+						const htmlContent = await detailPage.content();
+						const coords = await extractCoordinatesFromHTML(htmlContent);
+
+						await updatePriceByPropertyURL(
+							p.link,
+							p.price,
+							p.title,
+							p.bedrooms,
+							AGENT_ID,
+							isRental,
+							coords.latitude,
+							coords.longitude,
+						);
+						totalScraped++;
+						totalSaved++;
+
+						const coordsStr =
+							coords.latitude && coords.longitude
+								? `${coords.latitude}, ${coords.longitude}`
+								: "No coords";
+						console.log(`✅ ${p.title} - ${formatPrice(p.price)} - ${coordsStr}`);
+					} catch (err) {
+						console.error(`❌ Error processing ${p.link}: ${err.message}`);
+					} finally {
+						await detailPage.close();
 					}
-
-					await updatePriceByPropertyURL(
-						p.link,
-						p.price,
-						p.title,
-						p.bedrooms,
-						AGENT_ID,
-						isRental,
-						latitude,
-						longitude
-					);
-					totalScraped++;
-					totalSaved++;
-
-					const coordsStr = latitude && longitude ? `${latitude}, ${longitude}` : "No coords";
-					console.log(`✅ ${p.title} - ${formatPrice(p.price)} - ${coordsStr}`);
-				} catch (err) {
-					console.error(`❌ Error processing ${p.link}: ${err.message}`);
-				} finally {
-					await detailPage.close();
 				}
 			}
 		},
@@ -201,6 +210,10 @@ async function scrapeChestertons() {
 		},
 	});
 
+	// Get starting page from command line argument (default to START_PAGE)
+	const args = process.argv.slice(2);
+	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
+
 	// Queue pages per property type
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages =
@@ -209,7 +222,13 @@ async function scrapeChestertons() {
 				: 1;
 		console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
 		const requests = [];
-		const startPage = Math.max(1, START_PAGE);
+		const startPage =
+			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages
+				? startPageArg
+				: Math.max(1, START_PAGE);
+
+		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
+
 		for (let page = startPage; page <= totalPages; page++) {
 			// Chestertons uses ?page=N query parameter
 			const url = page === 1 ? propertyType.urlBase : `${propertyType.urlBase}?page=${page}`;
@@ -223,11 +242,13 @@ async function scrapeChestertons() {
 
 		await crawler.addRequests(requests);
 		await crawler.run();
+		logMemoryUsage(`After ${propertyType.label}`);
 	}
 
 	console.log(
-		`\n✅ Completed Chestertons - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Chestertons - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
 	);
+	logMemoryUsage("END");
 }
 
 (async () => {
