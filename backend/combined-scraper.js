@@ -213,7 +213,9 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 			coords.longitude,
 		);
 
-		console.log(`✅ New property: ${title} (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`);
+		console.log(
+			`✅ New property: ${title} (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`,
+		);
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);
 		// Don't throw - just log the error
@@ -237,7 +239,7 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 					request.userData.bedrooms,
 					request.userData.agentId,
 					request.userData.isRent,
-					html
+					html,
 				);
 				return;
 			}
@@ -246,7 +248,8 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 			const propertyList = [];
 
 			// Extract properties based on agent
-			if (agentId === 8) { // Jackie Quinn
+			if (agentId === 8) {
+				// Jackie Quinn
 				$(".propertyBox").each((index, element) => {
 					try {
 						const $listing = $(element);
@@ -279,7 +282,8 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 						console.error(`Error extracting property: ${err.message}`);
 					}
 				});
-			} else if (agentId === 13) { // Bairstow Eves
+			} else if (agentId === 13) {
+				// Bairstow Eves
 				$(".card").each((index, element) => {
 					try {
 						const $card = $(element);
@@ -314,7 +318,8 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 						console.error(`Error extracting property: ${err.message}`);
 					}
 				});
-			} else if (agentId === 14) { // Chestertons
+			} else if (agentId === 14) {
+				// Chestertons
 				$(".pegasus-property-card").each((index, element) => {
 					try {
 						const $card = $(element);
@@ -367,27 +372,31 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 						console.error(`Error extracting property: ${err.message}`);
 					}
 				});
-			} else if (agentId === 15) { // Sequence Home
-				$('.property.list_block[data-property-id]').each((index, element) => {
+			} else if (agentId === 15) {
+				// Sequence Home
+				$(".property.list_block[data-property-id]").each((index, element) => {
 					try {
 						const $item = $(element);
-						const linkEl = $item.find('a.property-list-link').first();
-						const href = linkEl.attr('href');
-						const url = href ?
-							(href.startsWith('http') ? href : `https://www.sequencehome.co.uk${href}`) : null;
+						const linkEl = $item.find("a.property-list-link").first();
+						const href = linkEl.attr("href");
+						const url = href
+							? href.startsWith("http")
+								? href
+								: `https://www.sequencehome.co.uk${href}`
+							: null;
 
-						const titleEl = $item.find('.address').first();
+						const titleEl = $item.find(".address").first();
 						const title = titleEl.text();
 
-						const priceEl = $item.find('.price-value').first();
+						const priceEl = $item.find(".price-value").first();
 						const priceText = priceEl.text();
 
 						if (isSoldProperty(priceText)) return;
 
 						let bedrooms = null;
-						const roomsEl = $item.find('.rooms').first();
+						const roomsEl = $item.find(".rooms").first();
 						if (roomsEl.length) {
-							bedrooms = roomsEl.text() || roomsEl.attr('title')?.match(/(\d+)/)?.[1];
+							bedrooms = roomsEl.text() || roomsEl.attr("title")?.match(/(\d+)/)?.[1];
 						}
 
 						if (url && priceText && title) {
@@ -427,10 +436,19 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 
 				if (!result.isExisting && !result.error) {
 					// Need to fetch coordinates from detail page (only if no error)
-					await crawler.addRequests([{
-						url,
-						userData: { isDetailPage: true, price, title: title.trim(), bedrooms, isRent, agentId }
-					}]);
+					await crawler.addRequests([
+						{
+							url,
+							userData: {
+								isDetailPage: true,
+								price,
+								title: title.trim(),
+								bedrooms,
+								isRent,
+								agentId,
+							},
+						},
+					]);
 				}
 			}
 		},
@@ -462,9 +480,11 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 					}
 				});
 
-				if (agentId === 4) { // Marsh & Parsons needs special headers
+				if (agentId === 4) {
+					// Marsh & Parsons needs special headers
 					await page.setExtraHTTPHeaders({
-						"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+						"User-Agent":
+							"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 						"Accept-Language": "en-GB,en;q=0.9",
 						Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 					});
@@ -482,7 +502,7 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 					request.userData.bedrooms,
 					request.userData.agentId,
 					request.userData.isRent,
-					html
+					html,
 				);
 				return;
 			}
@@ -494,7 +514,8 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 			const propertyList = [];
 
 			// Extract properties based on agent
-			if (agentId === 4) { // Marsh & Parsons
+			if (agentId === 4) {
+				// Marsh & Parsons
 				$("div.my-4.shadow-md.rounded-xl").each((index, element) => {
 					try {
 						const $card = $(element);
@@ -522,7 +543,9 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 						const location = locationElement.text() || "";
 
 						if (url && priceRaw) {
-							const fullUrl = url.startsWith("http") ? url : `https://www.marshandparsons.co.uk${url}`;
+							const fullUrl = url.startsWith("http")
+								? url
+								: `https://www.marshandparsons.co.uk${url}`;
 							propertyList.push({
 								url: fullUrl,
 								title: title.trim(),
@@ -535,11 +558,14 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 						console.error(`Error extracting property: ${err.message}`);
 					}
 				});
-			} else if (agentId === 12) { // Purplebricks
+			} else if (agentId === 12) {
+				// Purplebricks
 				$('[data-testid="results-list"] li').each((index, element) => {
 					try {
 						const $li = $(element);
-						const linkEl = $li.find('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]').first();
+						const linkEl = $li
+							.find('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]')
+							.first();
 						if (!linkEl.length) return;
 
 						const priceEl = $li.find('[data-testid="search-result-price"], .sc-cda42038-7').first();
@@ -550,15 +576,21 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 						const priceMatch = priceText.match(/£([\d,]+)/);
 						const priceRaw = priceMatch ? priceMatch[0] : "";
 
-						const addrEl = $li.find('[data-testid="search-result-address"], .sc-cda42038-10').first();
+						const addrEl = $li
+							.find('[data-testid="search-result-address"], .sc-cda42038-10')
+							.first();
 						const address = addrEl.text();
 
 						const bedEl = $li.find('[data-testid="search-result-bedrooms"]').first();
 						const bedrooms = bedEl.text();
 
 						const href = linkEl.attr("href");
-						const url = href && href.startsWith("http") ? href :
-							href ? `https://www.purplebricks.co.uk${href}` : null;
+						const url =
+							href && href.startsWith("http")
+								? href
+								: href
+									? `https://www.purplebricks.co.uk${href}`
+									: null;
 
 						if (url && priceRaw) {
 							propertyList.push({
@@ -599,10 +631,12 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 
 				if (!result.isExisting && !result.error) {
 					// Need to fetch coordinates from detail page (only if no error)
-					await crawler.addRequests([{
-						url,
-						userData: { isDetailPage: true, price, title: fullTitle, bedrooms, isRent, agentId }
-					}]);
+					await crawler.addRequests([
+						{
+							url,
+							userData: { isDetailPage: true, price, title: fullTitle, bedrooms, isRent, agentId },
+						},
+					]);
 				}
 			}
 		},

@@ -5,7 +5,7 @@ const pool = mysql.createPool({
 	host: "localhost",
 	user: "root",
 	password: process.env.PASSWORD || "",
-	database: "scrape",
+	database: "scraper",
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
 	queueLimit: 0,
