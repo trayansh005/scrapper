@@ -373,7 +373,7 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 		},
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
-		maxConcurrency: agentId === 8 ? 1 : 2, // Agent 8 (Jackie Quinn) needs sequential requests to avoid 429 errors
+		maxConcurrency: agentId === 8 || agentId === 13 ? 1 : 2, // Agent 8 & 13 need sequential requests to avoid 429 errors
 		failedRequestHandler: async ({ request }) => {
 			console.log(`⚠️ Request failed after retries: ${request.url}`);
 		},
@@ -977,6 +977,31 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 				}
 				const price = parseFloat(priceClean);
 				const fullTitle = location ? `${title}, ${location}` : title;
+
+				if (agentId === 13) {
+					// Bairstow Eves: visit detail pages sequentially to avoid 429s
+					try {
+						await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+						await page.waitForTimeout(1000);
+
+						const html = await page.content();
+						await processPropertyWithCoordinates(
+							url,
+							price,
+							fullTitle,
+							bedrooms,
+							agentId,
+							isRent,
+							html,
+						);
+					} catch (error) {
+						console.log(`⚠️ Failed to process ${url}: ${error.message}`);
+					}
+
+					// Short delay between properties
+					await page.waitForTimeout(500);
+					continue;
+				}
 
 				// Check if property exists
 				const result = await updatePriceByPropertyURLOptimized(
