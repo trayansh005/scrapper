@@ -62,7 +62,7 @@ async function scrapeChestertons() {
 	console.log(`\n🚀 Starting Chestertons scraper (Agent ${AGENT_ID})...\n`);
 	logMemoryUsage("START");
 
-	// Browserless configuration for detail pages
+	// Browserless configuration
 	const browserWSEndpoint =
 		process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
@@ -71,8 +71,8 @@ async function scrapeChestertons() {
 		`🌐 Connecting to browserless for listing and detail pages: ${browserWSEndpoint.split("?")[0]}`,
 	);
 
-	// Playwright crawler for listing pages (JavaScript rendered content)
-	const listingCrawler = new PlaywrightCrawler({
+	// Create a unified Playwright crawler that handles both listing and detail pages
+	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 3,
 		requestHandlerTimeoutSecs: 120,
@@ -85,7 +85,59 @@ async function scrapeChestertons() {
 		},
 
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData || {};
+			const { pageNum, isRental, label, property, isDetailPage } = request.userData || {};
+
+			// Handle detail pages
+			if (isDetailPage) {
+				// Add 1 second delay between each detail page visit
+				await sleep(1000);
+
+				try {
+					const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+					await page.setUserAgent(ua);
+					await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+				} catch (e) {}
+
+				await sleep(randBetween(800, 1800));
+				const resp = await page.goto(request.url, {
+					waitUntil: "domcontentloaded",
+					timeout: 30000,
+				});
+
+				if (resp?.status?.() === 429) {
+					console.warn(`⚠️ 429 on ${request.url} — backing off`);
+					await sleep(60000);
+					throw new Error("429");
+				}
+
+				await page.waitForTimeout(1000);
+
+				// Extract coordinates using helper function
+				const htmlContent = await page.content();
+				const coords = await extractCoordinatesFromHTML(htmlContent);
+
+				await updatePriceByPropertyURL(
+					property.link,
+					property.price,
+					property.title,
+					property.bedrooms,
+					AGENT_ID,
+					property.isRental,
+					coords.latitude,
+					coords.longitude,
+				);
+				totalScraped++;
+				totalSaved++;
+
+				const coordsStr =
+					coords.latitude && coords.longitude
+						? `${coords.latitude}, ${coords.longitude}`
+						: "No coords";
+				console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
+				return;
+			}
+
+			// Handle listing pages
 			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
 			try {
@@ -152,8 +204,7 @@ async function scrapeChestertons() {
 
 			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
 
-			// Collect new properties that need detail page scraping
-			const newProperties = [];
+			// Process properties sequentially - update prices and scrape details for new ones
 			for (const p of properties) {
 				// First check if property exists using optimized method
 				const result = await updatePriceByPropertyURLOptimized(
@@ -165,94 +216,26 @@ async function scrapeChestertons() {
 					isRental,
 				);
 
-				// Collect new properties for detail page processing
+				// If it's a new property, scrape detail page immediately
 				if (!result.isExisting && !result.error) {
-					newProperties.push({ ...p, isRental });
+					console.log(`🆕 Scraping detail for new property: ${p.title}`);
+					await crawler.addRequests([
+						{
+							url: p.link,
+							userData: { property: { ...p, isRental }, isDetailPage: true },
+						},
+					]);
 				}
 			}
-
-			// Add detail page requests for new properties
-			if (newProperties.length > 0) {
-				console.log(`🆕 Adding ${newProperties.length} new properties for detail scraping`);
-				await detailCrawler.addRequests(
-					newProperties.map((p) => ({
-						url: p.link,
-						userData: { property: p },
-					})),
-				);
-			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
-		},
-	});
-
-	// Playwright crawler for detail pages (only for new properties)
-	const detailCrawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 3,
-		requestHandlerTimeoutSecs: 120,
-
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-			},
-		},
-
-		async requestHandler({ page, request }) {
-			const { property } = request.userData;
-
-			// Add 1 second delay between each detail page visit
-			await sleep(1000);
-
-			try {
-				const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-				await page.setUserAgent(ua);
-				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-			} catch (e) {}
-
-			await sleep(randBetween(800, 1800));
-			const resp = await page.goto(request.url, {
-				waitUntil: "domcontentloaded",
-				timeout: 30000,
-			});
-
-			if (resp?.status?.() === 429) {
-				console.warn(`⚠️ 429 on ${request.url} — backing off`);
-				await sleep(60000);
-				throw new Error("429");
+			const { isDetailPage } = request.userData || {};
+			if (isDetailPage) {
+				console.error(`❌ Failed detail page: ${request.url}`);
+			} else {
+				console.error(`❌ Failed listing page: ${request.url}`);
 			}
-
-			await page.waitForTimeout(1000);
-
-			// Extract coordinates using helper function
-			const htmlContent = await page.content();
-			const coords = await extractCoordinatesFromHTML(htmlContent);
-
-			await updatePriceByPropertyURL(
-				property.link,
-				property.price,
-				property.title,
-				property.bedrooms,
-				AGENT_ID,
-				property.isRental,
-				coords.latitude,
-				coords.longitude,
-			);
-			totalScraped++;
-			totalSaved++;
-
-			const coordsStr =
-				coords.latitude && coords.longitude
-					? `${coords.latitude}, ${coords.longitude}`
-					: "No coords";
-			console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
-		},
-
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed detail page: ${request.url}`);
 		},
 	});
 
@@ -281,18 +264,20 @@ async function scrapeChestertons() {
 			const url = page === 1 ? propertyType.urlBase : `${propertyType.urlBase}?page=${page}`;
 			const uniqueKey = `${propertyType.label}_page_${page}`;
 
-			// Process this page's listings
-			await listingCrawler.addRequests([
+			// Process this page's listings and details sequentially
+			await crawler.addRequests([
 				{
 					url,
 					uniqueKey,
-					userData: { pageNum: page, isRental: propertyType.isRental, label: propertyType.label },
+					userData: {
+						pageNum: page,
+						isRental: propertyType.isRental,
+						label: propertyType.label,
+						isDetailPage: false,
+					},
 				},
 			]);
-			await listingCrawler.run();
-
-			// Process detail pages for properties found on this page
-			await detailCrawler.run();
+			await crawler.run();
 		}
 
 		logMemoryUsage(`After ${propertyType.label}`);
