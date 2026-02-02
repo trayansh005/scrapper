@@ -38,7 +38,7 @@ const AGENTS = [
 				baseUrl:
 					"https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending",
 				isRent: false,
-				totalPages: 11,
+				totalPages: 12,
 			},
 		],
 	},
