@@ -1002,12 +1002,26 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 
 				if (!result.isExisting && !result.error) {
 					// Need to fetch coordinates from detail page (only if no error)
-					await crawler.addRequests([
-						{
-							url,
-							userData: { isDetailPage: true, price, title: fullTitle, bedrooms, isRent, agentId },
-						},
-					]);
+					// Add delay before requesting detail page to prevent 429s
+					await crawler.addRequests(
+						[
+							{
+								url,
+								userData: {
+									isDetailPage: true,
+									price,
+									title: fullTitle,
+									bedrooms,
+									isRent,
+									agentId,
+								},
+							},
+						],
+						{ waitForAllRequestsToBeAdded: true },
+					);
+					if (agentId === 13) {
+						await new Promise((resolve) => setTimeout(resolve, 2000));
+					}
 				}
 			}
 		},
@@ -1079,7 +1093,8 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 						// Run each listing page sequentially to avoid 429s
 						for (const url of urls) {
 							await scrapeWithPlaywright([url], agent.id, type.isRent);
-							await new Promise((resolve) => setTimeout(resolve, 500));
+							// Longer delay between pages to prevent 429s
+							await new Promise((resolve) => setTimeout(resolve, 1000));
 						}
 					} else {
 						await scrapeWithPlaywright(urls, agent.id, type.isRent);
