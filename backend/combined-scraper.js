@@ -225,6 +225,7 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 // Generic Cheerio crawler for agents that work with simple HTTP requests
 async function scrapeWithCheerio(urls, agentId, isRent) {
 	const crawler = new CheerioCrawler({
+		useStorageClient: false,
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
 		maxConcurrency: 5,
@@ -469,6 +470,7 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = new PlaywrightCrawler({
+		useStorageClient: false,
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -555,97 +557,139 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 			const propertyList = [];
 
 			// Extract properties based on agent
-			if (agentId === 4) {
-				// Marsh & Parsons
-				$("div.my-4.shadow-md.rounded-xl").each((index, element) => {
-					try {
-						const $card = $(element);
-						const linkElement = $card.find('a[href*="/property/"]').first();
-						const titleElement = $card.find("h3").first();
-						const locationElement = $card.find("p").first();
+			switch (agentId) {
+				case 4:
+					// Marsh & Parsons
+					$("div.my-4.shadow-md.rounded-xl").each((index, element) => {
+						try {
+							const $card = $(element);
+							const linkElement = $card.find('a[href*="/property/"]').first();
+							const titleElement = $card.find("h3").first();
+							const locationElement = $card.find("p").first();
 
-						const textContent = $card.text();
-						if (isSoldProperty(textContent)) return;
+							const textContent = $card.text();
+							if (isSoldProperty(textContent)) return;
 
-						const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
-						const priceRaw = priceMatch ? priceMatch[0] : null;
+							const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
+							const priceRaw = priceMatch ? priceMatch[0] : null;
 
-						const bedImg = $card.find('img[alt="bed"]').first();
-						let bedrooms = null;
-						if (bedImg.length) {
-							const parent = bedImg.parent();
-							const bedroomText = parent.text();
-							const bedroomMatch = bedroomText.trim().match(/\d+/);
-							bedrooms = bedroomMatch ? parseInt(bedroomMatch[0]) : null;
+							const bedImg = $card.find('img[alt="bed"]').first();
+							let bedrooms = null;
+							if (bedImg.length) {
+								const parent = bedImg.parent();
+								const bedroomText = parent.text();
+								const bedroomMatch = bedroomText.trim().match(/\d+/);
+								bedrooms = bedroomMatch ? parseInt(bedroomMatch[0]) : null;
+							}
+
+							const url = linkElement.attr("href");
+							const title = titleElement.text() || "";
+							const location = locationElement.text() || "";
+
+							if (url && priceRaw) {
+								const fullUrl = url.startsWith("http")
+									? url
+									: `https://www.marshandparsons.co.uk${url}`;
+								propertyList.push({
+									url: fullUrl,
+									title: title.trim(),
+									location: location.trim(),
+									priceRaw,
+									bedrooms,
+								});
+							}
+						} catch (err) {
+							console.error(`Error extracting property: ${err.message}`);
 						}
+					});
+					break;
 
-						const url = linkElement.attr("href");
-						const title = titleElement.text() || "";
-						const location = locationElement.text() || "";
+				case 8:
+					// Jackie Quinn
+					$(".propertyBox").each((index, element) => {
+						try {
+							const $listing = $(element);
+							const linkEl = $listing.find("h2.searchProName a").first();
+							const link = linkEl.attr("href");
+							const title = linkEl.text();
 
-						if (url && priceRaw) {
-							const fullUrl = url.startsWith("http")
-								? url
-								: `https://www.marshandparsons.co.uk${url}`;
-							propertyList.push({
-								url: fullUrl,
-								title: title.trim(),
-								location: location.trim(),
-								priceRaw,
-								bedrooms,
-							});
+							const priceEl = $listing.find("h3 div").first();
+							const priceText = priceEl.text();
+
+							if (isSoldProperty(priceText)) return;
+
+							const priceMatch = priceText.match(/£([\d,]+)/);
+							const priceRaw = priceMatch ? priceMatch[0] : null;
+
+							const descEl = $listing.find(".featuredDescriptions").first();
+							const description = descEl.text();
+							const bedroomMatch = description.match(/(\d+)\s+BEDROOM/i);
+							const bedrooms = bedroomMatch ? bedroomMatch[1] : null;
+
+							if (link && title && priceRaw) {
+								propertyList.push({
+									url: link.startsWith("http") ? link : "https://www.jackiequinn.co.uk" + link,
+									title: title.trim(),
+									priceRaw,
+									bedrooms,
+								});
+							}
+						} catch (err) {
+							console.error(`Error extracting property: ${err.message}`);
 						}
-					} catch (err) {
-						console.error(`Error extracting property: ${err.message}`);
-					}
-				});
-			} else if (agentId === 12) {
-				// Purplebricks
-				$('[data-testid="results-list"] li').each((index, element) => {
-					try {
-						const $li = $(element);
-						const linkEl = $li
-							.find('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]')
-							.first();
-						if (!linkEl.length) return;
+					});
+					break;
 
-						const priceEl = $li.find('[data-testid="search-result-price"], .sc-cda42038-7').first();
-						const priceText = priceEl.text();
+				case 12:
+					// Purplebricks
+					$('[data-testid="results-list"] li').each((index, element) => {
+						try {
+							const $li = $(element);
+							const linkEl = $li
+								.find('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]')
+								.first();
+							if (!linkEl.length) return;
 
-						if (isSoldProperty(priceText)) return;
+							const priceEl = $li
+								.find('[data-testid="search-result-price"], .sc-cda42038-7')
+								.first();
+							const priceText = priceEl.text();
 
-						const priceMatch = priceText.match(/£([\d,]+)/);
-						const priceRaw = priceMatch ? priceMatch[0] : "";
+							if (isSoldProperty(priceText)) return;
 
-						const addrEl = $li
-							.find('[data-testid="search-result-address"], .sc-cda42038-10')
-							.first();
-						const address = addrEl.text();
+							const priceMatch = priceText.match(/£([\d,]+)/);
+							const priceRaw = priceMatch ? priceMatch[0] : "";
 
-						const bedEl = $li.find('[data-testid="search-result-bedrooms"]').first();
-						const bedrooms = bedEl.text();
+							const addrEl = $li
+								.find('[data-testid="search-result-address"], .sc-cda42038-10')
+								.first();
+							const address = addrEl.text();
 
-						const href = linkEl.attr("href");
-						const url =
-							href && href.startsWith("http")
-								? href
-								: href
-									? `https://www.purplebricks.co.uk${href}`
-									: null;
+							const bedEl = $li.find('[data-testid="search-result-bedrooms"]').first();
+							const bedrooms = bedEl.text();
 
-						if (url && priceRaw) {
-							propertyList.push({
-								url,
-								title: address.trim(),
-								location: "",
-								priceRaw,
-								bedrooms: bedrooms.trim(),
-							});
+							const href = linkEl.attr("href");
+							const url =
+								href && href.startsWith("http")
+									? href
+									: href
+										? `https://www.purplebricks.co.uk${href}`
+										: null;
+
+							if (url && priceRaw) {
+								propertyList.push({
+									url,
+									title: address.trim(),
+									location: "",
+									priceRaw,
+									bedrooms: bedrooms.trim(),
+								});
+							}
+						} catch (err) {
+							console.error(`Error extracting property: ${err.message}`);
 						}
-					} catch (err) {
-						console.error(`Error extracting property: ${err.message}`);
-					}
-				});
+					});
+					break;
 			}
 
 			console.log(`Found ${propertyList.length} available properties`);
