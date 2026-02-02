@@ -2,10 +2,13 @@
 // Agent ID: 13
 //
 // Usage:
-// node backend/scraper-agent-13.js
+// node backend/scraper-agent-13.js [startPage]
+// Example: node backend/scraper-agent-13.js 20 (starts from page 20)
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { logMemoryUsage } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -16,13 +19,13 @@ let totalSaved = 0;
 
 // Configuration for sales and rentals
 const PROPERTY_TYPES = [
-	// {
-	// 	urlPath: "properties/sales/status-available/most-recent-first",
-	// 	totalRecords: 2825,
-	// 	recordsPerPage: 50,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		urlPath: "properties/sales/status-available/most-recent-first",
+		totalRecords: 2825,
+		recordsPerPage: 50,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		urlPath: "properties/lettings/status-available/most-recent-first",
 		totalRecords: 634,
@@ -34,6 +37,14 @@ const PROPERTY_TYPES = [
 
 async function scrapeBairstowEves() {
 	console.log(`\n🚀 Starting Bairstow Eves scraper (Agent ${AGENT_ID})...\n`);
+	logMemoryUsage("START");
+
+	// Browserless configuration
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
+
+	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1, // Process one page at a time
@@ -41,9 +52,9 @@ async function scrapeBairstowEves() {
 		requestHandlerTimeoutSecs: 300,
 
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				browserWSEndpoint,
 			},
 		},
 
@@ -126,17 +137,9 @@ async function scrapeBairstowEves() {
 					await page.goto(property.link, { waitUntil: "domcontentloaded", timeout: 30000 });
 					await page.waitForTimeout(1000);
 
-					let coords = { latitude: null, longitude: null };
-
-					// Extract coordinates from HTML comments
+					// Extract coordinates using helper function
 					const htmlContent = await page.content();
-					const latMatch = htmlContent.match(/<!--property-latitude:"([0-9.-]+)"-->/);
-					const lngMatch = htmlContent.match(/<!--property-longitude:"([0-9.-]+)"-->/);
-
-					if (latMatch && lngMatch) {
-						coords.latitude = parseFloat(latMatch[1]);
-						coords.longitude = parseFloat(lngMatch[1]);
-					}
+					const coords = await extractCoordinatesFromHTML(htmlContent);
 
 					await updatePriceByPropertyURL(
 						property.link,
@@ -146,7 +149,7 @@ async function scrapeBairstowEves() {
 						AGENT_ID,
 						isRental,
 						coords.latitude,
-						coords.longitude
+						coords.longitude,
 					);
 
 					totalSaved++;
@@ -154,7 +157,7 @@ async function scrapeBairstowEves() {
 
 					if (coords.latitude && coords.longitude) {
 						console.log(
-							`✅ ${property.title} - £${property.price} - ${coords.latitude}, ${coords.longitude}`
+							`✅ ${property.title} - £${property.price} - ${coords.latitude}, ${coords.longitude}`,
 						);
 					} else {
 						console.log(`✅ ${property.title} - £${property.price} - No coords`);
@@ -173,16 +176,21 @@ async function scrapeBairstowEves() {
 		},
 	});
 
+	// Get starting page from command line argument (default to 1)
+	const args = process.argv.slice(2);
+	const startPageArg = args.length > 0 ? parseInt(args[0]) : 1;
+
 	// Process property types one by one
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
 		console.log(
-			`🏠 Processing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)\n`
+			`🏠 Processing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)\n`,
 		);
 
-		// Add all listing pages to the queue (starting from page 45)
+		// Add all listing pages to the queue (starting from specified page)
 		const listingRequests = [];
-		const startPage = 1;
+		const startPage =
+			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages ? startPageArg : 1;
 		for (let page = startPage; page <= totalPages; page++) {
 			listingRequests.push({
 				url: `https://www.bairstoweves.co.uk/${propertyType.urlPath}/page-${page}#/`,
@@ -198,11 +206,13 @@ async function scrapeBairstowEves() {
 
 		await crawler.addRequests(listingRequests);
 		await crawler.run();
+		logMemoryUsage(`After ${propertyType.label}`);
 	}
 
 	console.log(
-		`\n✅ Completed Bairstow Eves - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Bairstow Eves - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
 	);
+	logMemoryUsage("END");
 }
 
 // Main execution

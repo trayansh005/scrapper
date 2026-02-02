@@ -1,18 +1,12 @@
 const { CheerioCrawler, PlaywrightCrawler } = require("crawlee");
 const cheerio = require("cheerio");
 const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
-
-// Keywords to identify sold properties
-const SOLD_KEYWORDS = [
-	"sold subject to contract",
-	"sold stc",
-	"sold",
-	"under offer",
-	"let agreed",
-	"let",
-	"withdrawn",
-	"off market",
-];
+const { isSoldProperty } = require("./lib/property-helpers.js");
+const { logMemoryUsage, runAgent13Scraper } = require("./lib/scraper-utils.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 
 // Combined scraper for multiple agents using Crawlee
 const AGENTS = [
@@ -56,26 +50,6 @@ const AGENTS = [
 		],
 	},
 	{
-		id: 13,
-		name: "Bairstow Eves",
-		propertyTypes: [
-			{
-				name: "Sales",
-				baseUrl:
-					"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first",
-				isRent: false,
-				totalPages: 57,
-			},
-			{
-				name: "Lettings",
-				baseUrl:
-					"https://www.bairstoweves.co.uk/properties/lettings/status-available/most-recent-first",
-				isRent: true,
-				totalPages: 13,
-			},
-		],
-	},
-	{
 		id: 14,
 		name: "Chestertons",
 		propertyTypes: [
@@ -100,146 +74,6 @@ const AGENTS = [
 		],
 	},
 ];
-
-// Memory monitoring
-function logMemoryUsage(label) {
-	const used = process.memoryUsage();
-	console.log(
-		`[${label}] Memory: ${Math.round(used.heapUsed / 1024 / 1024)}MB / ${Math.round(
-			used.heapTotal / 1024 / 1024,
-		)}MB`,
-	);
-}
-
-// Check if property is sold based on text content
-function isSoldProperty(text) {
-	const lowerText = text.toLowerCase();
-	return SOLD_KEYWORDS.some((keyword) => lowerText.includes(keyword));
-}
-
-// Optimized update function - only updates price for existing properties
-async function updatePriceByPropertyURLOptimized(
-	link,
-	price,
-	title,
-	bedrooms,
-	agent_id,
-	is_rent = false,
-) {
-	try {
-		if (link) {
-			let tableName = "property_for_sale";
-			if (is_rent) {
-				tableName = "property_for_rent";
-			}
-
-			const linkTrimmed = link.trim();
-
-			// Check if property exists for THIS agent
-			const [propertiesUrlRows] = await promisePool.query(
-				`SELECT COUNT(*) as count FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
-				[linkTrimmed, agent_id],
-			);
-
-			if (propertiesUrlRows[0].count > 0) {
-				// UPDATE existing property - only price
-				const [result] = await promisePool.query(
-					`UPDATE ${tableName}
-                    SET price = ?, updated_at = NOW()
-                    WHERE property_url = ? AND agent_id = ?`,
-					[price, linkTrimmed, agent_id],
-				);
-
-				if (result.affectedRows > 0) {
-					console.log(`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Price: £${price}`);
-				}
-				return { isExisting: true, updated: result.affectedRows > 0 };
-			} else {
-				// For new properties, we'll need coordinates
-				return { isExisting: false, updated: false };
-			}
-		}
-		return { isExisting: false, updated: false };
-	} catch (error) {
-		console.error(`❌ Error checking property ${link}:`, error.message || error);
-		console.error(`Full error:`, error);
-		// Don't throw - return error state instead to prevent crawler from failing
-		return { isExisting: false, updated: false, error: error.message || String(error) };
-	}
-}
-
-// Extract coordinates from HTML
-async function extractCoordinatesFromHTML(html) {
-	let latitude = null;
-	let longitude = null;
-
-	try {
-		const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
-		const scriptMatch = html.match(/lat:\s*"?([\d.-]+)"?,\s*lng:\s*"?([\d.-]+)"?/);
-		const jsonMatch = html.match(
-			/"latitude"\s*:\s*"?([\d.-]+)"?,\s*"longitude"\s*:\s*"?([\d.-]+)"?/,
-		);
-		const latLngMatch = html.match(/"lat"\s*:\s*"?([\d.-]+)"?,\s*"lng"\s*:\s*"?([\d.-]+)"?/);
-		const dataAttrMatch = html.match(
-			/data-(?:lat|latitude)="([\d.-]+)"[\s\S]*?data-(?:lng|longitude)="([\d.-]+)"/,
-		);
-		const atMatch = html.match(/@([0-9.-]+),([0-9.-]+),\d+z/);
-		const latCommentMatch = html.match(/<!--property-latitude:["']([0-9.-]+)["']-->/);
-		const lngCommentMatch = html.match(/<!--property-longitude:["']([0-9.-]+)["']-->/);
-
-		if (mapsMatch) {
-			latitude = parseFloat(mapsMatch[1]);
-			longitude = parseFloat(mapsMatch[2]);
-		} else if (scriptMatch) {
-			latitude = parseFloat(scriptMatch[1]);
-			longitude = parseFloat(scriptMatch[2]);
-		} else if (jsonMatch) {
-			latitude = parseFloat(jsonMatch[1]);
-			longitude = parseFloat(jsonMatch[2]);
-		} else if (latLngMatch) {
-			latitude = parseFloat(latLngMatch[1]);
-			longitude = parseFloat(latLngMatch[2]);
-		} else if (dataAttrMatch) {
-			latitude = parseFloat(dataAttrMatch[1]);
-			longitude = parseFloat(dataAttrMatch[2]);
-		} else if (atMatch) {
-			latitude = parseFloat(atMatch[1]);
-			longitude = parseFloat(atMatch[2]);
-		} else if (latCommentMatch && lngCommentMatch) {
-			latitude = parseFloat(latCommentMatch[1]);
-			longitude = parseFloat(lngCommentMatch[1]);
-		}
-	} catch (error) {
-		console.error("Error extracting coordinates:", error.message);
-	}
-
-	return { latitude, longitude };
-}
-
-// Process property with coordinates from detail page
-async function processPropertyWithCoordinates(url, price, title, bedrooms, agentId, isRent, html) {
-	try {
-		const coords = await extractCoordinatesFromHTML(html);
-
-		await updatePriceByPropertyURL(
-			url,
-			price,
-			title,
-			bedrooms,
-			agentId,
-			isRent,
-			coords.latitude,
-			coords.longitude,
-		);
-
-		console.log(
-			`✅ New property: ${title} (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`,
-		);
-	} catch (error) {
-		console.error(`❌ Failed ${url}:`, error.message);
-		// Don't throw - just log the error
-	}
-}
 
 // Generic Cheerio crawler for agents that work with simple HTTP requests
 async function scrapeWithCheerio(urls, agentId, isRent) {
@@ -705,45 +539,6 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 						}
 					});
 					break;
-
-				case 13:
-					// Bairstow Eves
-					$(".card").each((index, element) => {
-						try {
-							const $card = $(element);
-							const linkEl = $card.find("a.card__link").first();
-							const link = linkEl.attr("href");
-
-							const titleEl = $card.find(".card__text-content").first();
-							const title = titleEl.text();
-
-							const priceEl = $card.find(".card__heading").first();
-							const priceText = priceEl.text();
-
-							if (isSoldProperty(priceText)) return;
-
-							const priceMatch = priceText.match(/£[\d,]+/);
-							const priceRaw = priceMatch ? priceMatch[0] : null;
-
-							const bedroomsEl = $card.find(".card-content__spec-list-number").first();
-							const bedroomsText = bedroomsEl.text();
-							const bedroomsMatch = bedroomsText.match(/\d+/);
-							const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
-
-							if (link && priceRaw && title) {
-								propertyList.push({
-									url: link.startsWith("http") ? link : `https://www.bairstoweves.co.uk${link}`,
-									title: title.trim(),
-									location: "",
-									priceRaw,
-									bedrooms,
-								});
-							}
-						} catch (err) {
-							console.error(`Error extracting property: ${err.message}`);
-						}
-					});
-					break;
 			}
 
 			console.log(`Found ${propertyList.length} available properties`);
@@ -769,53 +564,24 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 				);
 
 				if (!result.isExisting && !result.error) {
-					// For agent 13, process detail page immediately to ensure sequential processing
-					if (agentId === 13) {
-						try {
-							await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-							await page.waitForTimeout(1000);
-
-							const detailHtml = await page.content();
-							await processPropertyWithCoordinates(
+					// Add to queue for detail page processing
+					await crawler.addRequests(
+						[
+							{
 								url,
-								price,
-								fullTitle,
-								bedrooms,
-								agentId,
-								isRent,
-								detailHtml,
-							);
-
-							// Delay between detail pages
-							await new Promise((resolve) => setTimeout(resolve, 3000));
-						} catch (error) {
-							console.error(`❌ Error processing detail page ${url}: ${error.message}`);
-						}
-					} else {
-						// For other agents, add to queue
-						await crawler.addRequests(
-							[
-								{
-									url,
-									userData: {
-										isDetailPage: true,
-										price,
-										title: fullTitle,
-										bedrooms,
-										isRent,
-										agentId,
-									},
+								userData: {
+									isDetailPage: true,
+									price,
+									title: fullTitle,
+									bedrooms,
+									isRent,
+									agentId,
 								},
-							],
-							{ waitForAllRequestsToBeAdded: true },
-						);
-					}
+							},
+						],
+						{ waitForAllRequestsToBeAdded: true },
+					);
 				}
-			}
-
-			// Add delay between listing pages for agent 13 to prevent rate limiting
-			if (agentId === 13 && !request.userData?.isDetailPage) {
-				await new Promise((resolve) => setTimeout(resolve, 2000));
 			}
 		},
 	});
@@ -861,9 +627,6 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 						case 12: // Purplebricks
 							listingUrl = type.baseUrl.replace(/page=\d+/, `page=${pageNum}`);
 							break;
-						case 13: // Bairstow Eves
-							listingUrl = `${type.baseUrl}/page-${pageNum}#/`;
-							break;
 						case 14: // Chestertons
 							listingUrl = pageNum === 1 ? type.baseUrl : `${type.baseUrl}?page=${pageNum}`;
 							break;
@@ -876,12 +639,11 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 				}
 
 				// Determine which crawler to use based on agent
-				if (agent.id === 4 || agent.id === 8 || agent.id === 12 || agent.id === 13) {
+				if (agent.id === 4 || agent.id === 8 || agent.id === 12) {
 					// Use PlaywrightCrawler for agents that need JavaScript
 					// Agent 4: Marsh & Parsons (needs JS rendering)
 					// Agent 8: Jackie Quinn (needs to click map link for coordinates)
 					// Agent 12: Purplebricks (needs JS rendering)
-					// Agent 13: Bairstow Eves (needs JS rendering for listing pages)
 					await scrapeWithPlaywright(urls, agent.id, type.isRent);
 				} else {
 					// Use CheerioCrawler for others (faster)
@@ -910,6 +672,7 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 // Parse command-line arguments for agent selection
 const args = process.argv.slice(2);
 let selectedAgents = null;
+let agent13StartPage = 1;
 
 if (args.length > 0) {
 	if (args[0] === "--from") {
@@ -921,13 +684,30 @@ if (args.length > 0) {
 			console.log(`\n▶️  Starting from agent ${fromAgentId}`);
 		}
 	} else {
-		// Usage: node combined-scraper.js 8 12
-		// Scrapes only agents 8 and 12
-		selectedAgents = args
-			.map((arg) => parseInt(arg))
-			.filter((id) => !isNaN(id) && AGENTS.some((a) => a.id === id));
-		if (selectedAgents.length > 0) {
-			console.log(`\n▶️  Scraping specific agents: ${selectedAgents.join(", ")}`);
+		// Check if first argument is 13 (special handling for agent 13)
+		const firstAgentId = parseInt(args[0]);
+		if (firstAgentId === 13) {
+			// Usage: node combined-scraper.js 13 [startPage]
+			// If second argument exists and is a number, use it as start page
+			if (args.length > 1) {
+				const startPage = parseInt(args[1]);
+				if (!isNaN(startPage) && startPage > 0) {
+					agent13StartPage = startPage;
+					console.log(`\n▶️  Running Agent 13 from page ${agent13StartPage}`);
+				}
+			} else {
+				console.log(`\n▶️  Running Agent 13 from page 1`);
+			}
+			selectedAgents = [13];
+		} else {
+			// Usage: node combined-scraper.js 8 12
+			// Scrapes only agents 8 and 12
+			selectedAgents = args
+				.map((arg) => parseInt(arg))
+				.filter((id) => !isNaN(id) && AGENTS.some((a) => a.id === id));
+			if (selectedAgents.length > 0) {
+				console.log(`\n▶️  Scraping specific agents: ${selectedAgents.join(", ")}`);
+			}
 		}
 	}
 }
@@ -938,16 +718,31 @@ if (selectedAgents === null) {
 	console.log(`  node combined-scraper.js              # Scrape all agents`);
 	console.log(`  node combined-scraper.js 8            # Scrape only agent 8`);
 	console.log(`  node combined-scraper.js 4 8 12       # Scrape agents 4, 8, and 12`);
+	console.log(`  node combined-scraper.js 13 20        # Scrape agent 13 starting from page 20`);
 	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
 	console.log(`\n`);
 }
 
-runOptimizedCombinedScraper(selectedAgents)
-	.then(() => {
-		console.log("✅ All done!");
-		process.exit(0);
-	})
-	.catch((err) => {
-		console.error("❌ Scraper error:", err);
-		process.exit(1);
-	});
+// Handle agent 13 separately by spawning its dedicated script
+if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
+	runAgent13Scraper(agent13StartPage)
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else {
+	// Run normal combined scraper
+	runOptimizedCombinedScraper(selectedAgents)
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+}
