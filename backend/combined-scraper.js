@@ -1,5 +1,6 @@
 const { CheerioCrawler, PlaywrightCrawler } = require("crawlee");
 const cheerio = require("cheerio");
+const playwright = require("playwright"); // ✅ important
 const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
 
 // Keywords to identify sold properties
@@ -464,18 +465,11 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 async function scrapeWithPlaywright(urls, agentId, isRent) {
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
-			launcher: require("playwright").chromium,
-		},
-		// USE browserPoolOptions to connect to Browserless
-		browserPoolOptions: {
-			browserPlugins: [
-				new (require("@crawlee/browser-pool").PlaywrightPlugin)(require("playwright").chromium, {
-					launchOptions: {
-						// Remote WebSocket URL goes here
-						browserWSEndpoint: `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
-					},
-				}),
-			],
+			launcher: playwright.chromium,
+			launchOptions: {
+				// connect to remote browserless instance
+				browserWSEndpoint: `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
+			},
 		},
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
