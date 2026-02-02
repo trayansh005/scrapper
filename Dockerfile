@@ -1,39 +1,17 @@
-FROM node:20-slim
+# ✅ Official Playwright image (Ubuntu Jammy)
+FROM mcr.microsoft.com/playwright:v1.42.1-jammy
 
-ENV PLAYWRIGHT_BROWSERS_PATH=0
+# Set working directory
+WORKDIR /app
 
-WORKDIR /app/backend
-
-# System deps
-RUN apt-get update && apt-get install -y \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libcairo2 \
-    libpango-1.0-0 \
-    libatk1.0-0 \
-    libdrm2 \
-    libxshmfence1 \
-    ca-certificates \
-    fonts-liberation \
-    wget \
-    nano \
- && rm -rf /var/lib/apt/lists/*
-
-# Copy ONLY backend deps
+# Copy backend dependency files
 COPY backend/package*.json ./
+
+# Install Node dependencies
 RUN npm ci
 
-# Install Playwright browsers (NOW IT WORKS)
-RUN npx playwright install chromium
-
-# Copy backend source
+# Copy backend source code
 COPY backend ./
 
+# Run your scraper
 CMD ["node", "combined-scraper.js"]

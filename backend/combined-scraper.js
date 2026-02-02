@@ -1,7 +1,6 @@
 const { CheerioCrawler, PlaywrightCrawler } = require('crawlee');
 const { chromium } = require('playwright');
 const cheerio = require('cheerio');
-const axios = require('axios');
 const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
 
 // Keywords to identify sold properties
@@ -373,14 +372,25 @@ async function scrapeJackieQuinn(browser, listingUrl, isRent) {
     console.log(`\n📋 Scraping Jackie Quinn: ${listingUrl}`);
 
     try {
-        const response = await axios.get(listingUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        const page = await browser.newPage();
+
+        // Block unnecessary resources for this page
+        await page.route('**/*', (route) => {
+            const resourceType = route.request().resourceType();
+            if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+                route.abort();
+            } else {
+                route.continue();
             }
         });
 
-        const $ = cheerio.load(response.data);
-        const propertyList = [];
+        try {
+            await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(2000);
+
+            const htmlContent = await page.content();
+            const $ = cheerio.load(htmlContent);
+            const propertyList = [];
 
         $('.propertyBox').each((index, element) => {
             try {
@@ -422,13 +432,16 @@ async function scrapeJackieQuinn(browser, listingUrl, isRent) {
             }
         });
 
-        console.log(`Found ${propertyList.length} available properties`);
+            console.log(`Found ${propertyList.length} available properties`);
 
-        for (const property of propertyList) {
-            await processProperty(browser, { ...property, isRent }, 8);
+            for (const property of propertyList) {
+                await processProperty(browser, { ...property, isRent }, 8);
+            }
+
+            return propertyList.length;
+        } finally {
+            await page.close();
         }
-
-        return propertyList.length;
     } catch (error) {
         console.error(`Error scraping Jackie Quinn: ${error.message}`);
         return 0;
@@ -451,42 +464,38 @@ async function scrapePurplebricks(browser, listingUrl, isRent) {
         });
 
         try {
-            await page.goto(listingUrl, { waitUntil: 'networkidle' });
-            await page.waitForTimeout(3000);
+            await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(2000);
 
-            const resultsList = await page.locator('[data-testid="results-list"]').first();
-            if (!(await resultsList.isVisible())) {
-                console.log('No results list found');
-                return 0;
-            }
-
-            const listItems = await resultsList.locator('li').all();
+            const htmlContent = await page.content();
+            const $ = cheerio.load(htmlContent);
             const propertyList = [];
 
-            for (const li of listItems) {
+            $('[data-testid="results-list"] li').each((index, element) => {
                 try {
-                    const linkEl = li.locator('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]').first();
-                    if (!(await linkEl.isVisible())) continue;
+                    const $li = $(element);
+                    const linkEl = $li.find('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]').first();
+                    if (!linkEl.length) return;
 
-                    const priceEl = li.locator('[data-testid="search-result-price"], .sc-cda42038-7').first();
-                    const priceText = await priceEl.isVisible() ? await priceEl.textContent() : '';
+                    const priceEl = $li.find('[data-testid="search-result-price"], .sc-cda42038-7').first();
+                    const priceText = priceEl.text();
 
                     // Check for sold keywords
                     if (isSoldProperty(priceText)) {
                         console.log(`⏭️ Skipping sold property: ${priceText}`);
-                        continue;
+                        return;
                     }
 
                     const priceMatch = priceText.match(/£([\d,]+)/);
                     const priceRaw = priceMatch ? priceMatch[0] : '';
 
-                    const addrEl = li.locator('[data-testid="search-result-address"], .sc-cda42038-10').first();
-                    const address = await addrEl.isVisible() ? await addrEl.textContent() : '';
+                    const addrEl = $li.find('[data-testid="search-result-address"], .sc-cda42038-10').first();
+                    const address = addrEl.text();
 
-                    const bedEl = li.locator('[data-testid="search-result-bedrooms"]').first();
-                    const bedrooms = await bedEl.isVisible() ? await bedEl.textContent() : '';
+                    const bedEl = $li.find('[data-testid="search-result-bedrooms"]').first();
+                    const bedrooms = bedEl.text();
 
-                    const href = await linkEl.getAttribute('href');
+                    const href = linkEl.attr('href');
                     const url = href && href.startsWith('http') ? href :
                         href ? `https://www.purplebricks.co.uk${href}` : null;
 
@@ -502,7 +511,7 @@ async function scrapePurplebricks(browser, listingUrl, isRent) {
                 } catch (err) {
                     console.error(`Error extracting Purplebricks property: ${err.message}`);
                 }
-            }
+            });
 
             console.log(`Found ${propertyList.length} available properties`);
 
@@ -524,14 +533,25 @@ async function scrapeBairstowEves(browser, listingUrl, isRent) {
     console.log(`\n📋 Scraping Bairstow Eves: ${listingUrl}`);
 
     try {
-        const response = await axios.get(listingUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        const page = await browser.newPage();
+
+        // Block unnecessary resources for this page
+        await page.route('**/*', (route) => {
+            const resourceType = route.request().resourceType();
+            if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+                route.abort();
+            } else {
+                route.continue();
             }
         });
 
-        const $ = cheerio.load(response.data);
-        const propertyList = [];
+        try {
+            await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(2000);
+
+            const htmlContent = await page.content();
+            const $ = cheerio.load(htmlContent);
+            const propertyList = [];
 
         $('.card').each((index, element) => {
             try {
@@ -579,13 +599,16 @@ async function scrapeBairstowEves(browser, listingUrl, isRent) {
             }
         });
 
-        console.log(`Found ${propertyList.length} available properties`);
+            console.log(`Found ${propertyList.length} available properties`);
 
-        for (const property of propertyList) {
-            await processProperty(browser, { ...property, isRent }, 13);
+            for (const property of propertyList) {
+                await processProperty(browser, { ...property, isRent }, 13);
+            }
+
+            return propertyList.length;
+        } finally {
+            await page.close();
         }
-
-        return propertyList.length;
     } catch (error) {
         console.error(`Error scraping Bairstow Eves: ${error.message}`);
         return 0;
@@ -595,14 +618,25 @@ async function scrapeChestertons(browser, listingUrl, isRent) {
     console.log(`\n📋 Scraping Chestertons: ${listingUrl}`);
 
     try {
-        const response = await axios.get(listingUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        const page = await browser.newPage();
+
+        // Block unnecessary resources for this page
+        await page.route('**/*', (route) => {
+            const resourceType = route.request().resourceType();
+            if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+                route.abort();
+            } else {
+                route.continue();
             }
         });
 
-        const $ = cheerio.load(response.data);
-        const propertyList = [];
+        try {
+            await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(2000);
+
+            const htmlContent = await page.content();
+            const $ = cheerio.load(htmlContent);
+            const propertyList = [];
 
         $('.pegasus-property-card').each((index, element) => {
             try {
@@ -664,13 +698,16 @@ async function scrapeChestertons(browser, listingUrl, isRent) {
             }
         });
 
-        console.log(`Found ${propertyList.length} available properties`);
+            console.log(`Found ${propertyList.length} available properties`);
 
-        for (const property of propertyList) {
-            await processProperty(browser, { ...property, isRent }, 14);
+            for (const property of propertyList) {
+                await processProperty(browser, { ...property, isRent }, 14);
+            }
+
+            return propertyList.length;
+        } finally {
+            await page.close();
         }
-
-        return propertyList.length;
     } catch (error) {
         console.error(`Error scraping Chestertons: ${error.message}`);
         return 0;
@@ -681,14 +718,25 @@ async function scrapeSequenceHome(browser, listingUrl, isRent, pageNum) {
     console.log(`\n📋 Scraping Sequence Home: ${listingUrl}`);
 
     try {
-        const response = await axios.get(listingUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        const page = await browser.newPage();
+
+        // Block unnecessary resources for this page
+        await page.route('**/*', (route) => {
+            const resourceType = route.request().resourceType();
+            if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+                route.abort();
+            } else {
+                route.continue();
             }
         });
 
-        const $ = cheerio.load(response.data);
-        const propertyList = [];
+        try {
+            await page.goto(listingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForTimeout(2000);
+
+            const htmlContent = await page.content();
+            const $ = cheerio.load(htmlContent);
+            const propertyList = [];
 
         // Look for the specific page container
         const containerSelector = `div[data-page-no="${pageNum}"]`;
@@ -752,13 +800,16 @@ async function scrapeSequenceHome(browser, listingUrl, isRent, pageNum) {
             }
         });
 
-        console.log(`Found ${propertyList.length} available properties`);
+            console.log(`Found ${propertyList.length} available properties`);
 
-        for (const property of propertyList) {
-            await processProperty(browser, { ...property, isRent }, 15);
+            for (const property of propertyList) {
+                await processProperty(browser, { ...property, isRent }, 15);
+            }
+
+            return propertyList.length;
+        } finally {
+            await page.close();
         }
-
-        return propertyList.length;
     } catch (error) {
         console.error(`Error scraping Sequence Home: ${error.message}`);
         return 0;
