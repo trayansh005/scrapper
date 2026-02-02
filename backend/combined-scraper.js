@@ -243,26 +243,14 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 
 // Generic Cheerio crawler for agents that work with simple HTTP requests
 async function scrapeWithCheerio(urls, agentId, isRent) {
+	// Storage for agent 13 detail page requests
+	const agent13DetailPages = [];
+
 	const crawler = new CheerioCrawler({
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
-		maxConcurrency: 5,
+		maxConcurrency: agentId === 13 ? 1 : 5, // Sequential for agent 13
 		async requestHandler({ $, request, body }) {
-			// Handle detail pages
-			if (request.userData?.isDetailPage) {
-				const html = body.toString();
-				await processPropertyWithCoordinates(
-					request.url,
-					request.userData.price,
-					request.userData.title,
-					request.userData.bedrooms,
-					request.userData.agentId,
-					request.userData.isRent,
-					html,
-				);
-				return;
-			}
-
 			console.log(`\n📋 Scraping: ${request.url}`);
 			const propertyList = [];
 
@@ -301,6 +289,42 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 						console.error(`Error extracting property: ${err.message}`);
 					}
 				});
+			} else if (agentId === 13) {
+				// Bairstow Eves
+				$(".card").each((index, element) => {
+					try {
+						const $card = $(element);
+						const linkEl = $card.find("a.card__link").first();
+						const link = linkEl.attr("href");
+
+						const titleEl = $card.find(".card__text-content").first();
+						const title = titleEl.text();
+
+						const priceEl = $card.find(".card__heading").first();
+						const priceText = priceEl.text();
+
+						if (isSoldProperty(priceText)) return;
+
+						const priceMatch = priceText.match(/£[\d,]+/);
+						const priceRaw = priceMatch ? priceMatch[0] : null;
+
+						const bedroomsEl = $card.find(".card-content__spec-list-number").first();
+						const bedroomsText = bedroomsEl.text();
+						const bedroomsMatch = bedroomsText.match(/\d+/);
+						const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
+
+						if (link && priceRaw && title) {
+							propertyList.push({
+								url: link.startsWith("http") ? link : `https://www.bairstoweves.co.uk${link}`,
+								title: title.trim(),
+								priceRaw,
+								bedrooms,
+							});
+						}
+					} catch (err) {
+						console.error(`Error extracting property: ${err.message}`);
+					}
+				});
 			}
 
 			console.log(`Found ${propertyList.length} available properties`);
@@ -314,21 +338,19 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 				}
 				const price = parseFloat(priceClean);
 
-				// For Bairstow Eves (agent 13), always visit detail page for coordinates
 				if (agentId === 13) {
-					await crawler.addRequests([
-						{
-							url,
-							userData: {
-								isDetailPage: true,
-								price,
-								title: title.trim(),
-								bedrooms,
-								isRent,
-								agentId,
-							},
+					// For agent 13, collect detail pages to process later with Playwright
+					agent13DetailPages.push({
+						url,
+						userData: {
+							isDetailPage: true,
+							price,
+							title: title.trim(),
+							bedrooms,
+							isRent,
+							agentId,
 						},
-					]);
+					});
 				} else {
 					// Check if property exists
 					const result = await updatePriceByPropertyURLOptimized(
@@ -365,32 +387,37 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 	});
 
 	await crawler.run(urls);
+
+	// For agent 13, process detail pages with Playwright sequentially
+	if (agentId === 13 && agent13DetailPages.length > 0) {
+		console.log(`\n📍 Processing ${agent13DetailPages.length} detail pages for agent 13...`);
+		const detailPageCrawler = await createAgent13DetailCrawler();
+		await detailPageCrawler.addRequests(agent13DetailPages);
+		await detailPageCrawler.run();
+	}
 }
 
-// Generic Playwright crawler for agents that need JavaScript rendering
-async function scrapeWithPlaywright(urls, agentId, isRent) {
+// Create a dedicated Playwright crawler for agent 13 detail pages
+async function createAgent13DetailCrawler() {
 	const browserWSEndpoint =
 		process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
 
-	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
+	console.log(`🌐 Connecting to browserless for detail pages: ${browserWSEndpoint.split("?")[0]}`);
 
-	const crawler = new PlaywrightCrawler({
+	return new PlaywrightCrawler({
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
-				// connect to remote browserless instance
 				browserWSEndpoint,
 			},
 		},
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
-		maxConcurrency: agentId === 8 || agentId === 13 ? 1 : 2, // Agent 8 & 13 need sequential requests to avoid 429 errors
-		failedRequestHandler: async ({ request }) => {
-			console.log(`⚠️ Request failed after retries: ${request.url}`);
-		},
+		maxConcurrency: 1, // Sequential processing
 		preNavigationHooks: [
 			async ({ page }) => {
+				// Block unnecessary resources
 				await page.route("**/*", (route) => {
 					const resourceType = route.request().resourceType();
 					if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
@@ -399,310 +426,47 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 						route.continue();
 					}
 				});
-
-				if (agentId === 4) {
-					// Marsh & Parsons needs special headers
-					await page.setExtraHTTPHeaders({
-						"User-Agent":
-							"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-						"Accept-Language": "en-GB,en;q=0.9",
-						Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-					});
-				}
 			},
 		],
 		async requestHandler({ page, request }) {
-			// Handle detail pages
-			if (request.userData?.isDetailPage) {
-				const agentId = request.userData.agentId;
+			const { price, title, bedrooms, isRent, agentId } = request.userData;
 
-				// Special handling for Jackie Quinn (agent 8) - click map link to load coordinates
-				if (agentId === 8) {
-					try {
-						// Wait for the map link and click it
-						await page.waitForSelector('a[href*="mapcontainer"]', { timeout: 10000 }).catch(() => {
-							console.log(`⚠️ No map link found for ${request.userData.title}`);
-						});
+			// Wait for page to load
+			await page.waitForTimeout(1500);
 
-						const mapLinkClicked = await page.evaluate(() => {
-							const mapLink = document.querySelector('a[href*="mapcontainer"]');
-							if (mapLink) {
-								mapLink.click();
-								return true;
-							}
-							return false;
-						});
+			// Extract HTML and coordinates
+			const html = await page.content();
+			const coords = await extractCoordinatesFromHTML(html);
 
-						if (mapLinkClicked) {
-							// Wait for the map to load
-							await page.waitForTimeout(1500);
-						}
-					} catch (error) {
-						console.log(`⚠️ Failed to click map for ${request.userData.title}: ${error.message}`);
-					}
-				}
+			// Save to database
+			await updatePriceByPropertyURL(
+				request.url,
+				price,
+				title,
+				bedrooms,
+				agentId,
+				isRent,
+				coords.latitude,
+				coords.longitude,
+			);
 
-				// For Bairstow Eves (agent 13), just wait a moment for page to load
-				if (agentId === 13) {
-					await page.waitForTimeout(1000);
-				}
-
-				const html = await page.content();
-				await processPropertyWithCoordinates(
-					request.url,
-					request.userData.price,
-					request.userData.title,
-					request.userData.bedrooms,
-					request.userData.agentId,
-					request.userData.isRent,
-					html,
+			if (coords.latitude && coords.longitude) {
+				console.log(
+					`✅ Created: ${request.url.substring(0, 50)}... | Price: £${price} | Coords: ${coords.latitude}, ${coords.longitude}`,
 				);
-				return;
+				console.log(`✅ New property: ${title.substring(0, 40)}... (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`);
+			} else {
+				console.log(`✅ Created: ${request.url.substring(0, 50)}... | Price: £${price} | No coords`);
+				console.log(`⚠️ New property: ${title.substring(0, 40)}... (£${price}) - No coords found`);
 			}
 
-			console.log(`\n📋 Scraping: ${request.url}`);
-			await page.waitForTimeout(2000);
-			const htmlContent = await page.content();
-			const $ = cheerio.load(htmlContent);
-			const propertyList = [];
-
-			// Extract properties based on agent
-			switch (agentId) {
-				case 4:
-					// Marsh & Parsons
-					$("div.my-4.shadow-md.rounded-xl").each((index, element) => {
-						try {
-							const $card = $(element);
-							const linkElement = $card.find('a[href*="/property/"]').first();
-							const titleElement = $card.find("h3").first();
-							const locationElement = $card.find("p").first();
-
-							const textContent = $card.text();
-							if (isSoldProperty(textContent)) return;
-
-							const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
-							const priceRaw = priceMatch ? priceMatch[0] : null;
-
-							const bedImg = $card.find('img[alt="bed"]').first();
-							let bedrooms = null;
-							if (bedImg.length) {
-								const parent = bedImg.parent();
-								const bedroomText = parent.text();
-								const bedroomMatch = bedroomText.trim().match(/\d+/);
-								bedrooms = bedroomMatch ? parseInt(bedroomMatch[0]) : null;
-							}
-
-							const url = linkElement.attr("href");
-							const title = titleElement.text() || "";
-							const location = locationElement.text() || "";
-
-							if (url && priceRaw) {
-								const fullUrl = url.startsWith("http")
-									? url
-									: `https://www.marshandparsons.co.uk${url}`;
-								propertyList.push({
-									url: fullUrl,
-									title: title.trim(),
-									location: location.trim(),
-									priceRaw,
-									bedrooms,
-								});
-							}
-						} catch (err) {
-							console.error(`Error extracting property: ${err.message}`);
-						}
-					});
-					break;
-
-				case 8:
-					// Jackie Quinn
-					$(".propertyBox").each((index, element) => {
-						try {
-							const $listing = $(element);
-							const linkEl = $listing.find("h2.searchProName a").first();
-							const link = linkEl.attr("href");
-							const title = linkEl.text();
-
-							const priceEl = $listing.find("h3 div").first();
-							const priceText = priceEl.text();
-
-							if (isSoldProperty(priceText)) return;
-
-							const priceMatch = priceText.match(/£([\d,]+)/);
-							const priceRaw = priceMatch ? priceMatch[0] : null;
-
-							const descEl = $listing.find(".featuredDescriptions").first();
-							const description = descEl.text();
-							const bedroomMatch = description.match(/(\d+)\s+BEDROOM/i);
-							const bedrooms = bedroomMatch ? bedroomMatch[1] : null;
-
-							if (link && title && priceRaw) {
-								propertyList.push({
-									url: link.startsWith("http") ? link : "https://www.jackiequinn.co.uk" + link,
-									title: title.trim(),
-									priceRaw,
-									bedrooms,
-								});
-							}
-						} catch (err) {
-							console.error(`Error extracting property: ${err.message}`);
-						}
-					});
-					break;
-
-				case 12:
-					// Purplebricks
-					$('[data-testid="results-list"] li').each((index, element) => {
-						try {
-							const $li = $(element);
-							const linkEl = $li
-								.find('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]')
-								.first();
-							if (!linkEl.length) return;
-
-							const priceEl = $li
-								.find('[data-testid="search-result-price"], .sc-cda42038-7')
-								.first();
-							const priceText = priceEl.text();
-
-							if (isSoldProperty(priceText)) return;
-
-							const priceMatch = priceText.match(/£([\d,]+)/);
-							const priceRaw = priceMatch ? priceMatch[0] : "";
-
-							const addrEl = $li
-								.find('[data-testid="search-result-address"], .sc-cda42038-10')
-								.first();
-							const address = addrEl.text();
-
-							const bedEl = $li.find('[data-testid="search-result-bedrooms"]').first();
-							const bedrooms = bedEl.text();
-
-							const href = linkEl.attr("href");
-							const url =
-								href && href.startsWith("http")
-									? href
-									: href
-										? `https://www.purplebricks.co.uk${href}`
-										: null;
-
-							if (url && priceRaw) {
-								propertyList.push({
-									url,
-									title: address.trim(),
-									location: "",
-									priceRaw,
-									bedrooms: bedrooms.trim(),
-								});
-							}
-						} catch (err) {
-							console.error(`Error extracting property: ${err.message}`);
-						}
-					});
-					break;
-
-				case 13:
-					// Bairstow Eves
-					$(".card").each((index, element) => {
-						try {
-							const $card = $(element);
-							const linkEl = $card.find("a.card__link").first();
-							const link = linkEl.attr("href");
-
-							const titleEl = $card.find(".card__text-content").first();
-							const title = titleEl.text();
-
-							const priceEl = $card.find(".card__heading").first();
-							const priceText = priceEl.text();
-
-							if (isSoldProperty(priceText)) return;
-
-							const priceMatch = priceText.match(/£[\d,]+/);
-							const priceRaw = priceMatch ? priceMatch[0] : null;
-
-							const bedroomsEl = $card.find(".card-content__spec-list-number").first();
-							const bedroomsText = bedroomsEl.text();
-							const bedroomsMatch = bedroomsText.match(/\d+/);
-							const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
-
-							if (link && priceRaw && title) {
-								propertyList.push({
-									url: link.startsWith("http") ? link : `https://www.bairstoweves.co.uk${link}`,
-									title: title.trim(),
-									location: "",
-									priceRaw,
-									bedrooms,
-								});
-							}
-						} catch (err) {
-							console.error(`Error extracting property: ${err.message}`);
-						}
-					});
-					break;
-			}
-
-			console.log(`Found ${propertyList.length} available properties`);
-
-			// Process each property
-			for (const property of propertyList) {
-				const { url, title, priceRaw, bedrooms } = property;
-				let priceClean = priceRaw.replace(/[£,]/g, "");
-				if (isRent && priceClean.includes("p/w")) {
-					priceClean = priceClean.replace("p/w", "").trim();
-				}
-				const price = parseFloat(priceClean);
-
-				// For Bairstow Eves (agent 13), always visit detail page for coordinates
-				if (agentId === 13) {
-					await crawler.addRequests([
-						{
-							url,
-							userData: {
-								isDetailPage: true,
-								price,
-								title: title.trim(),
-								bedrooms,
-								isRent,
-								agentId,
-							},
-						},
-					]);
-				} else {
-					// Check if property exists
-					const result = await updatePriceByPropertyURLOptimized(
-						url,
-						price,
-						title.trim(),
-						bedrooms,
-						agentId,
-						isRent,
-					);
-
-					if (!result.isExisting && !result.error) {
-						// Need to fetch coordinates from detail page (only if no error)
-						await crawler.addRequests([
-							{
-								url,
-								userData: {
-									isDetailPage: true,
-									price,
-									title: title.trim(),
-									bedrooms,
-									isRent,
-									agentId,
-								},
-							},
-						]);
-					}
-				}
-			}
+			// Add delay between requests to prevent 429
+			await new Promise((resolve) => setTimeout(resolve, 2000));
 		},
 		failedRequestHandler: async ({ request }) => {
-			console.log(`⚠️ Request failed after retries: ${request.url}`);
+			console.log(`⚠️ Detail page failed: ${request.url}`);
 		},
 	});
-
-	await crawler.run(urls);
 }
 
 // Generic Playwright crawler for agents that need JavaScript rendering
@@ -1083,21 +847,19 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 				}
 
 				// Determine which crawler to use based on agent
-				if (agent.id === 4 || agent.id === 8 || agent.id === 12 || agent.id === 13) {
+				if (agent.id === 4 || agent.id === 8 || agent.id === 12) {
 					// Use PlaywrightCrawler for agents that need JavaScript
 					// Agent 4: Marsh & Parsons (needs JS rendering)
 					// Agent 8: Jackie Quinn (needs to click map link for coordinates)
 					// Agent 12: Purplebricks (needs JS rendering)
-					// Agent 13: Bairstow Eves (needs to visit detail pages for coordinates)
-					if (agent.id === 13) {
-						// Run each listing page sequentially to avoid 429s
-						for (const url of urls) {
-							await scrapeWithPlaywright([url], agent.id, type.isRent);
-							// Longer delay between pages to prevent 429s
-							await new Promise((resolve) => setTimeout(resolve, 1000));
-						}
-					} else {
-						await scrapeWithPlaywright(urls, agent.id, type.isRent);
+					await scrapeWithPlaywright(urls, agent.id, type.isRent);
+				} else if (agent.id === 13) {
+					// Agent 13: Bairstow Eves - Use Cheerio for listing pages, Playwright for detail pages
+					// Run each listing page sequentially to avoid 429s
+					for (const url of urls) {
+						await scrapeWithCheerio([url], agent.id, type.isRent);
+						// Delay between listing pages
+						await new Promise((resolve) => setTimeout(resolve, 1000));
 					}
 				} else {
 					// Use CheerioCrawler for others (faster)
