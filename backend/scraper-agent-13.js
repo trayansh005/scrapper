@@ -50,7 +50,6 @@ async function scrapeBairstowEves() {
 		maxConcurrency: 1, // Process one page at a time
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-		persistStorage: false, // Disable persistent storage to start fresh each time
 
 		launchContext: {
 			launcher: undefined,
