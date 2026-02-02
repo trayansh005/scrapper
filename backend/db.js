@@ -2,7 +2,7 @@ const mysql = require("mysql2"); // Use mysql2 for better performance
 
 // Create a connection pool
 const pool = mysql.createPool({
-	host: "localhost",
+	host: process.env.DB_HOST || "localhost",
 	user: "root",
 	password: process.env.PASSWORD || "",
 	database: "scraper",

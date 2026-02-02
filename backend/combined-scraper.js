@@ -463,6 +463,11 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 // Generic Playwright crawler for agents that need JavaScript rendering
 async function scrapeWithPlaywright(urls, agentId, isRent) {
 	const crawler = new PlaywrightCrawler({
+		launchContext: {
+			launcher: require("playwright").chromium,
+			useChrome: true,
+			endpoint: `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
+		},
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
 		maxConcurrency: 2,
