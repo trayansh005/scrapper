@@ -175,11 +175,17 @@ async function extractCoordinatesFromHTML(html) {
 
 	try {
 		const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
-		const scriptMatch = html.match(/lat:\s*([\d.-]+),\s*lng:\s*([\d.-]+)/);
-		const jsonMatch = html.match(/"latitude":\s*([\d.-]+),\s*"longitude":\s*([\d.-]+)/);
+		const scriptMatch = html.match(/lat:\s*"?([\d.-]+)"?,\s*lng:\s*"?([\d.-]+)"?/);
+		const jsonMatch = html.match(
+			/"latitude"\s*:\s*"?([\d.-]+)"?,\s*"longitude"\s*:\s*"?([\d.-]+)"?/,
+		);
+		const latLngMatch = html.match(/"lat"\s*:\s*"?([\d.-]+)"?,\s*"lng"\s*:\s*"?([\d.-]+)"?/);
+		const dataAttrMatch = html.match(
+			/data-(?:lat|latitude)="([\d.-]+)"[\s\S]*?data-(?:lng|longitude)="([\d.-]+)"/,
+		);
 		const atMatch = html.match(/@([0-9.-]+),([0-9.-]+),\d+z/);
-		const latCommentMatch = html.match(/<!--property-latitude:"([0-9.-]+)"-->/);
-		const lngCommentMatch = html.match(/<!--property-longitude:"([0-9.-]+)"-->/);
+		const latCommentMatch = html.match(/<!--property-latitude:["']([0-9.-]+)["']-->/);
+		const lngCommentMatch = html.match(/<!--property-longitude:["']([0-9.-]+)["']-->/);
 
 		if (mapsMatch) {
 			latitude = parseFloat(mapsMatch[1]);
@@ -190,6 +196,12 @@ async function extractCoordinatesFromHTML(html) {
 		} else if (jsonMatch) {
 			latitude = parseFloat(jsonMatch[1]);
 			longitude = parseFloat(jsonMatch[2]);
+		} else if (latLngMatch) {
+			latitude = parseFloat(latLngMatch[1]);
+			longitude = parseFloat(latLngMatch[2]);
+		} else if (dataAttrMatch) {
+			latitude = parseFloat(dataAttrMatch[1]);
+			longitude = parseFloat(dataAttrMatch[2]);
 		} else if (atMatch) {
 			latitude = parseFloat(atMatch[1]);
 			longitude = parseFloat(atMatch[2]);
@@ -1088,7 +1100,15 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 					// Agent 8: Jackie Quinn (needs to click map link for coordinates)
 					// Agent 12: Purplebricks (needs JS rendering)
 					// Agent 13: Bairstow Eves (needs to visit detail pages for coordinates)
-					await scrapeWithPlaywright(urls, agent.id, type.isRent);
+					if (agent.id === 13) {
+						// Run each listing page sequentially to avoid 429s
+						for (const url of urls) {
+							await scrapeWithPlaywright([url], agent.id, type.isRent);
+							await new Promise((resolve) => setTimeout(resolve, 500));
+						}
+					} else {
+						await scrapeWithPlaywright(urls, agent.id, type.isRent);
+					}
 				} else {
 					// Use CheerioCrawler for others (faster)
 					await scrapeWithCheerio(urls, agent.id, type.isRent);
