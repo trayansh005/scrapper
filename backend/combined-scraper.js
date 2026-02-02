@@ -152,9 +152,12 @@ async function updatePriceByPropertyURLOptimized(
 				return { isExisting: false, updated: false };
 			}
 		}
+		return { isExisting: false, updated: false };
 	} catch (error) {
-		console.error(`❌ Error checking property ${link}:`, error.message);
-		throw error;
+		console.error(`❌ Error checking property ${link}:`, error.message || error);
+		console.error(`Full error:`, error);
+		// Don't throw - return error state instead to prevent crawler from failing
+		return { isExisting: false, updated: false, error: error.message || String(error) };
 	}
 }
 
@@ -213,6 +216,7 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 		console.log(`✅ New property: ${title} (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`);
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);
+		// Don't throw - just log the error
 	}
 }
 
@@ -421,14 +425,17 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 					isRent,
 				);
 
-				if (!result.isExisting) {
-					// Need to fetch coordinates from detail page
+				if (!result.isExisting && !result.error) {
+					// Need to fetch coordinates from detail page (only if no error)
 					await crawler.addRequests([{
 						url,
 						userData: { isDetailPage: true, price, title: title.trim(), bedrooms, isRent, agentId }
 					}]);
 				}
 			}
+		},
+		failedRequestHandler: async ({ request }) => {
+			console.log(`⚠️ Request failed after retries: ${request.url}`);
 		},
 	});
 
@@ -440,7 +447,10 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 	const crawler = new PlaywrightCrawler({
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
-		maxConcurrency: 3,
+		maxConcurrency: 2,
+		failedRequestHandler: async ({ request }) => {
+			console.log(`⚠️ Request failed after retries: ${request.url}`);
+		},
 		preNavigationHooks: [
 			async ({ page }) => {
 				await page.route("**/*", (route) => {
@@ -587,8 +597,8 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 					isRent,
 				);
 
-				if (!result.isExisting) {
-					// Need to fetch coordinates from detail page
+				if (!result.isExisting && !result.error) {
+					// Need to fetch coordinates from detail page (only if no error)
 					await crawler.addRequests([{
 						url,
 						userData: { isDetailPage: true, price, title: fullTitle, bedrooms, isRent, agentId }
