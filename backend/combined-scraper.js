@@ -225,7 +225,6 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 // Generic Cheerio crawler for agents that work with simple HTTP requests
 async function scrapeWithCheerio(urls, agentId, isRent) {
 	const crawler = new CheerioCrawler({
-		useStorageClient: false,
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
 		maxConcurrency: 5,
@@ -470,7 +469,6 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = new PlaywrightCrawler({
-		useStorageClient: false,
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
