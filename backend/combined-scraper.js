@@ -462,17 +462,23 @@ async function scrapeWithCheerio(urls, agentId, isRent) {
 
 // Generic Playwright crawler for agents that need JavaScript rendering
 async function scrapeWithPlaywright(urls, agentId, isRent) {
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
+
+	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
+
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				// connect to remote browserless instance
-				browserWSEndpoint: `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
+				browserWSEndpoint,
 			},
 		},
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
-		maxConcurrency: 2,
+		maxConcurrency: agentId === 8 ? 1 : 2, // Agent 8 (Jackie Quinn) needs sequential requests to avoid 429 errors
 		failedRequestHandler: async ({ request }) => {
 			console.log(`⚠️ Request failed after retries: ${request.url}`);
 		},
@@ -501,6 +507,34 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 		async requestHandler({ page, request }) {
 			// Handle detail pages
 			if (request.userData?.isDetailPage) {
+				const agentId = request.userData.agentId;
+
+				// Special handling for Jackie Quinn (agent 8) - click map link to load coordinates
+				if (agentId === 8) {
+					try {
+						// Wait for the map link and click it
+						await page.waitForSelector('a[href*="mapcontainer"]', { timeout: 10000 }).catch(() => {
+							console.log(`⚠️ No map link found for ${request.userData.title}`);
+						});
+
+						const mapLinkClicked = await page.evaluate(() => {
+							const mapLink = document.querySelector('a[href*="mapcontainer"]');
+							if (mapLink) {
+								mapLink.click();
+								return true;
+							}
+							return false;
+						});
+
+						if (mapLinkClicked) {
+							// Wait for the map to load
+							await page.waitForTimeout(1500);
+						}
+					} catch (error) {
+						console.log(`⚠️ Failed to click map for ${request.userData.title}: ${error.message}`);
+					}
+				}
+
 				const html = await page.content();
 				await processPropertyWithCoordinates(
 					request.url,
@@ -653,16 +687,23 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 }
 
 // Main scraping function using Crawlee
-async function runOptimizedCombinedScraper() {
+async function runOptimizedCombinedScraper(selectedAgentIds = null) {
+	// Filter agents if specific ones are selected
+	let agentsToProcess = AGENTS;
+	if (selectedAgentIds && selectedAgentIds.length > 0) {
+		agentsToProcess = AGENTS.filter((a) => selectedAgentIds.includes(a.id));
+		console.log(`📝 Running for specific agents: ${selectedAgentIds.join(", ")}`);
+	}
+
 	console.log(
-		`Starting Optimized Combined Crawlee Scraper for agents: ${AGENTS.map((a) => a.id).join(", ")}...`,
+		`Starting Optimized Combined Crawlee Scraper for agents: ${agentsToProcess.map((a) => a.id).join(", ")}...`,
 	);
 	logMemoryUsage("START");
 
 	let totalProcessed = 0;
 
 	try {
-		for (const agent of AGENTS) {
+		for (const agent of agentsToProcess) {
 			console.log(`\n🏢 Processing ${agent.name} (Agent ${agent.id})...`);
 
 			for (const type of agent.propertyTypes) {
@@ -698,8 +739,11 @@ async function runOptimizedCombinedScraper() {
 				}
 
 				// Determine which crawler to use based on agent
-				if (agent.id === 4 || agent.id === 12) {
+				if (agent.id === 4 || agent.id === 8 || agent.id === 12) {
 					// Use PlaywrightCrawler for agents that need JavaScript
+					// Agent 4: Marsh & Parsons (needs JS rendering)
+					// Agent 8: Jackie Quinn (needs to click map link for coordinates)
+					// Agent 12: Purplebricks (needs JS rendering)
 					await scrapeWithPlaywright(urls, agent.id, type.isRent);
 				} else {
 					// Use CheerioCrawler for others (faster)
@@ -725,7 +769,42 @@ async function runOptimizedCombinedScraper() {
 }
 
 // Run the optimized combined scraper
-runOptimizedCombinedScraper()
+// Parse command-line arguments for agent selection
+const args = process.argv.slice(2);
+let selectedAgents = null;
+
+if (args.length > 0) {
+	if (args[0] === "--from") {
+		// Usage: node combined-scraper.js --from 8
+		// Scrapes agent 8 and all agents after it
+		const fromAgentId = parseInt(args[1]);
+		if (!isNaN(fromAgentId)) {
+			selectedAgents = AGENTS.filter((a) => a.id >= fromAgentId).map((a) => a.id);
+			console.log(`\n▶️  Starting from agent ${fromAgentId}`);
+		}
+	} else {
+		// Usage: node combined-scraper.js 8 12
+		// Scrapes only agents 8 and 12
+		selectedAgents = args
+			.map((arg) => parseInt(arg))
+			.filter((id) => !isNaN(id) && AGENTS.some((a) => a.id === id));
+		if (selectedAgents.length > 0) {
+			console.log(`\n▶️  Scraping specific agents: ${selectedAgents.join(", ")}`);
+		}
+	}
+}
+
+// Show usage info
+if (selectedAgents === null) {
+	console.log(`\n📖 Usage:`);
+	console.log(`  node combined-scraper.js              # Scrape all agents`);
+	console.log(`  node combined-scraper.js 8            # Scrape only agent 8`);
+	console.log(`  node combined-scraper.js 4 8 12       # Scrape agents 4, 8, and 12`);
+	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
+	console.log(`\n`);
+}
+
+runOptimizedCombinedScraper(selectedAgents)
 	.then(() => {
 		console.log("✅ All done!");
 		process.exit(0);
