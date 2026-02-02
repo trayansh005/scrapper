@@ -32,6 +32,8 @@ async function extractCoordinatesFromHTML(html) {
 	let longitude = null;
 
 	try {
+		// Try Google Maps directions link pattern first (most common for Chestertons)
+		const googleMapsDirMatch = html.match(/google\.com\/maps\/dir\/\/([\d.-]+),([\d.-]+)/);
 		const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
 		const scriptMatch = html.match(/lat:\s*"?([\d.-]+)"?,\s*lng:\s*"?([\d.-]+)"?/);
 		const jsonMatch = html.match(
@@ -45,7 +47,10 @@ async function extractCoordinatesFromHTML(html) {
 		const latCommentMatch = html.match(/<!--property-latitude:["']([0-9.-]+)["']-->/);
 		const lngCommentMatch = html.match(/<!--property-longitude:["']([0-9.-]+)["']-->/);
 
-		if (mapsMatch) {
+		if (googleMapsDirMatch) {
+			latitude = parseFloat(googleMapsDirMatch[1]);
+			longitude = parseFloat(googleMapsDirMatch[2]);
+		} else if (mapsMatch) {
 			latitude = parseFloat(mapsMatch[1]);
 			longitude = parseFloat(mapsMatch[2]);
 		} else if (scriptMatch) {
