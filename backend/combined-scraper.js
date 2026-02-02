@@ -454,9 +454,13 @@ async function createAgent13DetailCrawler() {
 				console.log(
 					`✅ Created: ${request.url.substring(0, 50)}... | Price: £${price} | Coords: ${coords.latitude}, ${coords.longitude}`,
 				);
-				console.log(`✅ New property: ${title.substring(0, 40)}... (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`);
+				console.log(
+					`✅ New property: ${title.substring(0, 40)}... (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`,
+				);
 			} else {
-				console.log(`✅ Created: ${request.url.substring(0, 50)}... | Price: £${price} | No coords`);
+				console.log(
+					`✅ Created: ${request.url.substring(0, 50)}... | Price: £${price} | No coords`,
+				);
 				console.log(`⚠️ New property: ${title.substring(0, 40)}... (£${price}) - No coords found`);
 			}
 
@@ -487,7 +491,7 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 		},
 		requestHandlerTimeoutSecs: 60,
 		maxRequestRetries: 2,
-		maxConcurrency: agentId === 8 ? 1 : 2, // Agent 8 (Jackie Quinn) needs sequential requests to avoid 429 errors
+		maxConcurrency: agentId === 8 || agentId === 13 ? 1 : 2, // Agents 8 & 13 need sequential requests to avoid 429 errors
 		failedRequestHandler: async ({ request }) => {
 			console.log(`⚠️ Request failed after retries: ${request.url}`);
 		},
@@ -788,6 +792,11 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 					}
 				}
 			}
+
+			// Add delay between listing pages for agent 13
+			if (agentId === 13 && !request.userData?.isDetailPage) {
+				await new Promise((resolve) => setTimeout(resolve, 3000));
+			}
 		},
 	});
 
@@ -847,20 +856,13 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 				}
 
 				// Determine which crawler to use based on agent
-				if (agent.id === 4 || agent.id === 8 || agent.id === 12) {
+				if (agent.id === 4 || agent.id === 8 || agent.id === 12 || agent.id === 13) {
 					// Use PlaywrightCrawler for agents that need JavaScript
 					// Agent 4: Marsh & Parsons (needs JS rendering)
 					// Agent 8: Jackie Quinn (needs to click map link for coordinates)
 					// Agent 12: Purplebricks (needs JS rendering)
+					// Agent 13: Bairstow Eves (needs JS rendering for listing pages)
 					await scrapeWithPlaywright(urls, agent.id, type.isRent);
-				} else if (agent.id === 13) {
-					// Agent 13: Bairstow Eves - Use Cheerio for listing pages, Playwright for detail pages
-					// Run each listing page sequentially to avoid 429s
-					for (const url of urls) {
-						await scrapeWithCheerio([url], agent.id, type.isRent);
-						// Delay between listing pages
-						await new Promise((resolve) => setTimeout(resolve, 1000));
-					}
 				} else {
 					// Use CheerioCrawler for others (faster)
 					await scrapeWithCheerio(urls, agent.id, type.isRent);
