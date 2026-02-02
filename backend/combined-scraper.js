@@ -464,8 +464,8 @@ async function createAgent13DetailCrawler() {
 				console.log(`⚠️ New property: ${title.substring(0, 40)}... (£${price}) - No coords found`);
 			}
 
-			// Add delay between requests to prevent 429
-			await new Promise((resolve) => setTimeout(resolve, 2000));
+			// Add delay between detail page requests to prevent 429
+			await new Promise((resolve) => setTimeout(resolve, 1200));
 		},
 		failedRequestHandler: async ({ request }) => {
 			console.log(`⚠️ Detail page failed: ${request.url}`);
@@ -489,7 +489,7 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 				browserWSEndpoint,
 			},
 		},
-		requestHandlerTimeoutSecs: 60,
+		requestHandlerTimeoutSecs: agentId === 13 ? 180 : 60, // Agent 13 needs more time for pages with many properties
 		maxRequestRetries: 2,
 		maxConcurrency: agentId === 8 || agentId === 13 ? 1 : 2, // Agents 8 & 13 need sequential requests to avoid 429 errors
 		failedRequestHandler: async ({ request }) => {
@@ -770,7 +770,6 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 
 				if (!result.isExisting && !result.error) {
 					// Need to fetch coordinates from detail page (only if no error)
-					// Add delay before requesting detail page to prevent 429s
 					await crawler.addRequests(
 						[
 							{
@@ -787,15 +786,12 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 						],
 						{ waitForAllRequestsToBeAdded: true },
 					);
-					if (agentId === 13) {
-						await new Promise((resolve) => setTimeout(resolve, 2000));
-					}
 				}
 			}
 
-			// Add delay between listing pages for agent 13
+			// Add delay between listing pages for agent 13 to prevent rate limiting
 			if (agentId === 13 && !request.userData?.isDetailPage) {
-				await new Promise((resolve) => setTimeout(resolve, 3000));
+				await new Promise((resolve) => setTimeout(resolve, 2000));
 			}
 		},
 	});
