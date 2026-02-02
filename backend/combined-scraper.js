@@ -769,23 +769,47 @@ async function scrapeWithPlaywright(urls, agentId, isRent) {
 				);
 
 				if (!result.isExisting && !result.error) {
-					// Need to fetch coordinates from detail page (only if no error)
-					await crawler.addRequests(
-						[
-							{
+					// For agent 13, process detail page immediately to ensure sequential processing
+					if (agentId === 13) {
+						try {
+							await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+							await page.waitForTimeout(1000);
+
+							const detailHtml = await page.content();
+							await processPropertyWithCoordinates(
 								url,
-								userData: {
-									isDetailPage: true,
-									price,
-									title: fullTitle,
-									bedrooms,
-									isRent,
-									agentId,
+								price,
+								fullTitle,
+								bedrooms,
+								agentId,
+								isRent,
+								detailHtml,
+							);
+
+							// Delay between detail pages
+							await new Promise((resolve) => setTimeout(resolve, 3000));
+						} catch (error) {
+							console.error(`❌ Error processing detail page ${url}: ${error.message}`);
+						}
+					} else {
+						// For other agents, add to queue
+						await crawler.addRequests(
+							[
+								{
+									url,
+									userData: {
+										isDetailPage: true,
+										price,
+										title: fullTitle,
+										bedrooms,
+										isRent,
+										agentId,
+									},
 								},
-							},
-						],
-						{ waitForAllRequestsToBeAdded: true },
-					);
+							],
+							{ waitForAllRequestsToBeAdded: true },
+						);
+					}
 				}
 			}
 
