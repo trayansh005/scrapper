@@ -67,19 +67,52 @@ async function scrapeChestertons() {
 		process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
 
-	console.log(`🌐 Connecting to browserless for detail pages: ${browserWSEndpoint.split("?")[0]}`);
+	console.log(
+		`🌐 Connecting to browserless for listing and detail pages: ${browserWSEndpoint.split("?")[0]}`,
+	);
 
-	// Cheerio crawler for listing pages (faster)
-	const listingCrawler = new CheerioCrawler({
-		maxConcurrency: 3,
+	// Playwright crawler for listing pages (JavaScript rendered content)
+	const listingCrawler = new PlaywrightCrawler({
+		maxConcurrency: 1,
 		maxRequestRetries: 3,
-		requestHandlerTimeoutSecs: 60,
+		requestHandlerTimeoutSecs: 120,
 
-		async requestHandler({ $, request }) {
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+			},
+		},
+
+		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label } = request.userData || {};
 			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
-			// Extract properties from listing page using Cheerio
+			try {
+				const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+				await page.setUserAgent(ua);
+				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+			} catch (e) {}
+
+			await sleep(randBetween(500, 1200));
+			const resp = await page.goto(request.url, {
+				waitUntil: "domcontentloaded",
+				timeout: 30000,
+			});
+
+			if (resp?.status?.() === 429) {
+				console.warn(`⚠️ 429 on ${request.url} — backing off`);
+				await sleep(60000);
+				throw new Error("429");
+			}
+
+			// Wait for property cards to load
+			await page.waitForTimeout(2000);
+
+			// Extract properties using Playwright
+			const htmlContent = await page.content();
+			const $ = cheerio.load(htmlContent);
+
 			const properties = [];
 			$(".pegasus-property-card").each((index, element) => {
 				try {
@@ -171,6 +204,9 @@ async function scrapeChestertons() {
 		async requestHandler({ page, request }) {
 			const { property } = request.userData;
 
+			// Add 1 second delay between each detail page visit
+			await sleep(1000);
+
 			try {
 				const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
 				await page.setUserAgent(ua);
@@ -239,23 +275,25 @@ async function scrapeChestertons() {
 
 		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
 
+		// Process pages one by one
 		for (let page = startPage; page <= totalPages; page++) {
 			// Chestertons uses ?page=N query parameter
 			const url = page === 1 ? propertyType.urlBase : `${propertyType.urlBase}?page=${page}`;
 			const uniqueKey = `${propertyType.label}_page_${page}`;
-			requests.push({
-				url,
-				uniqueKey,
-				userData: { pageNum: page, isRental: propertyType.isRental, label: propertyType.label },
-			});
+
+			// Process this page's listings
+			await listingCrawler.addRequests([
+				{
+					url,
+					uniqueKey,
+					userData: { pageNum: page, isRental: propertyType.isRental, label: propertyType.label },
+				},
+			]);
+			await listingCrawler.run();
+
+			// Process detail pages for properties found on this page
+			await detailCrawler.run();
 		}
-
-		// Run listing crawler first (Cheerio - fast)
-		await listingCrawler.addRequests(requests);
-		await listingCrawler.run();
-
-		// Then run detail crawler for new properties (Playwright - slower)
-		await detailCrawler.run();
 
 		logMemoryUsage(`After ${propertyType.label}`);
 	}
