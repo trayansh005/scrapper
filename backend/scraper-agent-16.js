@@ -120,28 +120,49 @@ async function scrapeRomans() {
 
 					await detailPage.waitForTimeout(2000);
 
-					// Click Streetview button to load Google Maps with coordinates
-					let coords = { latitude: null, longitude: null };
+					// Dismiss cookie consent if present
+					try {
+						const acceptButton = await detailPage.locator('button:has-text("Accept all")').first();
+						if (await acceptButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+							await acceptButton.click();
+							await detailPage.waitForTimeout(1000);
+						}
+					} catch (e) {
+						// No cookie banner or already dismissed
+					}
 
 					try {
 						// Find and click the Streetview button
 						const streetviewBtn = await detailPage.locator('button:has-text("Streetview")').first();
 						if (await streetviewBtn.isVisible().catch(() => false)) {
 							await streetviewBtn.click();
-							await detailPage.waitForTimeout(3000);
 
-							// Extract coordinates from Google Maps link
-							const googleMapsCoords = await detailPage.evaluate(() => {
-								const link = document.querySelector('a[href*="google.com/maps/@"]');
-								if (link) {
-									const href = link.getAttribute("href");
-									const match = href.match(/@([\d.-]+),([\d.-]+)/);
-									if (match) {
-										return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+							// Wait for Google Maps iframe to load - increase timeout
+							await detailPage.waitForTimeout(5000);
+
+							// Extract coordinates from Google Maps link with retries
+							let googleMapsCoords = null;
+							for (let retry = 0; retry < 3; retry++) {
+								googleMapsCoords = await detailPage.evaluate(() => {
+									const link = document.querySelector('a[href*="google.com/maps/@"]');
+									if (link) {
+										const href = link.getAttribute("href");
+										const match = href.match(/@([\d.-]+),([\d.-]+)/);
+										if (match) {
+											return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+										}
 									}
+									return null;
+								});
+
+								if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
+									break;
 								}
-								return null;
-							});
+
+								if (retry < 2) {
+									await detailPage.waitForTimeout(2000);
+								}
+							}
 
 							if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
 								coords.latitude = googleMapsCoords.lat;
