@@ -11,6 +11,10 @@ const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 const { logMemoryUsage } = require("./lib/scraper-utils.js");
 const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { EventEmitter } = require("events");
+
+// Increase max listeners to prevent memory leak warnings
+EventEmitter.defaultMaxListeners = 100;
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -250,7 +254,6 @@ async function scrapeChestertons() {
 				? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
 				: 1;
 		console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
-		const requests = [];
 		const startPage =
 			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages
 				? startPageArg
@@ -258,27 +261,28 @@ async function scrapeChestertons() {
 
 		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
 
-		// Process pages one by one
+		// Queue all pages - they will be processed sequentially due to maxConcurrency: 1
+		const requests = [];
 		for (let page = startPage; page <= totalPages; page++) {
 			// Chestertons uses ?page=N query parameter
 			const url = page === 1 ? propertyType.urlBase : `${propertyType.urlBase}?page=${page}`;
 			const uniqueKey = `${propertyType.label}_page_${page}`;
 
-			// Process this page's listings and details sequentially
-			await crawler.addRequests([
-				{
-					url,
-					uniqueKey,
-					userData: {
-						pageNum: page,
-						isRental: propertyType.isRental,
-						label: propertyType.label,
-						isDetailPage: false,
-					},
+			requests.push({
+				url,
+				uniqueKey,
+				userData: {
+					pageNum: page,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+					isDetailPage: false,
 				},
-			]);
-			await crawler.run();
+			});
 		}
+
+		// Add all requests and run - maxConcurrency: 1 ensures sequential processing
+		await crawler.addRequests(requests);
+		await crawler.run();
 
 		logMemoryUsage(`After ${propertyType.label}`);
 	}
