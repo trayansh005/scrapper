@@ -143,64 +143,59 @@ async function scrapeRomans() {
 					} else {
 						// Only try Streetview if no coords found in HTML
 						console.log(`🔍 No coords in HTML, trying Streetview button...`);
+						try {
+							// Find and click the Streetview button
+							const streetviewBtn = await detailPage
+								.locator('button:has-text("Streetview")')
+								.first();
+							const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
 
-					try {
-						// Find and click the Streetview button
-						const streetviewBtn = await detailPage.locator('button:has-text("Streetview")').first();
-						const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
+							if (isVisible) {
+								await streetviewBtn.click();
+								console.log(`🗺️ Clicked Streetview button, waiting for Google Maps to load...`);
 
-						if (isVisible) {
-							await streetviewBtn.click();
-							console.log(`🗺️ Clicked Streetview button, waiting for Google Maps to load...`);
+								// Wait for Google Maps iframe to load
+								await detailPage.waitForTimeout(8000);
 
-							// Wait for Google Maps iframe to load - increase timeout significantly
-							await detailPage.waitForTimeout(8000);
-
-							// Extract coordinates from Google Maps link with retries
-							let googleMapsCoords = null;
-							for (let retry = 0; retry < 5; retry++) {
-								googleMapsCoords = await detailPage.evaluate(() => {
-									const link = document.querySelector('a[href*="google.com/maps/@"]');
-									if (link) {
-										const href = link.getAttribute("href");
-										const match = href.match(/@([\d.-]+),([\d.-]+)/);
-										if (match) {
-											return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+								// Extract coordinates from Google Maps link with retries
+								let googleMapsCoords = null;
+								for (let retry = 0; retry < 5; retry++) {
+									googleMapsCoords = await detailPage.evaluate(() => {
+										const link = document.querySelector('a[href*="google.com/maps/@"]');
+										if (link) {
+											const href = link.getAttribute("href");
+											const match = href.match(/@([\d.-]+),([\d.-]+)/);
+											if (match) {
+												return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+											}
 										}
+										return null;
+									});
+
+									if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
+										console.log(
+											`✅ Found coords from Streetview: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`,
+										);
+										break;
 									}
-									return null;
-								});
+
+									if (retry < 4) {
+										console.log(`⏳ Retry ${retry + 1}/5 - waiting for coords...`);
+										await detailPage.waitForTimeout(3000);
+									}
+								}
 
 								if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
-									console.log(`✅ Found coords: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`);
-									break;
+									coords.latitude = googleMapsCoords.lat;
+									coords.longitude = googleMapsCoords.lng;
+								} else {
+									console.log(`⚠️ No coords found after 5 retries`);
 								}
-
-								if (retry < 4) {
-									console.log(`⏳ Retry ${retry + 1}/5 - waiting for coords...`);
-									await detailPage.waitForTimeout(3000);
-								}
-							}
-
-							if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
-								coords.latitude = googleMapsCoords.lat;
-								coords.longitude = googleMapsCoords.lng;
 							} else {
-								console.log(`⚠️ No coords found after 5 retries`);
+								console.log(`⚠️ Streetview button not visible`);
 							}
-						} else {
-							console.log(`⚠️ Streetview button not visible`);
-						}
-					} catch (e) {
-						console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
-					}
-
-					// If no coords from streetview, try extracting from HTML
-					const htmlContent = await detailPage.content();
-					if (!coords.latitude || !coords.longitude) {
-						const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
-						if (htmlCoords.latitude && htmlCoords.longitude) {
-							coords = htmlCoords;
+						} catch (e) {
+							console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
 						}
 					}
 
