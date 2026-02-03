@@ -7,7 +7,6 @@ const SOLD_KEYWORDS = [
 	"sold",
 	"under offer",
 	"let agreed",
-	"let",
 	"withdrawn",
 	"off market",
 ];
