@@ -8,7 +8,7 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
-const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { logMemoryUsage } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -196,6 +196,9 @@ async function scrapeRomans() {
 
 					// Get the price from h3.property-price and sanitize
 					const priceText = $card.find(".property-price").text().trim() || "";
+					const cardText = $card.text() || "";
+
+					if (isSoldProperty(cardText) || isSoldProperty(priceText)) return;
 					const priceMatch = priceText.match(/[0-9][0-9,\s]*/g);
 					const priceClean = priceMatch ? priceMatch.join("").replace(/[^0-9]/g, "") : "";
 					const price = priceClean ? parseInt(priceClean) : null;

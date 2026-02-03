@@ -8,7 +8,7 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
-const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { logMemoryUsage } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -96,6 +96,55 @@ async function scrapeSequenceHome() {
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label, property, isDetailPage } = request.userData || {};
 
+			const scrapeDetailPage = async (browserContext, prop) => {
+				await sleep(1000);
+				const detailPage = await browserContext.newPage();
+				try {
+					try {
+						const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+						await detailPage.setUserAgent(ua);
+						await detailPage.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+					} catch (e) {}
+
+					await sleep(randBetween(800, 1800));
+					const resp = await detailPage.goto(prop.link, {
+						waitUntil: "domcontentloaded",
+						timeout: 30000,
+					});
+
+					if (resp?.status?.() === 429) {
+						console.warn(`⚠️ 429 on ${prop.link} — backing off`);
+						await sleep(60000);
+						throw new Error("429");
+					}
+
+					await detailPage.waitForTimeout(1000);
+					const htmlContent = await detailPage.content();
+
+					await processPropertyWithCoordinates(
+						prop.link,
+						prop.price,
+						prop.title,
+						prop.bedrooms || null,
+						AGENT_ID,
+						prop.isRental,
+						htmlContent,
+					);
+
+					totalScraped++;
+					totalSaved++;
+
+					const coords = await extractCoordinatesFromHTML(htmlContent);
+					const coordsStr =
+						coords.latitude && coords.longitude
+							? `${coords.latitude}, ${coords.longitude}`
+							: "No coords";
+					console.log(`✅ ${prop.title} - ${formatPrice(prop.price)} - ${coordsStr}`);
+				} finally {
+					await detailPage.close();
+				}
+			};
+
 			// Handle detail pages
 			if (isDetailPage) {
 				// Add 1 second delay between each detail page visit
@@ -171,21 +220,32 @@ async function scrapeSequenceHome() {
 			// Wait for property cards to load
 			await page.waitForTimeout(2000);
 
-			// Wait for the specific page container
+			// Wait for the specific page container (page 1 often lacks data-page-no)
 			const containerSelector = `div[data-page-no="${pageNum}"]`;
-			try {
-				await page.waitForSelector(containerSelector, { timeout: 15000 });
-			} catch (e) {
-				console.log(`⚠️ Container ${containerSelector} not found on page ${pageNum}`);
-				// Fallback to generic selector check just in case, but warn
+			if (pageNum === 1) {
 				try {
-					await page.waitForSelector(".property.list_block[data-property-id]", { timeout: 5000 });
-					console.log(
-						`⚠️ Found properties but not in expected container. Proceeding with caution.`,
-					);
-				} catch (e2) {
+					await page.waitForSelector(".property.list_block[data-property-id]", { timeout: 15000 });
+				} catch (e) {
 					console.log(`⚠️ No property cards found on page ${pageNum}`);
 					return;
+				}
+			} else {
+				try {
+					await page.waitForSelector(containerSelector, { timeout: 15000 });
+				} catch (e) {
+					console.log(`⚠️ Container ${containerSelector} not found on page ${pageNum}`);
+					// Fallback to generic selector check just in case, but warn
+					try {
+						await page.waitForSelector(".property.list_block[data-property-id]", {
+							timeout: 5000,
+						});
+						console.log(
+							`⚠️ Found properties but not in expected container. Proceeding with caution.`,
+						);
+					} catch (e2) {
+						console.log(`⚠️ No property cards found on page ${pageNum}`);
+						return;
+					}
 				}
 			}
 
@@ -218,6 +278,9 @@ async function scrapeSequenceHome() {
 
 					const title = $card.find(".address")?.text()?.trim() || "";
 					const priceText = $card.find(".price-value")?.text()?.trim() || "";
+					const cardText = $card.text() || "";
+
+					if (isSoldProperty(cardText) || isSoldProperty(priceText)) return;
 
 					// Parse price
 					const priceMatch = priceText.match(/[0-9][0-9,\.\s]*/);
@@ -274,12 +337,7 @@ async function scrapeSequenceHome() {
 				// If it's a new property, scrape detail page immediately
 				if (!result.isExisting && !result.error) {
 					console.log(`🆕 Scraping detail for new property: ${p.title}`);
-					await crawler.addRequests([
-						{
-							url: p.link,
-							userData: { property: { ...p, isRental }, isDetailPage: true },
-						},
-					]);
+					await scrapeDetailPage(page.context(), { ...p, isRental });
 				}
 			}
 		},
@@ -316,7 +374,7 @@ async function scrapeSequenceHome() {
 		const requests = [];
 		for (let page = startPage; page <= totalPages; page++) {
 			// Sequence Home uses /page-N/ format
-			const url = page === 1 ? `${propertyType.urlBase}/` : `${propertyType.urlBase}/page-${page}/`;
+			const url = page === 1 ? `${propertyType.urlBase}` : `${propertyType.urlBase}/page-${page}/`;
 			const uniqueKey = `${propertyType.label}_page_${page}`;
 
 			requests.push({
