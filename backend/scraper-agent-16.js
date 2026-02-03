@@ -131,8 +131,18 @@ async function scrapeRomans() {
 						// No cookie banner or already dismissed
 					}
 
-					// Click Streetview button to load Google Maps with coordinates
+					// Get HTML content first to check for coordinates in script tags
+					const htmlContent = await detailPage.content();
 					let coords = { latitude: null, longitude: null };
+
+					// Try extracting coordinates from HTML/script tags first (faster)
+					const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
+					if (htmlCoords.latitude && htmlCoords.longitude) {
+						coords = htmlCoords;
+						console.log(`✅ Found coords in HTML: ${coords.latitude}, ${coords.longitude}`);
+					} else {
+						// Only try Streetview if no coords found in HTML
+						console.log(`🔍 No coords in HTML, trying Streetview button...`);
 
 					try {
 						// Find and click the Streetview button
