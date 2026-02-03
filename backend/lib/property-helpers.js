@@ -36,10 +36,13 @@ async function extractCoordinatesFromHTML(html) {
 		const googleMapsDirMatch = html.match(/google\.com\/maps\/dir\/\/([\d.-]+),([\d.-]+)/);
 		const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
 		const scriptMatch = html.match(/lat:\s*"?([\d.-]+)"?,\s*lng:\s*"?([\d.-]+)"?/);
+		// Match both escaped and unescaped quotes for latitude/longitude in JSON
 		const jsonMatch = html.match(
-			/"latitude"\s*:\s*"?([\d.-]+)"?,\s*"longitude"\s*:\s*"?([\d.-]+)"?/,
+			/\\?"latitude\\?"\s*:\s*"?([\d.-]+)"?,\s*\\?"longitude\\?"\s*:\s*"?([\d.-]+)"?/,
 		);
-		const latLngMatch = html.match(/"lat"\s*:\s*"?([\d.-]+)"?,\s*"lng"\s*:\s*"?([\d.-]+)"?/);
+		const latLngMatch = html.match(
+			/\\?"lat\\?"\s*:\s*"?([\d.-]+)"?,\s*\\?"lng\\?"\s*:\s*"?([\d.-]+)"?/,
+		);
 		const dataAttrMatch = html.match(
 			/data-(?:lat|latitude)="([\d.-]+)"[\s\S]*?data-(?:lng|longitude)="([\d.-]+)"/,
 		);
