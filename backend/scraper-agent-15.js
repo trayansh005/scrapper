@@ -82,7 +82,6 @@ async function scrapeSequenceHome() {
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 120,
-		blockedStatusCodes: [429],
 
 		launchContext: {
 			launchOptions: {
