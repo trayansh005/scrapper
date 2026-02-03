@@ -77,15 +77,6 @@ async function scrapeSequenceHome() {
 	console.log(`\n🚀 Starting Sequence Home scraper (Agent ${AGENT_ID})...\n`);
 	logMemoryUsage("START");
 
-	// Browserless configuration
-	const browserWSEndpoint =
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
-
-	console.log(
-		`🌐 Connecting to browserless for listing and detail pages: ${browserWSEndpoint.split("?")[0]}`,
-	);
-
 	// Create a unified Playwright crawler that handles both listing and detail pages
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -94,9 +85,8 @@ async function scrapeSequenceHome() {
 		blockedStatusCodes: [429],
 
 		launchContext: {
-			launcher: undefined,
 			launchOptions: {
-				browserWSEndpoint,
+				headless: true,
 			},
 		},
 
