@@ -96,7 +96,181 @@ async function scrapeRomans() {
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label, property, isDetailPage } = request.userData || {};
 
-			// Handle detail pages
+		const scrapeDetailPage = async (browserContext, prop) => {
+			await sleep(1000);
+			const detailPage = await browserContext.newPage();
+			try {
+				try {
+					const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+					await detailPage.setUserAgent(ua);
+					await detailPage.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+				} catch (e) {}
+
+				await sleep(randBetween(800, 1800));
+				const resp = await detailPage.goto(prop.link, {
+					waitUntil: "domcontentloaded",
+					timeout: 30000,
+				});
+
+				if (resp?.status?.() === 429) {
+					console.warn(`⚠️ 429 on ${prop.link} — backing off`);
+					await sleep(60000);
+					throw new Error("429");
+				}
+
+				await detailPage.waitForTimeout(2000);
+
+				// Click Streetview button to load Google Maps with coordinates
+				let coords = { latitude: null, longitude: null };
+
+				try {
+					// Find and click the Streetview button
+					const streetviewBtn = await detailPage.locator('button:has-text("Streetview")').first();
+					if (await streetviewBtn.isVisible().catch(() => false)) {
+						await streetviewBtn.click();
+						await detailPage.waitForTimeout(3000);
+
+						// Extract coordinates from Google Maps link
+						const googleMapsCoords = await detailPage.evaluate(() => {
+							const link = document.querySelector('a[href*="google.com/maps/@"]');
+							if (link) {
+								const href = link.getAttribute("href");
+								const match = href.match(/@([\d.-]+),([\d.-]+)/);
+								if (match) {
+									return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+								}
+							}
+							return null;
+						});
+
+						if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
+							coords.latitude = googleMapsCoords.lat;
+							coords.longitude = googleMapsCoords.lng;
+						}
+					}
+				} catch (e) {
+					console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
+				}
+
+				// If no coords from streetview, try extracting from HTML
+				const htmlContent = await detailPage.content();
+				if (!coords.latitude || !coords.longitude) {
+					const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
+					if (htmlCoords.latitude && htmlCoords.longitude) {
+						coords = htmlCoords;
+					}
+				}
+
+				// Use helper to process property with coordinates
+				await processPropertyWithCoordinates(
+					prop.link,
+					prop.price,
+					prop.title,
+					prop.bedrooms || null,
+					AGENT_ID,
+					prop.isRental,
+					htmlContent,
+				);
+
+				totalScraped++;
+				totalSaved++;
+
+				const coordsStr =
+					coords.latitude && coords.longitude
+						? `${coords.latitude}, ${coords.longitude}`
+						: "No coords";
+				console.log(`✅ ${prop.title} - ${formatPrice(prop.price)} - ${coordsStr}`);
+			} finally {
+				await detailPage.close();
+			}
+		};
+			await sleep(1000);
+			const detailPage = await browserContext.newPage();
+			try {
+				try {
+					const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+					await detailPage.setUserAgent(ua);
+					await detailPage.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+				} catch (e) {}
+
+				await sleep(randBetween(800, 1800));
+				const resp = await detailPage.goto(prop.link, {
+					waitUntil: "domcontentloaded",
+					timeout: 30000,
+				});
+
+				if (resp?.status?.() === 429) {
+					console.warn(`⚠️ 429 on ${prop.link} — backing off`);
+					await sleep(60000);
+					throw new Error("429");
+				}
+
+				await detailPage.waitForTimeout(2000);
+
+				// Click Streetview button to load Google Maps with coordinates
+				let coords = { latitude: null, longitude: null };
+
+				try {
+					// Find and click the Streetview button
+					const streetviewBtn = await detailPage.locator('button:has-text("Streetview")').first();
+					if (await streetviewBtn.isVisible().catch(() => false)) {
+						await streetviewBtn.click();
+						await detailPage.waitForTimeout(3000);
+
+						// Extract coordinates from Google Maps link
+						const googleMapsCoords = await detailPage.evaluate(() => {
+							const link = document.querySelector('a[href*="google.com/maps/@"]');
+							if (link) {
+								const href = link.getAttribute("href");
+								const match = href.match(/@([\d.-]+),([\d.-]+)/);
+								if (match) {
+									return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+								}
+							}
+							return null;
+						});
+
+						if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
+							coords.latitude = googleMapsCoords.lat;
+							coords.longitude = googleMapsCoords.lng;
+						}
+					}
+				} catch (e) {
+					console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
+				}
+
+				// If no coords from streetview, try extracting from HTML
+				const htmlContent = await detailPage.content();
+				if (!coords.latitude || !coords.longitude) {
+					const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
+					if (htmlCoords.latitude && htmlCoords.longitude) {
+						coords = htmlCoords;
+					}
+				}
+
+				// Use helper to process property with coordinates
+				await processPropertyWithCoordinates(
+					prop.link,
+					prop.price,
+					prop.title,
+					prop.bedrooms || null,
+					AGENT_ID,
+					prop.isRental,
+					htmlContent,
+				);
+
+				totalScraped++;
+				totalSaved++;
+
+				const coordsStr =
+					coords.latitude && coords.longitude
+						? `${coords.latitude}, ${coords.longitude}`
+						: "No coords";
+				console.log(`✅ ${prop.title} - ${formatPrice(prop.price)} - ${coordsStr}`);
+			} finally {
+				await detailPage.close();
+			}
+		};
 			if (isDetailPage) {
 				// Add 1 second delay between each detail page visit
 				await sleep(1000);
@@ -287,15 +461,7 @@ async function scrapeRomans() {
 				// If it's a new property, scrape detail page immediately
 				if (!result.isExisting && !result.error) {
 					console.log(`🆕 Scraping detail for new property: ${p.title}`);
-					await crawler.addRequests([
-						{
-							url: p.link,
-							userData: { property: { ...p, isRental }, isDetailPage: true },
-						},
-					]);
-				}
-			}
-		},
+				await scrapeDetailPage(page.context(), { ...p, isRental });
 
 		failedRequestHandler({ request }) {
 			const { isDetailPage } = request.userData || {};
