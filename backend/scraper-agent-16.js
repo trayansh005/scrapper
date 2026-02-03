@@ -51,13 +51,13 @@ const START_PAGE = 1;
 
 // Configuration for Romans
 const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.romans.co.uk/properties/for-sale",
-		isRental: false,
-		label: "SALES",
-		totalRecords: 876,
-		recordsPerPage: 8,
-	},
+	// {
+	// 	urlBase: "https://www.romans.co.uk/properties/for-sale",
+	// 	isRental: false,
+	// 	label: "SALES",
+	// 	totalRecords: 876,
+	// 	recordsPerPage: 8,
+	// },
 	{
 		urlBase: "https://www.romans.co.uk/properties/to-rent",
 		isRental: true,
