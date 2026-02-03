@@ -137,15 +137,18 @@ async function scrapeRomans() {
 					try {
 						// Find and click the Streetview button
 						const streetviewBtn = await detailPage.locator('button:has-text("Streetview")').first();
-						if (await streetviewBtn.isVisible().catch(() => false)) {
-							await streetviewBtn.click();
+						const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
 
-							// Wait for Google Maps iframe to load - increase timeout
-							await detailPage.waitForTimeout(5000);
+						if (isVisible) {
+							await streetviewBtn.click();
+							console.log(`🗺️ Clicked Streetview button, waiting for Google Maps to load...`);
+
+							// Wait for Google Maps iframe to load - increase timeout significantly
+							await detailPage.waitForTimeout(8000);
 
 							// Extract coordinates from Google Maps link with retries
 							let googleMapsCoords = null;
-							for (let retry = 0; retry < 3; retry++) {
+							for (let retry = 0; retry < 5; retry++) {
 								googleMapsCoords = await detailPage.evaluate(() => {
 									const link = document.querySelector('a[href*="google.com/maps/@"]');
 									if (link) {
@@ -159,18 +162,24 @@ async function scrapeRomans() {
 								});
 
 								if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
+									console.log(`✅ Found coords: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`);
 									break;
 								}
 
-								if (retry < 2) {
-									await detailPage.waitForTimeout(2000);
+								if (retry < 4) {
+									console.log(`⏳ Retry ${retry + 1}/5 - waiting for coords...`);
+									await detailPage.waitForTimeout(3000);
 								}
 							}
 
 							if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
 								coords.latitude = googleMapsCoords.lat;
 								coords.longitude = googleMapsCoords.lng;
+							} else {
+								console.log(`⚠️ No coords found after 5 retries`);
 							}
+						} else {
+							console.log(`⚠️ Streetview button not visible`);
 						}
 					} catch (e) {
 						console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
