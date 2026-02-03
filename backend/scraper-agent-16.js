@@ -131,6 +131,9 @@ async function scrapeRomans() {
 						// No cookie banner or already dismissed
 					}
 
+					// Click Streetview button to load Google Maps with coordinates
+					let coords = { latitude: null, longitude: null };
+
 					try {
 						// Find and click the Streetview button
 						const streetviewBtn = await detailPage.locator('button:has-text("Streetview")').first();
