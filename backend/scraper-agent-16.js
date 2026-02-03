@@ -119,11 +119,48 @@ async function scrapeRomans() {
 					throw new Error("429");
 				}
 
-				await page.waitForTimeout(1000);
+				await page.waitForTimeout(2000);
 
-				// Extract coordinates using helper function
+				// Click Streetview button to load Google Maps with coordinates
+				let coords = { latitude: null, longitude: null };
+
+				try {
+					// Find and click the Streetview button
+					const streetviewBtn = await page.locator('button:has-text("Streetview")').first();
+					if (await streetviewBtn.isVisible().catch(() => false)) {
+						await streetviewBtn.click();
+						await page.waitForTimeout(3000);
+
+						// Extract coordinates from Google Maps link
+						const googleMapsCoords = await page.evaluate(() => {
+							const link = document.querySelector('a[href*="google.com/maps/@"]');
+							if (link) {
+								const href = link.getAttribute("href");
+								const match = href.match(/@([\d.-]+),([\d.-]+)/);
+								if (match) {
+									return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+								}
+							}
+							return null;
+						});
+
+						if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
+							coords.latitude = googleMapsCoords.lat;
+							coords.longitude = googleMapsCoords.lng;
+						}
+					}
+				} catch (e) {
+					console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
+				}
+
+				// If no coords from streetview, try extracting from HTML
 				const htmlContent = await page.content();
-				const coords = await extractCoordinatesFromHTML(htmlContent);
+				if (!coords.latitude || !coords.longitude) {
+					const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
+					if (htmlCoords.latitude && htmlCoords.longitude) {
+						coords = htmlCoords;
+					}
+				}
 
 				// Use helper to process property with coordinates
 				await processPropertyWithCoordinates(
