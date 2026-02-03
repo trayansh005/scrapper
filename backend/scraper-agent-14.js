@@ -247,7 +247,7 @@ async function scrapeChestertons() {
 	const args = process.argv.slice(2);
 	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
 
-	// Queue pages per property type
+	// Process pages per property type
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages =
 			propertyType.totalRecords && propertyType.recordsPerPage
@@ -261,28 +261,27 @@ async function scrapeChestertons() {
 
 		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
 
-		// Queue all pages - they will be processed sequentially due to maxConcurrency: 1
-		const requests = [];
+		// Process one page at a time - listing page followed by its detail pages
 		for (let page = startPage; page <= totalPages; page++) {
 			// Chestertons uses ?page=N query parameter
 			const url = page === 1 ? propertyType.urlBase : `${propertyType.urlBase}?page=${page}`;
 			const uniqueKey = `${propertyType.label}_page_${page}`;
 
-			requests.push({
-				url,
-				uniqueKey,
-				userData: {
-					pageNum: page,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-					isDetailPage: false,
+			// Add this listing page and run crawler to complete it and its details
+			await crawler.addRequests([
+				{
+					url,
+					uniqueKey,
+					userData: {
+						pageNum: page,
+						isRental: propertyType.isRental,
+						label: propertyType.label,
+						isDetailPage: false,
+					},
 				},
-			});
+			]);
+			await crawler.run();
 		}
-
-		// Add all requests and run - maxConcurrency: 1 ensures sequential processing
-		await crawler.addRequests(requests);
-		await crawler.run();
 
 		logMemoryUsage(`After ${propertyType.label}`);
 	}
