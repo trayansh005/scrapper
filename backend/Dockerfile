@@ -1,16 +1,18 @@
-# 1. Use the official Playwright image (comes with browsers pre-installed)
+# 1. Playwright image
 FROM mcr.microsoft.com/playwright:v1.56.1-jammy
 
-# 2. Set the working directory
+# 2. Install tmux
+RUN apt-get update && apt-get install -y tmux && rm -rf /var/lib/apt/lists/*
+
+# 3. Working directory
 WORKDIR /app
 
-# 3. Copy package files first (to cache npm install)
+# 4. Dependencies
 COPY package*.json ./
 RUN npm install
 
-# 4. Copy the rest of your scraper code
+# 5. App code
 COPY . .
 
-# 5. Start your scraper
-# Replace 'npm start' with whatever command runs your script
-CMD ["npm", "start"]
+# 6. Keep container alive (important)
+CMD ["sleep", "infinity"]
