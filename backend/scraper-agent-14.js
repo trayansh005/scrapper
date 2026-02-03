@@ -46,13 +46,13 @@ function formatPrice(price) {
 const START_PAGE = 1;
 
 const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
-		isRental: false,
-		label: "SALES",
-		totalRecords: 1747,
-		recordsPerPage: 12,
-	},
+	// {
+	// 	urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
+	// 	isRental: false,
+	// 	label: "SALES",
+	// 	totalRecords: 1747,
+	// 	recordsPerPage: 12,
+	// },
 	{
 		urlBase: "https://www.chestertons.co.uk/properties/lettings/status-available",
 		isRental: true,
@@ -124,7 +124,7 @@ async function scrapeChestertons() {
 					property.link,
 					property.price,
 					property.title,
-					property.bedrooms,
+					property.bedrooms || null,
 					AGENT_ID,
 					property.isRental,
 					coords.latitude,
@@ -195,12 +195,20 @@ async function scrapeChestertons() {
 					$card.find("svg[aria-labelledby]").each((i, svg) => {
 						const titleText = $(svg).find("title").text();
 						if (titleText === "Bedrooms") {
-							bedrooms = $(svg).parent().next().text().trim();
+							const bedroomText = $(svg).parent().next().text().trim();
+							// Extract number from text like "bedroom 1", "bedrooms 2", etc.
+							const match = bedroomText.match(/\d+/);
+							bedrooms = match ? match[0] : null;
 							return false; // break
 						}
 					});
 
-					properties.push({ link: href, title, price, bedrooms });
+					properties.push({
+						link: href,
+						title,
+						price: parseInt(price),
+						bedrooms: bedrooms,
+					});
 				} catch (e) {
 					// Skip this card
 				}
