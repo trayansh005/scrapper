@@ -2,11 +2,22 @@
 // Agent ID: 16
 //
 // Usage:
-// node backend/scraper-agent-16.js
+// node backend/scraper-agent-16.js [startPage]
+// Example: node backend/scraper-agent-16.js 10 (starts from page 10)
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { firefox } = require("playwright");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { logMemoryUsage } = require("./lib/scraper-utils.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { EventEmitter } = require("events");
+
+// Increase max listeners to prevent memory leak warnings
+EventEmitter.defaultMaxListeners = 100;
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -15,252 +26,294 @@ const AGENT_ID = 16;
 let totalScraped = 0;
 let totalSaved = 0;
 
-// Extract coordinates from script tag
-function extractCoordinatesFromHTML(html) {
-	// Look for latitude and longitude in script tags
-	// Pattern from Romans: "latitude":51.3339,"longitude":-0.781668
+// Small helper utilities to avoid rate-limiting
+const userAgents = [
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+];
 
-	// Try multiple patterns to catch the coordinates
-	let latMatch = html.match(/"latitude"\s*:\s*([0-9.-]+)/);
-	let lngMatch = html.match(/"longitude"\s*:\s*([0-9.-]+)/);
-
-	// Try without quotes around the key
-	if (!latMatch) {
-		latMatch = html.match(/latitude\s*:\s*([0-9.-]+)/);
-	}
-	if (!lngMatch) {
-		lngMatch = html.match(/longitude\s*:\s*([0-9.-]+)/);
-	}
-
-	console.log(
-		`   📍 Final results - Lat:`,
-		latMatch ? latMatch[1] : "null",
-		"Lng:",
-		lngMatch ? lngMatch[1] : "null"
-	);
-
-	if (latMatch && lngMatch) {
-		console.log(`   🎯 Extracted coords: ${latMatch[1]}, ${lngMatch[1]}`);
-		return {
-			latitude: parseFloat(latMatch[1]),
-			longitude: parseFloat(lngMatch[1]),
-		};
-	}
-
-	console.log(`   ❌ No coordinates extracted`);
-	return { latitude: null, longitude: null };
+function sleep(ms) {
+	return new Promise((res) => setTimeout(res, ms));
 }
+
+function randBetween(min, max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function formatPrice(price) {
+	if (!price && price !== 0) return "N/A";
+	return "£" + Number(price).toLocaleString("en-GB");
+}
+
+// Start page
+const START_PAGE = 1;
+
+// Configuration for Romans
+const PROPERTY_TYPES = [
+	{
+		urlBase: "https://www.romans.co.uk/properties/for-sale",
+		isRental: false,
+		label: "SALES",
+		totalRecords: 876,
+		recordsPerPage: 8,
+	},
+	{
+		urlBase: "https://www.romans.co.uk/properties/to-rent",
+		isRental: true,
+		label: "LETTINGS",
+		totalRecords: 537,
+		recordsPerPage: 8,
+	},
+];
 
 async function scrapeRomans() {
 	console.log(`\n🚀 Starting Romans scraper (Agent ${AGENT_ID})...\n`);
+	logMemoryUsage("START");
 
+	// Browserless configuration
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
+
+	console.log(
+		`🌐 Connecting to browserless for listing and detail pages: ${browserWSEndpoint.split("?")[0]}`,
+	);
+
+	// Create a unified Playwright crawler that handles both listing and detail pages
 	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 3, // Process 3 pages in parallel for faster scraping
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+		maxConcurrency: 1,
+		maxRequestRetries: 3,
+		requestHandlerTimeoutSecs: 120,
 
 		launchContext: {
-			launcher: firefox,
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 			},
 		},
 
-		async requestHandler({ page, request, enqueueLinks }) {
-			const { isDetailPage, propertyData, category, pageNum } = request.userData;
+		async requestHandler({ page, request }) {
+			const { pageNum, isRental, label, property, isDetailPage } = request.userData || {};
 
+			// Handle detail pages
 			if (isDetailPage) {
-				// Processing detail page to get coordinates
+				// Add 1 second delay between each detail page visit
+				await sleep(1000);
+
 				try {
-					// Wait for scripts to load
-					await page.waitForTimeout(1000);
+					const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+					await page.setUserAgent(ua);
+					await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+				} catch (e) {}
 
-					// Try to extract coordinates directly from page JavaScript
-					const coords = await page.evaluate(() => {
-						// Look for coordinates in window object or script content
-						const scripts = document.querySelectorAll("script");
-						let foundScripts = 0;
-						let scriptsWithLatitude = 0;
+				await sleep(randBetween(800, 1800));
+				const resp = await page.goto(request.url, {
+					waitUntil: "domcontentloaded",
+					timeout: 30000,
+				});
 
-						for (const script of scripts) {
-							foundScripts++;
-							const content = script.textContent || script.innerHTML;
-							if (content.includes("latitude")) {
-								scriptsWithLatitude++;
-								// Try different patterns - escaped quotes
-								let latMatch = content.match(/\\"latitude\\":\s*([0-9.-]+)/);
-								let lngMatch = content.match(/\\"longitude\\":\s*([0-9.-]+)/);
-
-								// Try without escaped quotes
-								if (!latMatch) {
-									latMatch = content.match(/"latitude":\s*([0-9.-]+)/);
-								}
-								if (!lngMatch) {
-									lngMatch = content.match(/"longitude":\s*([0-9.-]+)/);
-								}
-
-								if (latMatch && lngMatch) {
-									return {
-										latitude: parseFloat(latMatch[1]),
-										longitude: parseFloat(lngMatch[1]),
-										debug: `Found in script ${scriptsWithLatitude}/${foundScripts}`,
-									};
-								}
-							}
-						}
-						return {
-							latitude: null,
-							longitude: null,
-							debug: `Checked ${foundScripts} scripts, ${scriptsWithLatitude} had 'latitude'`,
-						};
-					});
-
-					console.log(`   🔍 Debug:`, coords.debug);
-
-					const is_rent = category === "to-rent";
-
-					await updatePriceByPropertyURL(
-						propertyData.link,
-						propertyData.price,
-						propertyData.title,
-						propertyData.bedrooms,
-						AGENT_ID,
-						is_rent,
-						coords.latitude,
-						coords.longitude
-					);
-
-					totalSaved++;
-					totalScraped++;
-
-					const typeLabel = is_rent ? "RENT" : "SALE";
-					if (coords.latitude && coords.longitude) {
-						console.log(
-							`✅ [${typeLabel}] ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`
-						);
-					} else {
-						console.log(
-							`✅ [${typeLabel}] ${propertyData.title} - £${propertyData.price} - No coords`
-						);
-					}
-				} catch (error) {
-					console.error(`❌ Error saving property: ${error.message}`);
+				if (resp?.status?.() === 429) {
+					console.warn(`⚠️ 429 on ${request.url} — backing off`);
+					await sleep(60000);
+					throw new Error("429");
 				}
-			} else {
-				// Processing listing page
-				const typeLabel = category === "to-rent" ? "RENT" : "for-sale";
-				console.log(`📋 Page ${pageNum} - ${typeLabel.toUpperCase()} - ${request.url}`);
 
-				// Wait for properties to load
-				await page.waitForTimeout(1500);
-				await page.waitForSelector(".property-card-wrapper", { timeout: 30000 }).catch(() => {
-					console.log(`⚠️ No properties found`);
-				});
+				await page.waitForTimeout(1000);
 
-				// Extract all properties from the page
-				const properties = await page.$$eval(".property-card-wrapper", (cards) => {
-					const results = [];
+				// Extract coordinates using helper function
+				const htmlContent = await page.content();
+				const coords = await extractCoordinatesFromHTML(htmlContent);
 
-					const formatPrice = (raw) => {
-						if (!raw) return null;
-						const digits = raw.replace(/[^0-9]/g, "");
-						if (!digits) return null;
-						return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-					};
+				// Use helper to process property with coordinates
+				await processPropertyWithCoordinates(
+					property.link,
+					property.price,
+					property.title,
+					property.bedrooms || null,
+					AGENT_ID,
+					property.isRental,
+					htmlContent,
+				);
 
-					cards.forEach((card) => {
-						try {
-							// Get the link from the first <a> tag
-							const linkEl = card.querySelector('a[href*="/properties"]');
-							const link = linkEl ? linkEl.getAttribute("href") : null;
+				totalScraped++;
+				totalSaved++;
 
-							// Get the title from h2
-							const titleEl = card.querySelector(".property-title h2");
-							const title = titleEl ? titleEl.textContent.trim() : null;
+				const coordsStr =
+					coords.latitude && coords.longitude
+						? `${coords.latitude}, ${coords.longitude}`
+						: "No coords";
+				console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
+				return;
+			}
 
-							// Get the price from h3.property-price and sanitize
-							const priceEl = card.querySelector(".property-price");
-							const priceText = priceEl ? priceEl.textContent.trim() : "";
-							const price = formatPrice(priceText);
+			// Handle listing pages
+			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
-							// Get bedrooms from the icon-bed list item
-							const bedEl = card.querySelector(".icon-bed");
-							let bedrooms = null;
-							if (bedEl && bedEl.parentElement) {
-								const bedText = bedEl.parentElement.textContent.trim();
-								const bedMatch = bedText.match(/(\d+)/);
-								bedrooms = bedMatch ? bedMatch[1] : null;
-							}
+			try {
+				const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
+				await page.setUserAgent(ua);
+				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
+			} catch (e) {}
 
-							// Check status - exclude "Let Agreed"
-							const statusEl = card.querySelector(".property-status");
-							const status = statusEl ? statusEl.textContent.trim() : "";
+			await sleep(randBetween(500, 1200));
+			const resp = await page.goto(request.url, {
+				waitUntil: "domcontentloaded",
+				timeout: 30000,
+			});
 
-							// Skip if status is "Let Agreed"
-							if (status === "Let Agreed") {
-								return;
-							}
+			if (resp?.status?.() === 429) {
+				console.warn(`⚠️ 429 on ${request.url} — backing off`);
+				await sleep(60000);
+				throw new Error("429");
+			}
 
-							if (link && price && title) {
-								results.push({
-									link: link.startsWith("http") ? link : "https://www.romans.co.uk" + link,
-									title,
-									price,
-									bedrooms,
-								});
-							}
-						} catch (err) {
-							// Silent error
-						}
-					});
+			// Wait for property cards to load
+			await page.waitForTimeout(2000);
+			await page.waitForSelector(".property-card-wrapper", { timeout: 30000 }).catch(() => {
+				console.log(`⚠️ No properties found`);
+			});
 
-					return results;
-				});
+			// Extract properties using Playwright
+			const htmlContent = await page.content();
+			const $ = cheerio.load(htmlContent);
 
-				console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			const properties = [];
 
-				// Add detail page requests to the queue
-				const detailRequests = properties.map((property) => ({
-					url: property.link,
-					userData: {
-						isDetailPage: true,
-						propertyData: property,
-						category,
-					},
-				}));
+			$(".property-card-wrapper").each((index, element) => {
+				try {
+					const $card = $(element);
 
-				await crawler.addRequests(detailRequests);
+					// Get the link from the first <a> tag
+					const linkEl = $card.find('a[href*="/properties"]').first();
+					let href = linkEl.attr("href");
+					if (!href) return;
+
+					const link = href.startsWith("http") ? href : "https://www.romans.co.uk" + href;
+
+					// Get the title from h2
+					const title = $card.find(".property-title h2").text().trim() || "";
+
+					// Get the price from h3.property-price and sanitize
+					const priceText = $card.find(".property-price").text().trim() || "";
+					const priceMatch = priceText.match(/[0-9][0-9,\s]*/g);
+					const priceClean = priceMatch ? priceMatch.join("").replace(/[^0-9]/g, "") : "";
+					const price = priceClean ? parseInt(priceClean) : null;
+
+					// Get bedrooms from the icon-bed list item
+					let bedrooms = null;
+					const bedEl = $card.find(".icon-bed");
+					if (bedEl.length && bedEl.parent().length) {
+						const bedText = bedEl.parent().text().trim();
+						const bedMatch = bedText.match(/(\d+)/);
+						bedrooms = bedMatch ? bedMatch[1] : null;
+					}
+
+					// Check status - exclude "Let Agreed"
+					const status = $card.find(".property-status").text().trim() || "";
+
+					// Skip if status is "Let Agreed"
+					if (status === "Let Agreed") {
+						return;
+					}
+
+					if (link && title && price) {
+						properties.push({
+							link,
+							title,
+							price,
+							bedrooms,
+						});
+					}
+				} catch (e) {
+					// Skip this card
+				}
+			});
+
+			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+			// Process properties sequentially - update prices and scrape details for new ones
+			for (const p of properties) {
+				// First check if property exists using optimized method
+				const result = await updatePriceByPropertyURLOptimized(
+					p.link,
+					p.price,
+					p.title,
+					p.bedrooms,
+					AGENT_ID,
+					isRental,
+				);
+
+				// If it's a new property, scrape detail page immediately
+				if (!result.isExisting && !result.error) {
+					console.log(`🆕 Scraping detail for new property: ${p.title}`);
+					await crawler.addRequests([
+						{
+							url: p.link,
+							userData: { property: { ...p, isRental }, isDetailPage: true },
+						},
+					]);
+				}
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			const { isDetailPage } = request.userData || {};
+			if (isDetailPage) {
+				console.error(`❌ Failed detail page: ${request.url}`);
+			} else {
+				console.error(`❌ Failed listing page: ${request.url}`);
+			}
 		},
 	});
 
-	// Add initial listing page URLs - Sales first, then rent
-	const requests = [];
+	// Get starting page from command line argument (default to START_PAGE)
+	const args = process.argv.slice(2);
+	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
 
-	// Add all sales pages (876 properties / 8 per page = 110 pages)
-	for (let page = 1; page <= 110; page++) {
-		requests.push({
-			url: `https://www.romans.co.uk/properties/for-sale/page-${page}/`,
-			userData: { category: "for-sale", isDetailPage: false, pageNum: page },
-		});
+	// Process pages per property type
+	for (const propertyType of PROPERTY_TYPES) {
+		const totalPages =
+			propertyType.totalRecords && propertyType.recordsPerPage
+				? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
+				: 1;
+		console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
+		const startPage =
+			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages
+				? startPageArg
+				: Math.max(1, START_PAGE);
+
+		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
+
+		// Queue all pages for this property type
+		const requests = [];
+		for (let page = startPage; page <= totalPages; page++) {
+			// Romans uses /page-N/ format
+			const url = `${propertyType.urlBase}/page-${page}/`;
+			const uniqueKey = `${propertyType.label}_page_${page}`;
+
+			requests.push({
+				url,
+				uniqueKey,
+				userData: {
+					pageNum: page,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+					isDetailPage: false,
+				},
+			});
+		}
+
+		// Add all pages and run - they'll process sequentially due to maxConcurrency: 1
+		// Detail pages are added during listing processing and handled immediately
+		await crawler.addRequests(requests);
+		await crawler.run();
+
+		logMemoryUsage(`After ${propertyType.label}`);
 	}
-
-	// Add all rental pages (537 properties / 8 per page = 68 pages)
-	for (let page = 1; page <= 68; page++) {
-		requests.push({
-			url: `https://www.romans.co.uk/properties/to-rent/page-${page}/`,
-			userData: { category: "to-rent", isDetailPage: false, pageNum: page },
-		});
-	}
-
-	await crawler.addRequests(requests);
-	await crawler.run();
 
 	console.log(`\n✅ Completed Romans - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
+	logMemoryUsage("END");
 }
 
 // Main execution

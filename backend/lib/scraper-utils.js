@@ -83,8 +83,78 @@ async function runAgent14Scraper(startPage = 1) {
 	});
 }
 
+/**
+ * Run agent 15 using the separate script
+ * @param {number} startPage - Starting page number (defaults to 1)
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent15Scraper(startPage = 1) {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 15 (Sequence Home) from separate script...`);
+		if (startPage > 1) {
+			console.log(`📄 Starting from page ${startPage}`);
+		}
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-15.js");
+		const args = startPage > 1 ? [startPage.toString()] : [];
+		const child = spawn("node", [scriptPath, ...args], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 15 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 15 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 15 script: ${err.message}`));
+		});
+	});
+}
+
+/**
+ * Run agent 16 using the separate script
+ * @param {number} startPage - Starting page number (defaults to 1)
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent16Scraper(startPage = 1) {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 16 (Romans) from separate script...`);
+		if (startPage > 1) {
+			console.log(`📄 Starting from page ${startPage}`);
+		}
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-16.js");
+		const args = startPage > 1 ? [startPage.toString()] : [];
+		const child = spawn("node", [scriptPath, ...args], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 16 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 16 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 16 script: ${err.message}`));
+		});
+	});
+}
+
 module.exports = {
 	logMemoryUsage,
 	runAgent13Scraper,
 	runAgent14Scraper,
+	runAgent15Scraper,
+	runAgent16Scraper,
 };

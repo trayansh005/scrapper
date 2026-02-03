@@ -2,7 +2,13 @@ const { CheerioCrawler, PlaywrightCrawler } = require("crawlee");
 const cheerio = require("cheerio");
 const { updatePriceByPropertyURL, updateRemoveStatus, promisePool } = require("./db.js");
 const { isSoldProperty } = require("./lib/property-helpers.js");
-const { logMemoryUsage, runAgent13Scraper, runAgent14Scraper } = require("./lib/scraper-utils.js");
+const {
+	logMemoryUsage,
+	runAgent13Scraper,
+	runAgent14Scraper,
+	runAgent15Scraper,
+	runAgent16Scraper,
+} = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
@@ -46,18 +52,6 @@ const AGENTS = [
 					"https://www.purplebricks.co.uk/search/property-to-rent/greater-london/london?sortBy=2&betasearch=true&latitude=51.5072178&longitude=-0.1275862&location=london&searchRadius=2&searchType=ForRent&soldOrLet=false",
 				isRent: true,
 				totalPages: 2,
-			},
-		],
-	},
-	{
-		id: 15,
-		name: "Sequence Home",
-		propertyTypes: [
-			{
-				name: "Rentals",
-				baseUrl: "https://www.sequencehome.co.uk/properties/lettings",
-				isRent: true,
-				totalPages: 191,
 			},
 		],
 	},
@@ -615,10 +609,6 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 						case 12: // Purplebricks
 							listingUrl = type.baseUrl.replace(/page=\d+/, `page=${pageNum}`);
 							break;
-
-						case 15: // Sequence Home
-							listingUrl = pageNum === 1 ? `${type.baseUrl}/` : `${type.baseUrl}/page-${pageNum}/`;
-							break;
 					}
 
 					urls.push(listingUrl);
@@ -660,6 +650,8 @@ const args = process.argv.slice(2);
 let selectedAgents = null;
 let agent13StartPage = 1;
 let agent14StartPage = 1;
+let agent15StartPage = 1;
+let agent16StartPage = 1;
 
 if (args.length > 0) {
 	if (args[0] === "--from") {
@@ -698,6 +690,30 @@ if (args.length > 0) {
 				console.log(`\n▶️  Running Agent 14 from page 1`);
 			}
 			selectedAgents = [14];
+		} else if (firstAgentId === 15) {
+			// Usage: node combined-scraper.js 15 [startPage]
+			if (args.length > 1) {
+				const startPage = parseInt(args[1]);
+				if (!isNaN(startPage) && startPage > 0) {
+					agent15StartPage = startPage;
+					console.log(`\n▶️  Running Agent 15 from page ${agent15StartPage}`);
+				}
+			} else {
+				console.log(`\n▶️  Running Agent 15 from page 1`);
+			}
+			selectedAgents = [15];
+		} else if (firstAgentId === 16) {
+			// Usage: node combined-scraper.js 16 [startPage]
+			if (args.length > 1) {
+				const startPage = parseInt(args[1]);
+				if (!isNaN(startPage) && startPage > 0) {
+					agent16StartPage = startPage;
+					console.log(`\n▶️  Running Agent 16 from page ${agent16StartPage}`);
+				}
+			} else {
+				console.log(`\n▶️  Running Agent 16 from page 1`);
+			}
+			selectedAgents = [16];
 		} else {
 			// Usage: node combined-scraper.js 8 12
 			// Scrapes only agents 8 and 12
@@ -719,6 +735,8 @@ if (selectedAgents === null) {
 	console.log(`  node combined-scraper.js 4 8 12       # Scrape agents 4, 8, and 12`);
 	console.log(`  node combined-scraper.js 13 20        # Scrape agent 13 starting from page 20`);
 	console.log(`  node combined-scraper.js 14 10        # Scrape agent 14 starting from page 10`);
+	console.log(`  node combined-scraper.js 15 50        # Scrape agent 15 starting from page 50`);
+	console.log(`  node combined-scraper.js 16 30        # Scrape agent 16 starting from page 30`);
 	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
 	console.log(`\n`);
 }
@@ -736,6 +754,26 @@ if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 		});
 } else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 14) {
 	runAgent14Scraper(agent14StartPage)
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 15) {
+	runAgent15Scraper(agent15StartPage)
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 16) {
+	runAgent16Scraper(agent16StartPage)
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);

@@ -46,6 +46,9 @@ async function extractCoordinatesFromHTML(html) {
 		const atMatch = html.match(/@([0-9.-]+),([0-9.-]+),\d+z/);
 		const latCommentMatch = html.match(/<!--property-latitude:["']([0-9.-]+)["']-->/);
 		const lngCommentMatch = html.match(/<!--property-longitude:["']([0-9.-]+)["']-->/);
+		// Additional pattern for Sequence Home style comments
+		const latCommentMatch2 = html.match(/property-latitude:"([0-9.-]+)"/);
+		const lngCommentMatch2 = html.match(/property-longitude:"([0-9.-]+)"/);
 
 		if (googleMapsDirMatch) {
 			latitude = parseFloat(googleMapsDirMatch[1]);
@@ -71,6 +74,9 @@ async function extractCoordinatesFromHTML(html) {
 		} else if (latCommentMatch && lngCommentMatch) {
 			latitude = parseFloat(latCommentMatch[1]);
 			longitude = parseFloat(lngCommentMatch[1]);
+		} else if (latCommentMatch2 && lngCommentMatch2) {
+			latitude = parseFloat(latCommentMatch2[1]);
+			longitude = parseFloat(lngCommentMatch2[1]);
 		}
 	} catch (error) {
 		console.error("Error extracting coordinates:", error.message);
