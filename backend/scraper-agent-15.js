@@ -89,8 +89,9 @@ async function scrapeSequenceHome() {
 	// Create a unified Playwright crawler that handles both listing and detail pages
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
-		maxRequestRetries: 3,
+		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 120,
+		blockedStatusCodes: [429],
 
 		launchContext: {
 			launcher: undefined,
@@ -98,6 +99,19 @@ async function scrapeSequenceHome() {
 				browserWSEndpoint,
 			},
 		},
+
+		preNavigationHooks: [
+			async ({ page }) => {
+				await page.route("**/*", (route) => {
+					const resourceType = route.request().resourceType();
+					if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+						route.abort();
+					} else {
+						route.continue();
+					}
+				});
+			},
+		],
 
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label, property, isDetailPage } = request.userData || {};
@@ -117,6 +131,12 @@ async function scrapeSequenceHome() {
 						waitUntil: "domcontentloaded",
 						timeout: 30000,
 					});
+
+					if (resp?.status?.() === 403) {
+						console.warn(`⚠️ 403 on ${prop.link} — backing off`);
+						await sleep(45000);
+						throw new Error("403");
+					}
 
 					if (resp?.status?.() === 429) {
 						console.warn(`⚠️ 429 on ${prop.link} — backing off`);
@@ -168,6 +188,12 @@ async function scrapeSequenceHome() {
 					timeout: 30000,
 				});
 
+				if (resp?.status?.() === 403) {
+					console.warn(`⚠️ 403 on ${request.url} — backing off`);
+					await sleep(45000);
+					throw new Error("403");
+				}
+
 				if (resp?.status?.() === 429) {
 					console.warn(`⚠️ 429 on ${request.url} — backing off`);
 					await sleep(60000);
@@ -216,6 +242,12 @@ async function scrapeSequenceHome() {
 				waitUntil: "domcontentloaded",
 				timeout: 30000,
 			});
+
+			if (resp?.status?.() === 403) {
+				console.warn(`⚠️ 403 on ${request.url} — backing off`);
+				await sleep(45000);
+				throw new Error("403");
+			}
 
 			if (resp?.status?.() === 429) {
 				console.warn(`⚠️ 429 on ${request.url} — backing off`);
