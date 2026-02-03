@@ -51,13 +51,13 @@ const START_PAGE = 1;
 
 // Configuration for Sequence Home
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.sequencehome.co.uk/properties/sales",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// 	totalRecords: 16667,
-	// 	recordsPerPage: 10,
-	// },
+	{
+		urlBase: "https://www.sequencehome.co.uk/properties/sales",
+		isRental: false,
+		label: "SALES",
+		totalRecords: 16362,
+		recordsPerPage: 10,
+	},
 	{
 		urlBase: "https://www.sequencehome.co.uk/properties/lettings",
 		isRental: true,
