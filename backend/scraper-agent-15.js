@@ -46,6 +46,12 @@ function formatPrice(price) {
 	return "£" + Number(price).toLocaleString("en-GB");
 }
 
+function normalizeBedrooms(value) {
+	if (!value) return null;
+	const match = String(value).match(/\d+/);
+	return match ? match[0] : null;
+}
+
 // Start page
 const START_PAGE = 1;
 
@@ -292,10 +298,10 @@ async function scrapeSequenceHome() {
 					if (roomsEl.length) {
 						bedrooms = roomsEl.text().trim();
 						if (!bedrooms && roomsEl.attr("title")) {
-							const match = roomsEl.attr("title").match(/(\d+)/);
-							if (match) bedrooms = match[1];
+							bedrooms = roomsEl.attr("title");
 						}
 					}
+					bedrooms = normalizeBedrooms(bedrooms);
 
 					if (link && title && price) {
 						properties.push({
