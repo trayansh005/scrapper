@@ -253,30 +253,50 @@ function createCrawler(browserWSEndpoint) {
 async function scrapeRemax() {
 	console.log(`\n🚀 Starting Remax scraper (Agent ${AGENT_ID})...\n`);
 
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const totalSalesPages = 5; // Default for Remax Sales
+	const totalLettingsPages = 2; // Default for Remax Lettings
+
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [
-		{
-			url: "https://remax.co.uk/properties-for-sale/",
-			userData: {
-				pageNum: 1,
-				isRental: false,
-				label: "SALES",
-			},
-		},
-		{
-			url: "https://remax.co.uk/properties-for-rent/",
-			userData: {
-				pageNum: 1,
-				isRental: true,
-				label: "LETTINGS",
-			},
-		},
-	];
+	const allRequests = [];
 
+	// Build Sales requests
+	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
+		allRequests.push({
+			url: `https://remax.co.uk/properties-for-sale/${p > 1 ? `page/${p}/` : ""}`,
+			userData: {
+				pageNum: p,
+				isRental: false,
+				label: `SALES_PAGE_${p}`,
+			},
+		});
+	}
+
+	// Build Lettings requests (standard page 1 only if startPage is 1)
+	if (startPage === 1) {
+		for (let p = 1; p <= totalLettingsPages; p++) {
+			allRequests.push({
+				url: `https://remax.co.uk/properties-for-rent/${p > 1 ? `page/${p}/` : ""}`,
+				userData: {
+					pageNum: p,
+					isRental: true,
+					label: `LETTINGS_PAGE_${p}`,
+				},
+			});
+		}
+	}
+
+	if (allRequests.length === 0) {
+		console.log("⚠️ No pages to scrape with current arguments.");
+		return;
+	}
+
+	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
 	await crawler.addRequests(allRequests);
 	await crawler.run();
 

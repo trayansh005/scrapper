@@ -239,37 +239,57 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeGuildProperty() {
-	console.log(`\n🚀 Starting GuildProperty scraper (Agent ${AGENT_ID})...\n`);
+	console.log(`\n🚀 Starting Guild Property scraper (Agent ${AGENT_ID})...\n`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const totalSalesPages = 5;
+	const totalLettingsPages = 2;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [
-		{
-			url: "https://www.guildproperty.co.uk/search?page=1&national=false&p_department=RL&p_division=&location=London&searchRadius=50&availability=1&limit=20",
-			userData: {
-				pageNum: 1,
-				isRental: true,
-				label: "LETTINGS",
-			},
-		},
-		{
-			url: "https://www.guildproperty.co.uk/search?page=1&national=false&p_department=RS&p_division=&location=London&searchRadius=50&availability=1&limit=20",
-			userData: {
-				pageNum: 1,
-				isRental: false,
-				label: "SALES",
-			},
-		},
-	];
+	const allRequests = [];
 
+	// Build Sales requests
+	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
+		allRequests.push({
+			url: `https://www.guildproperty.co.uk/search?page=${p}&national=false&p_department=RS&p_division=&location=London&searchRadius=50&availability=1&limit=20`,
+			userData: {
+				pageNum: p,
+				isRental: false,
+				label: `SALES_PAGE_${p}`,
+			},
+		});
+	}
+
+	// Build Lettings requests (standard page 1 only if startPage is 1)
+	if (startPage === 1) {
+		for (let p = 1; p <= totalLettingsPages; p++) {
+			allRequests.push({
+				url: `https://www.guildproperty.co.uk/search?page=${p}&national=false&p_department=RL&p_division=&location=London&searchRadius=50&availability=1&limit=20`,
+				userData: {
+					pageNum: p,
+					isRental: true,
+					label: `LETTINGS_PAGE_${p}`,
+				},
+			});
+		}
+	}
+
+	if (allRequests.length === 0) {
+		console.log("⚠️ No pages to scrape with current arguments.");
+		return;
+	}
+
+	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
 	await crawler.addRequests(allRequests);
 	await crawler.run();
 
 	console.log(
-		`\n✅ Completed GuildProperty - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`\n✅ Completed Guild Property - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 

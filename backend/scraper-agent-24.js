@@ -239,22 +239,37 @@ function createCrawler(browserWSEndpoint) {
 async function scrapeHaboodle() {
 	console.log(`\n🚀 Starting Haboodle scraper (Agent ${AGENT_ID})...\n`);
 
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const totalSalesPages = 10;
+
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [
-		{
-			url: "https://www.haboodle.co.uk/find-a-property/?department=residential-sales&address_keyword=&radius=&minimum_bedrooms=&maximum_rent=&maximum_price=",
-			userData: {
-				pageNum: 1,
-				isRental: false,
-				label: "SALES",
-			},
-		},
-	];
+	const allRequests = [];
 
+	// Build Sales requests
+	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
+		allRequests.push({
+			url: `https://www.haboodle.co.uk/find-a-property/?department=residential-sales&address_keyword=&radius=&minimum_bedrooms=&maximum_rent=&maximum_price=${
+				p > 1 ? `&paged=${p}` : ""
+			}`,
+			userData: {
+				pageNum: p,
+				isRental: false,
+				label: `SALES_PAGE_${p}`,
+			},
+		});
+	}
+
+	if (allRequests.length === 0) {
+		console.log("⚠️ No pages to scrape with current arguments.");
+		return;
+	}
+
+	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
 	await crawler.addRequests(allRequests);
 	await crawler.run();
 
