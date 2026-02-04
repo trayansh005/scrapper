@@ -10,6 +10,8 @@ const {
 	runAgent16Scraper,
 	runAgent18Scraper,
 	runAgent19Scraper,
+	runAgent22Scraper,
+	runAgent24Scraper,
 } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -828,6 +830,26 @@ if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 		});
 } else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 19) {
 	runAgent19Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 22) {
+	runAgent22Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 24) {
+	runAgent24Scraper()
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);

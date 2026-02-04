@@ -209,6 +209,64 @@ async function runAgent19Scraper() {
 	});
 }
 
+/**
+ * Run agent 22 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent22Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 22 (Allsop) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-22.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 22 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 22 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 22 script: ${err.message}`));
+		});
+	});
+}
+
+/**
+ * Run agent 24 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent24Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 24 (Haboodle) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-24.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 24 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 24 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 24 script: ${err.message}`));
+		});
+	});
+}
+
 module.exports = {
 	logMemoryUsage,
 	runAgent13Scraper,
@@ -217,4 +275,6 @@ module.exports = {
 	runAgent16Scraper,
 	runAgent18Scraper,
 	runAgent19Scraper,
+	runAgent22Scraper,
+	runAgent24Scraper,
 };
