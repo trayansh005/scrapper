@@ -31,6 +31,16 @@ async function extractCoordinatesFromHTML(html) {
 	let longitude = null;
 
 	try {
+		// Try Moveli pattern first: const location = { lat: 51.5728027, lng: -0.1638948}
+		const moveliMatch = html.match(
+			/const location = \{\s*lat:\s*([0-9.-]+),\s*lng:\s*([0-9.-]+)\s*\}/,
+		);
+		if (moveliMatch) {
+			latitude = parseFloat(moveliMatch[1]);
+			longitude = parseFloat(moveliMatch[2]);
+			return { latitude, longitude };
+		}
+
 		// Try Google Maps directions link pattern first (most common for Chestertons)
 		const googleMapsDirMatch = html.match(/google\.com\/maps\/dir\/\/([\d.-]+),([\d.-]+)/);
 		const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);

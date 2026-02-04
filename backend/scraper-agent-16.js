@@ -22,19 +22,75 @@ EventEmitter.defaultMaxListeners = 100;
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
-const AGENT_ID = 16;
-let totalScraped = 0;
-let totalSaved = 0;
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// Small helper utilities to avoid rate-limiting
-const userAgents = [
+const AGENT_ID = 16;
+const START_PAGE = 1;
+
+const USER_AGENTS = [
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
 	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 ];
 
+const TIMING = {
+	PAGE_DELAY_MIN: 500,
+	PAGE_DELAY_MAX: 1200,
+	DETAIL_DELAY_MIN: 800,
+	DETAIL_DELAY_MAX: 1800,
+	AFTER_GOTO: 2000,
+	COOKIE_BANNER: 1000,
+	STREETVIEW_LOAD: 8000,
+	STREETVIEW_RETRY: 3000,
+	RATE_LIMIT_BACKOFF: 60000,
+};
+
+const SELECTORS = {
+	PROPERTY_CARD: ".property-card-wrapper",
+	PROPERTY_LINK: 'a[href*="/properties"]',
+	PROPERTY_TITLE: ".property-title h2",
+	PROPERTY_PRICE: ".property-price",
+	PROPERTY_STATUS: ".property-status",
+	BEDROOMS_ICON: ".icon-bed",
+	COOKIE_ACCEPT: 'button:has-text("Accept all")',
+	STREETVIEW_BUTTON: 'button:has-text("Streetview")',
+	GOOGLE_MAPS_LINK: 'a[href*="google.com/maps/@"]',
+};
+
+const PROPERTY_TYPES = [
+	// {
+	//   urlBase: "https://www.romans.co.uk/properties/for-sale",
+	//   isRental: false,
+	//   label: "SALES",
+	//   totalRecords: 876,
+	//   recordsPerPage: 8,
+	// },
+	{
+		urlBase: "https://www.romans.co.uk/properties/to-rent",
+		isRental: true,
+		label: "LETTINGS",
+		totalRecords: 537,
+		recordsPerPage: 8,
+	},
+];
+
+// ============================================================================
+// STATE
+// ============================================================================
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 function sleep(ms) {
-	return new Promise((res) => setTimeout(res, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function randBetween(min, max) {
@@ -46,352 +102,416 @@ function formatPrice(price) {
 	return "£" + Number(price).toLocaleString("en-GB");
 }
 
-// Start page
-const START_PAGE = 1;
+function getRandomUserAgent() {
+	return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
 
-// Configuration for Romans
-const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.romans.co.uk/properties/for-sale",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// 	totalRecords: 876,
-	// 	recordsPerPage: 8,
-	// },
-	{
-		urlBase: "https://www.romans.co.uk/properties/to-rent",
-		isRental: true,
-		label: "LETTINGS",
-		totalRecords: 537,
-		recordsPerPage: 8,
-	},
-];
-
-async function scrapeRomans() {
-	console.log(`\n🚀 Starting Romans scraper (Agent ${AGENT_ID})...\n`);
-	logMemoryUsage("START");
-
-	// Browserless configuration
-	const browserWSEndpoint =
+function getBrowserlessEndpoint() {
+	return (
 		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
-
-	console.log(
-		`🌐 Connecting to browserless for listing and detail pages: ${browserWSEndpoint.split("?")[0]}`,
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
 	);
+}
 
-	// Create a unified Playwright crawler that handles both listing and detail pages
-	const crawler = new PlaywrightCrawler({
+function getStartingPage(args) {
+	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
+	return !isNaN(startPageArg) && startPageArg > 0 ? startPageArg : START_PAGE;
+}
+
+// ============================================================================
+// PAGE SETUP HELPERS
+// ============================================================================
+
+async function setupPageHeaders(page) {
+	try {
+		await page.setUserAgent(getRandomUserAgent());
+		await page.setExtraHTTPHeaders({
+			"accept-language": "en-GB,en;q=0.9",
+		});
+	} catch (error) {
+		// Silently fail - headers are nice-to-have
+	}
+}
+
+async function dismissCookieBanner(page) {
+	try {
+		const acceptButton = await page.locator(SELECTORS.COOKIE_ACCEPT).first();
+		const isVisible = await acceptButton.isVisible({ timeout: 2000 }).catch(() => false);
+
+		if (isVisible) {
+			await acceptButton.click();
+			await page.waitForTimeout(TIMING.COOKIE_BANNER);
+		}
+	} catch (error) {
+		// No cookie banner or already dismissed
+	}
+}
+
+async function navigateToPage(page, url) {
+	await sleep(randBetween(TIMING.PAGE_DELAY_MIN, TIMING.PAGE_DELAY_MAX));
+
+	const response = await page.goto(url, {
+		waitUntil: "domcontentloaded",
+		timeout: 30000,
+	});
+
+	if (response?.status?.() === 429) {
+		console.warn(`⚠️ 429 on ${url} — backing off`);
+		await sleep(TIMING.RATE_LIMIT_BACKOFF);
+		throw new Error("429 Rate Limit");
+	}
+
+	await page.waitForTimeout(TIMING.AFTER_GOTO);
+	return response;
+}
+
+// ============================================================================
+// COORDINATE EXTRACTION
+// ============================================================================
+
+async function extractCoordinatesFromStreetview(page) {
+	console.log(`🔍 Trying Streetview button for coordinates...`);
+
+	try {
+		const streetviewBtn = await page.locator(SELECTORS.STREETVIEW_BUTTON).first();
+		const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
+
+		if (!isVisible) {
+			console.log(`⚠️ Streetview button not visible`);
+			return { latitude: null, longitude: null };
+		}
+
+		await streetviewBtn.click();
+		console.log(`🗺️ Clicked Streetview button, waiting for Google Maps...`);
+		await page.waitForTimeout(TIMING.STREETVIEW_LOAD);
+
+		// Retry coordinate extraction up to 5 times
+		for (let retry = 0; retry < 5; retry++) {
+			const googleMapsCoords = await page.evaluate(() => {
+				const link = document.querySelector('a[href*="google.com/maps/@"]');
+				if (link) {
+					const href = link.getAttribute("href");
+					const match = href.match(/@([\d.-]+),([\d.-]+)/);
+					if (match) {
+						return {
+							lat: parseFloat(match[1]),
+							lng: parseFloat(match[2]),
+						};
+					}
+				}
+				return null;
+			});
+
+			if (googleMapsCoords?.lat && googleMapsCoords?.lng) {
+				console.log(
+					`✅ Found coords from Streetview: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`,
+				);
+				return {
+					latitude: googleMapsCoords.lat,
+					longitude: googleMapsCoords.lng,
+				};
+			}
+
+			if (retry < 4) {
+				console.log(`⏳ Retry ${retry + 1}/5 - waiting for coords...`);
+				await page.waitForTimeout(TIMING.STREETVIEW_RETRY);
+			}
+		}
+
+		console.log(`⚠️ No coords found after 5 retries`);
+		return { latitude: null, longitude: null };
+	} catch (error) {
+		console.log(`⚠️ Could not extract streetview coords: ${error.message}`);
+		return { latitude: null, longitude: null };
+	}
+}
+
+async function extractCoordinates(htmlContent, detailPage) {
+	// Try HTML extraction first (faster)
+	const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
+
+	if (htmlCoords.latitude && htmlCoords.longitude) {
+		console.log(`✅ Found coords in HTML: ${htmlCoords.latitude}, ${htmlCoords.longitude}`);
+		return htmlCoords;
+	}
+
+	// Fall back to Streetview extraction
+	return await extractCoordinatesFromStreetview(detailPage);
+}
+
+// ============================================================================
+// PROPERTY PARSING
+// ============================================================================
+
+function parsePrice(priceText) {
+	const priceMatch = priceText.match(/[0-9][0-9,\s]*/g);
+	if (!priceMatch) return null;
+
+	const priceClean = priceMatch.join("").replace(/[^0-9]/g, "");
+	return priceClean ? parseInt(priceClean) : null;
+}
+
+function parseBedrooms($card) {
+	const bedEl = $card.find(SELECTORS.BEDROOMS_ICON);
+
+	if (bedEl.length && bedEl.parent().length) {
+		const bedText = bedEl.parent().text().trim();
+		const bedMatch = bedText.match(/(\d+)/);
+		return bedMatch ? bedMatch[1] : null;
+	}
+
+	return null;
+}
+
+function parsePropertyCard($card) {
+	try {
+		// Get link
+		const linkEl = $card.find(SELECTORS.PROPERTY_LINK).first();
+		let href = linkEl.attr("href");
+		if (!href) return null;
+
+		const link = href.startsWith("http") ? href : "https://www.romans.co.uk" + href;
+
+		// Get title
+		const title = $card.find(SELECTORS.PROPERTY_TITLE).text().trim();
+		if (!title) return null;
+
+		// Get and validate price
+		const priceText = $card.find(SELECTORS.PROPERTY_PRICE).text().trim();
+		const cardText = $card.text() || "";
+
+		// Skip sold properties
+		if (isSoldProperty(cardText) || isSoldProperty(priceText)) {
+			return null;
+		}
+
+		const price = parsePrice(priceText);
+		if (!price) return null;
+
+		// Get bedrooms
+		const bedrooms = parseBedrooms($card);
+
+		// Check and skip "Let Agreed" status
+		const status = $card.find(SELECTORS.PROPERTY_STATUS).text().trim();
+		if (status === "Let Agreed") {
+			return null;
+		}
+
+		return {
+			link,
+			title,
+			price,
+			bedrooms,
+		};
+	} catch (error) {
+		return null;
+	}
+}
+
+function parseListingPage(htmlContent) {
+	const $ = cheerio.load(htmlContent);
+	const properties = [];
+
+	$(SELECTORS.PROPERTY_CARD).each((index, element) => {
+		const property = parsePropertyCard($(element));
+		if (property) {
+			properties.push(property);
+		}
+	});
+
+	return properties;
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await setupPageHeaders(detailPage);
+		await sleep(randBetween(TIMING.DETAIL_DELAY_MIN, TIMING.DETAIL_DELAY_MAX));
+
+		const response = await navigateToPage(detailPage, property.link);
+		await dismissCookieBanner(detailPage);
+
+		// Get HTML content and extract coordinates
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinates(htmlContent, detailPage);
+
+		// Save property to database
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			property.isRental,
+			htmlContent,
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+
+		const coordsStr =
+			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
+
+		console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData || {};
+
+	console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+
+	await setupPageHeaders(page);
+	await navigateToPage(request.url, page);
+
+	// Wait for properties to load
+	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
+		console.log(`⚠️ No properties found on page ${pageNum}`);
+	});
+
+	// Parse properties from listing page
+	const htmlContent = await page.content();
+	const properties = parseListingPage(htmlContent);
+
+	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+	// Process each property
+	for (const property of properties) {
+		// Update price in database (or insert minimal record if new)
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		// If new property, scrape full details immediately
+		if (!result.isExisting && !result.error) {
+			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			await scrapePropertyDetail(page.context(), {
+				...property,
+				isRental,
+			});
+		}
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 3,
 		requestHandlerTimeoutSecs: 120,
-
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData || {};
-
-			const scrapeDetailPage = async (browserContext, prop) => {
-				await sleep(1000);
-				const detailPage = await browserContext.newPage();
-				try {
-					try {
-						const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-						await detailPage.setUserAgent(ua);
-						await detailPage.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-					} catch (e) {}
-
-					await sleep(randBetween(800, 1800));
-					const resp = await detailPage.goto(prop.link, {
-						waitUntil: "domcontentloaded",
-						timeout: 30000,
-					});
-
-					if (resp?.status?.() === 429) {
-						console.warn(`⚠️ 429 on ${prop.link} — backing off`);
-						await sleep(60000);
-						throw new Error("429");
-					}
-
-					await detailPage.waitForTimeout(2000);
-
-					// Dismiss cookie consent if present
-					try {
-						const acceptButton = await detailPage.locator('button:has-text("Accept all")').first();
-						if (await acceptButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-							await acceptButton.click();
-							await detailPage.waitForTimeout(1000);
-						}
-					} catch (e) {
-						// No cookie banner or already dismissed
-					}
-
-					// Get HTML content first to check for coordinates in script tags
-					const htmlContent = await detailPage.content();
-					let coords = { latitude: null, longitude: null };
-
-					// Try extracting coordinates from HTML/script tags first (faster)
-					const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
-					if (htmlCoords.latitude && htmlCoords.longitude) {
-						coords = htmlCoords;
-						console.log(`✅ Found coords in HTML: ${coords.latitude}, ${coords.longitude}`);
-					} else {
-						// Only try Streetview if no coords found in HTML
-						console.log(`🔍 No coords in HTML, trying Streetview button...`);
-						try {
-							// Find and click the Streetview button
-							const streetviewBtn = await detailPage
-								.locator('button:has-text("Streetview")')
-								.first();
-							const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
-
-							if (isVisible) {
-								await streetviewBtn.click();
-								console.log(`🗺️ Clicked Streetview button, waiting for Google Maps to load...`);
-
-								// Wait for Google Maps iframe to load
-								await detailPage.waitForTimeout(8000);
-
-								// Extract coordinates from Google Maps link with retries
-								let googleMapsCoords = null;
-								for (let retry = 0; retry < 5; retry++) {
-									googleMapsCoords = await detailPage.evaluate(() => {
-										const link = document.querySelector('a[href*="google.com/maps/@"]');
-										if (link) {
-											const href = link.getAttribute("href");
-											const match = href.match(/@([\d.-]+),([\d.-]+)/);
-											if (match) {
-												return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-											}
-										}
-										return null;
-									});
-
-									if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
-										console.log(
-											`✅ Found coords from Streetview: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`,
-										);
-										break;
-									}
-
-									if (retry < 4) {
-										console.log(`⏳ Retry ${retry + 1}/5 - waiting for coords...`);
-										await detailPage.waitForTimeout(3000);
-									}
-								}
-
-								if (googleMapsCoords && googleMapsCoords.lat && googleMapsCoords.lng) {
-									coords.latitude = googleMapsCoords.lat;
-									coords.longitude = googleMapsCoords.lng;
-								} else {
-									console.log(`⚠️ No coords found after 5 retries`);
-								}
-							} else {
-								console.log(`⚠️ Streetview button not visible`);
-							}
-						} catch (e) {
-							console.log(`⚠️ Could not extract streetview coords: ${e.message}`);
-						}
-					}
-
-					// Use helper to process property with coordinates
-					await processPropertyWithCoordinates(
-						prop.link,
-						prop.price,
-						prop.title,
-						prop.bedrooms || null,
-						AGENT_ID,
-						prop.isRental,
-						htmlContent,
-					);
-
-					totalScraped++;
-					totalSaved++;
-
-					const coordsStr =
-						coords.latitude && coords.longitude
-							? `${coords.latitude}, ${coords.longitude}`
-							: "No coords";
-					console.log(`✅ ${prop.title} - ${formatPrice(prop.price)} - ${coordsStr}`);
-				} finally {
-					await detailPage.close();
-				}
-			};
-
-			// Handle listing pages
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			try {
-				const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-				await page.setUserAgent(ua);
-				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-			} catch (e) {}
-
-			await sleep(randBetween(500, 1200));
-			const resp = await page.goto(request.url, {
-				waitUntil: "domcontentloaded",
-				timeout: 30000,
-			});
-
-			if (resp?.status?.() === 429) {
-				console.warn(`⚠️ 429 on ${request.url} — backing off`);
-				await sleep(60000);
-				throw new Error("429");
-			}
-
-			// Wait for property cards to load
-			await page.waitForTimeout(2000);
-			await page.waitForSelector(".property-card-wrapper", { timeout: 30000 }).catch(() => {
-				console.log(`⚠️ No properties found`);
-			});
-
-			// Extract properties using Playwright
-			const htmlContent = await page.content();
-			const $ = cheerio.load(htmlContent);
-
-			const properties = [];
-
-			$(".property-card-wrapper").each((index, element) => {
-				try {
-					const $card = $(element);
-
-					// Get the link from the first <a> tag
-					const linkEl = $card.find('a[href*="/properties"]').first();
-					let href = linkEl.attr("href");
-					if (!href) return;
-
-					const link = href.startsWith("http") ? href : "https://www.romans.co.uk" + href;
-
-					// Get the title from h2
-					const title = $card.find(".property-title h2").text().trim() || "";
-
-					// Get the price from h3.property-price and sanitize
-					const priceText = $card.find(".property-price").text().trim() || "";
-					const cardText = $card.text() || "";
-
-					if (isSoldProperty(cardText) || isSoldProperty(priceText)) return;
-					const priceMatch = priceText.match(/[0-9][0-9,\s]*/g);
-					const priceClean = priceMatch ? priceMatch.join("").replace(/[^0-9]/g, "") : "";
-					const price = priceClean ? parseInt(priceClean) : null;
-
-					// Get bedrooms from the icon-bed list item
-					let bedrooms = null;
-					const bedEl = $card.find(".icon-bed");
-					if (bedEl.length && bedEl.parent().length) {
-						const bedText = bedEl.parent().text().trim();
-						const bedMatch = bedText.match(/(\d+)/);
-						bedrooms = bedMatch ? bedMatch[1] : null;
-					}
-
-					// Check status - exclude "Let Agreed"
-					const status = $card.find(".property-status").text().trim() || "";
-
-					// Skip if status is "Let Agreed"
-					if (status === "Let Agreed") {
-						return;
-					}
-
-					if (link && title && price) {
-						properties.push({
-							link,
-							title,
-							price,
-							bedrooms,
-						});
-					}
-				} catch (e) {
-					// Skip this card
-				}
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			// Process properties sequentially - update prices and scrape details for new ones
-			for (const p of properties) {
-				// First check if property exists using optimized method
-				const result = await updatePriceByPropertyURLOptimized(
-					p.link,
-					p.price,
-					p.title,
-					p.bedrooms,
-					AGENT_ID,
-					isRental,
-				);
-
-				// If it's a new property, scrape detail page immediately
-				if (!result.isExisting && !result.error) {
-					console.log(`🆕 Scraping detail for new property: ${p.title}`);
-					await scrapeDetailPage(page.context(), { ...p, isRental });
-				}
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
 			console.error(`❌ Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Get starting page from command line argument (default to START_PAGE)
-	const args = process.argv.slice(2);
-	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
+// ============================================================================
+// PAGE QUEUEING
+// ============================================================================
 
-	// Process pages per property type
+function generatePageRequests(propertyType, startPage) {
+	const totalPages =
+		propertyType.totalRecords && propertyType.recordsPerPage
+			? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
+			: 1;
+
+	console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
+
+	const validStartPage = startPage > 0 && startPage <= totalPages ? startPage : 1;
+
+	console.log(`📋 Starting from page ${validStartPage} to ${totalPages}`);
+
+	const requests = [];
+
+	for (let page = validStartPage; page <= totalPages; page++) {
+		// Romans uses /page-N/ format
+		const url = `${propertyType.urlBase}/page-${page}/`;
+		const uniqueKey = `${propertyType.label}_page_${page}`;
+
+		requests.push({
+			url,
+			uniqueKey,
+			userData: {
+				pageNum: page,
+				isRental: propertyType.isRental,
+				label: propertyType.label,
+			},
+		});
+	}
+
+	return requests;
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeRomans() {
+	console.log(`\n🚀 Starting Romans scraper (Agent ${AGENT_ID})...\n`);
+	logMemoryUsage("START");
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
+	const startPage = getStartingPage(process.argv.slice(2));
+
+	// Process each property type
 	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages =
-			propertyType.totalRecords && propertyType.recordsPerPage
-				? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
-				: 1;
-		console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
-		const startPage =
-			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages
-				? startPageArg
-				: Math.max(1, START_PAGE);
+		const requests = generatePageRequests(propertyType, startPage);
 
-		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
-
-		// Queue all pages for this property type
-		const requests = [];
-		for (let page = startPage; page <= totalPages; page++) {
-			// Romans uses /page-N/ format
-			const url = `${propertyType.urlBase}/page-${page}/`;
-			const uniqueKey = `${propertyType.label}_page_${page}`;
-
-			requests.push({
-				url,
-				uniqueKey,
-				userData: {
-					pageNum: page,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-				},
-			});
-		}
-
-		// Add all pages and run - they'll process sequentially due to maxConcurrency: 1
 		await crawler.addRequests(requests);
 		await crawler.run();
 
 		logMemoryUsage(`After ${propertyType.label}`);
 	}
 
-	console.log(`\n✅ Completed Romans - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
+	console.log(
+		`\n✅ Completed Romans - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	);
 	logMemoryUsage("END");
 }
 
-// Main execution
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
 (async () => {
 	try {
 		await scrapeRomans();
 		await updateRemoveStatus(AGENT_ID);
 		console.log("\n✅ All done!");
 		process.exit(0);
-	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+	} catch (error) {
+		console.error("❌ Fatal error:", error?.message || error);
 		process.exit(1);
 	}
 })();
