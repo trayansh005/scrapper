@@ -32,12 +32,12 @@ const SELECTORS = {
 };
 
 const PROPERTY_TYPES = [
-	{
-		urlBase:
-			"https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=For%20Sale&maxPrice=any&minBeds=any&sortOrder=price-desc",
-		isRental: false,
-		label: "SALES",
-	},
+	// {
+	// 	urlBase:
+	// 		"https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=For%20Sale&maxPrice=any&minBeds=any&sortOrder=price-desc",
+	// 	isRental: false,
+	// 	label: "SALES",
+	// },
 	{
 		urlBase:
 			"https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=For%20Rent&maxPrice=any&minBeds=any&sortOrder=price-desc",
@@ -59,8 +59,10 @@ function randBetween(min, max) {
 }
 
 function formatPriceUK(price) {
-	if (!price) return "£0";
-	return "£" + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	if (!price && price !== 0) return "£0";
+	// If price is already a string with commas, just add the symbol
+	if (typeof price === "string" && price.includes(",")) return "£" + price;
+	return "£" + Number(price).toLocaleString("en-GB");
 }
 
 function parsePrice(priceText) {
@@ -68,7 +70,10 @@ function parsePrice(priceText) {
 	if (!priceMatch) return null;
 
 	const priceClean = priceMatch.join("").replace(/[^0-9]/g, "");
-	return priceClean ? parseInt(priceClean) : null;
+	if (!priceClean) return null;
+
+	// Return formated as string with commas for UK style as requested for DB
+	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function parseBedrooms(cardText) {
@@ -232,6 +237,8 @@ async function handleListingPage({ page, request }) {
 
 	// Process each property
 	for (const property of properties) {
+		console.log(`📍 Found: ${property.title} - ${formatPriceUK(property.price)}`);
+
 		// Update price in database (or insert minimal record if new)
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
@@ -297,21 +304,20 @@ async function scrapeMoveli() {
 
 	const crawler = createCrawler(browserWSEndpoint);
 
+	const allRequests = [];
 	// Process each property type
 	for (const propertyType of PROPERTY_TYPES) {
-		const requests = [
-			{
-				url: propertyType.urlBase,
-				userData: {
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-				},
+		allRequests.push({
+			url: propertyType.urlBase,
+			userData: {
+				isRental: propertyType.isRental,
+				label: propertyType.label,
 			},
-		];
-
-		await crawler.addRequests(requests);
-		await crawler.run();
+		});
 	}
+
+	await crawler.addRequests(allRequests);
+	await crawler.run();
 
 	console.log(
 		`\n✅ Completed Moveli - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,

@@ -24,7 +24,8 @@ const stats = {
 
 function formatPrice(price) {
 	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
+	// price is now a string like "1,250,000"
+	return "£" + price;
 }
 
 const PROPERTY_TYPES = [
@@ -57,7 +58,10 @@ function parsePrice(priceText) {
 	if (!priceMatch) return null;
 
 	const priceClean = priceMatch.join("").replace(/[^0-9]/g, "");
-	return priceClean ? parseInt(priceClean) : null;
+	if (!priceClean) return null;
+
+	// Return formated as string with commas for UK style as requested for DB
+	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function parsePropertyCard($card) {
@@ -74,12 +78,15 @@ function parsePropertyCard($card) {
 		if (!title) return null;
 
 		// Get and validate price
-		const priceText = $card.find(".price .money").text().trim();
+		const priceText =
+			$card.find(".price .money").text().trim() || $card.find(".price").text().trim();
 		const price = parsePrice(priceText);
 		if (!price) return null;
 
 		// Get bedrooms
-		const bedrooms = $card.find(".bed-baths li:nth-child(1)").text().trim() || null;
+		const bedroomsText = $card.find(".bed-baths li:nth-child(1)").text().trim() || "";
+		// Extract numeric part from "6 bedrooms"
+		const bedrooms = (bedroomsText.match(/\d+/) || [null])[0];
 
 		return {
 			link,
@@ -199,6 +206,10 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
 		// If new property, scrape full details immediately
 		if (!result.isExisting && !result.error) {
 			console.log(`🆕 Scraping detail for new property: ${property.title}`);
@@ -241,14 +252,14 @@ async function scrapeSnellers() {
 
 	const crawler = createCrawler(browserWSEndpoint);
 
+	const allRequests = [];
 	// Process each property type
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		console.log(`🏠 Queueing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
-		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
 			const url = pg === 1 ? `${propertyType.urlBase}` : `${propertyType.urlBase}/page-${pg}`;
-			requests.push({
+			allRequests.push({
 				url,
 				userData: {
 					pageNum: pg,
@@ -257,10 +268,10 @@ async function scrapeSnellers() {
 				},
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
 	}
+
+	await crawler.addRequests(allRequests);
+	await crawler.run();
 
 	console.log(
 		`\n✅ Completed Snellers - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
