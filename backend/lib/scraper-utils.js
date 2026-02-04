@@ -267,6 +267,93 @@ async function runAgent24Scraper() {
 	});
 }
 
+/**
+ * Run agent 25 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent25Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 25 (Marriott Vernon) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-25.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 25 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 25 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 25 script: ${err.message}`));
+		});
+	});
+}
+
+/**
+ * Run agent 32 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent32Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 32 (Remax) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-32.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 32 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 32 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 32 script: ${err.message}`));
+		});
+	});
+}
+
+/**
+ * Run agent 34 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent34Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 34 (Strutt & Parker) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-34.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 34 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 34 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 34 script: ${err.message}`));
+		});
+	});
+}
+
 module.exports = {
 	logMemoryUsage,
 	runAgent13Scraper,
@@ -277,4 +364,7 @@ module.exports = {
 	runAgent19Scraper,
 	runAgent22Scraper,
 	runAgent24Scraper,
+	runAgent25Scraper,
+	runAgent32Scraper,
+	runAgent34Scraper,
 };

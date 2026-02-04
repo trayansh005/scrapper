@@ -12,6 +12,9 @@ const {
 	runAgent19Scraper,
 	runAgent22Scraper,
 	runAgent24Scraper,
+	runAgent25Scraper,
+	runAgent32Scraper,
+	runAgent34Scraper,
 } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -101,6 +104,63 @@ const AGENTS = [
 				baseUrl: "https://www.haboodle.co.uk/properties-for-sale/in-greater-london",
 				isRent: false,
 				totalPages: 5,
+			},
+		],
+	},
+	{
+		id: 25,
+		name: "Marriott Vernon",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl:
+					"https://www.marriottvernon.com/search/?showstc=off&instruction_type=Sale&address_keyword=&minprice=&maxprice=&property_type=",
+				isRent: false,
+				totalPages: 2,
+			},
+			{
+				name: "Lettings",
+				baseUrl:
+					"https://www.marriottvernon.com/search/?showstc=off&instruction_type=Letting&address_keyword=&minprice=&maxprice=&property_type=",
+				isRent: true,
+				totalPages: 2,
+			},
+		],
+	},
+	{
+		id: 32,
+		name: "Remax",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl: "https://remax.co.uk/properties-for-sale/",
+				isRent: false,
+				totalPages: 5,
+			},
+			{
+				name: "Lettings",
+				baseUrl: "https://remax.co.uk/properties-for-rent/",
+				isRent: true,
+				totalPages: 2,
+			},
+		],
+	},
+	{
+		id: 34,
+		name: "Strutt & Parker",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl:
+					"https://www.struttandparker.com/properties/residential/for-sale/london?showstc=on",
+				isRent: false,
+				totalPages: 2,
+			},
+			{
+				name: "Lettings",
+				baseUrl: "https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on",
+				isRent: true,
+				totalPages: 1,
 			},
 		],
 	},
@@ -783,6 +843,26 @@ if (args.length > 0) {
 			// Usage: node combined-scraper.js 19
 			console.log(`\n▶️  Running Agent 19`);
 			selectedAgents = [19];
+		} else if (firstAgentId === 22) {
+			// Usage: node combined-scraper.js 22
+			console.log(`\n▶️  Running Agent 22`);
+			selectedAgents = [22];
+		} else if (firstAgentId === 24) {
+			// Usage: node combined-scraper.js 24
+			console.log(`\n▶️  Running Agent 24`);
+			selectedAgents = [24];
+		} else if (firstAgentId === 25) {
+			// Usage: node combined-scraper.js 25
+			console.log(`\n▶️  Running Agent 25`);
+			selectedAgents = [25];
+		} else if (firstAgentId === 32) {
+			// Usage: node combined-scraper.js 32
+			console.log(`\n▶️  Running Agent 32`);
+			selectedAgents = [32];
+		} else if (firstAgentId === 34) {
+			// Usage: node combined-scraper.js 34
+			console.log(`\n▶️  Running Agent 34`);
+			selectedAgents = [34];
 		} else {
 			// Usage: node combined-scraper.js 8 12
 			// Scrapes only agents 8 and 12
@@ -808,6 +888,11 @@ if (selectedAgents === null) {
 	console.log(`  node combined-scraper.js 16 30        # Scrape agent 16 starting from page 30`);
 	console.log(`  node combined-scraper.js 18           # Scrape agent 18 (Moveli)`);
 	console.log(`  node combined-scraper.js 19           # Scrape agent 19 (Snellers)`);
+	console.log(`  node combined-scraper.js 22           # Scrape agent 22 (Allsop)`);
+	console.log(`  node combined-scraper.js 24           # Scrape agent 24 (Haboodle)`);
+	console.log(`  node combined-scraper.js 25           # Scrape agent 25 (Marriott Vernon)`);
+	console.log(`  node combined-scraper.js 32           # Scrape agent 32 (Remax)`);
+	console.log(`  node combined-scraper.js 34           # Scrape agent 34 (Strutt & Parker)`);
 	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
 	console.log(`\n`);
 }
@@ -885,6 +970,36 @@ if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 		});
 } else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 24) {
 	runAgent24Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 25) {
+	runAgent25Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 32) {
+	runAgent32Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 34) {
+	runAgent34Scraper()
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);
