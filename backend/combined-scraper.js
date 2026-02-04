@@ -8,6 +8,7 @@ const {
 	runAgent14Scraper,
 	runAgent15Scraper,
 	runAgent16Scraper,
+	runAgent18Scraper,
 } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -52,6 +53,26 @@ const AGENTS = [
 					"https://www.purplebricks.co.uk/search/property-to-rent/greater-london/london?sortBy=2&betasearch=true&latitude=51.5072178&longitude=-0.1275862&location=london&searchRadius=2&searchType=ForRent&soldOrLet=false",
 				isRent: true,
 				totalPages: 2,
+			},
+		],
+	},
+	{
+		id: 18,
+		name: "Moveli",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl:
+					"https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc",
+				isRent: false,
+				totalPages: 1,
+			},
+			{
+				name: "Lettings",
+				baseUrl:
+					"https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc",
+				isRent: true,
+				totalPages: 1,
 			},
 		],
 	},
@@ -652,6 +673,7 @@ let agent13StartPage = 1;
 let agent14StartPage = 1;
 let agent15StartPage = 1;
 let agent16StartPage = 1;
+let agent18StartPage = 1;
 
 if (args.length > 0) {
 	if (args[0] === "--from") {
@@ -714,6 +736,10 @@ if (args.length > 0) {
 				console.log(`\n▶️  Running Agent 16 from page 1`);
 			}
 			selectedAgents = [16];
+		} else if (firstAgentId === 18) {
+			// Usage: node combined-scraper.js 18
+			console.log(`\n▶️  Running Agent 18`);
+			selectedAgents = [18];
 		} else {
 			// Usage: node combined-scraper.js 8 12
 			// Scrapes only agents 8 and 12
@@ -737,6 +763,7 @@ if (selectedAgents === null) {
 	console.log(`  node combined-scraper.js 14 10        # Scrape agent 14 starting from page 10`);
 	console.log(`  node combined-scraper.js 15 50        # Scrape agent 15 starting from page 50`);
 	console.log(`  node combined-scraper.js 16 30        # Scrape agent 16 starting from page 30`);
+	console.log(`  node combined-scraper.js 18           # Scrape agent 18 (Moveli)`);
 	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
 	console.log(`\n`);
 }
@@ -774,6 +801,16 @@ if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 		});
 } else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 16) {
 	runAgent16Scraper(agent16StartPage)
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 18) {
+	runAgent18Scraper()
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);
