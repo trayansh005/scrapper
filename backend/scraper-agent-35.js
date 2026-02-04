@@ -193,23 +193,6 @@ async function handleListingPage({ page, request, crawler }) {
 			await scrapePropertyDetail(page.context(), property, isRental);
 		}
 	}
-
-	// Pagination - Guild Property uses page=N
-	if (properties.length > 0 && pageNum < 5) {
-		const currentUrl = new URL(request.url);
-		currentUrl.searchParams.set("page", pageNum + 1);
-
-		await crawler.addRequests([
-			{
-				url: currentUrl.toString(),
-				userData: {
-					pageNum: pageNum + 1,
-					isRental,
-					label,
-				},
-			},
-		]);
-	}
 }
 
 // ============================================================================
