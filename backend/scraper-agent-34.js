@@ -36,7 +36,10 @@ function parsePrice(priceText) {
 	if (!priceMatch) return null;
 
 	const priceClean = priceMatch[1].replace(/,/g, "");
-	return priceClean;
+	if (!priceClean) return null;
+
+	// Return formatted as string with commas
+	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function parsePropertyCard($, element) {

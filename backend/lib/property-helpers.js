@@ -63,6 +63,7 @@ async function extractCoordinatesFromHTML(html) {
 		const dataAttrMatch = html.match(
 			/data-(?:lat|latitude)="([\d.-]+)"[\s\S]*?data-(?:lng|longitude)="([\d.-]+)"/,
 		);
+		const dataLocationMatch = html.match(/data-location="([\d.-]+),([\d.-]+)"/);
 		const atMatch = html.match(/@([0-9.-]+),([0-9.-]+),\d+z/);
 		const latCommentMatch = html.match(/<!--property-latitude:["']([0-9.-]+)["']-->/);
 		const lngCommentMatch = html.match(/<!--property-longitude:["']([0-9.-]+)["']-->/);
@@ -88,6 +89,9 @@ async function extractCoordinatesFromHTML(html) {
 		} else if (dataAttrMatch) {
 			latitude = parseFloat(dataAttrMatch[1]);
 			longitude = parseFloat(dataAttrMatch[2]);
+		} else if (dataLocationMatch) {
+			latitude = parseFloat(dataLocationMatch[1]);
+			longitude = parseFloat(dataLocationMatch[2]);
 		} else if (atMatch) {
 			latitude = parseFloat(atMatch[1]);
 			longitude = parseFloat(atMatch[2]);
