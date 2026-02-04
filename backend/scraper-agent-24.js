@@ -58,7 +58,12 @@ function parsePropertyCard($card) {
 		if (!price) return null;
 
 		const bedroomsEl = $card.find(".room-bedrooms .room-count");
-		const bedrooms = bedroomsEl.length ? bedroomsEl.text().trim() : null;
+		let bedrooms = null;
+		if (bedroomsEl.length) {
+			const text = bedroomsEl.text().trim();
+			const match = text.match(/\d+/);
+			bedrooms = match ? match[0] : null;
+		}
 
 		return {
 			link,

@@ -31,74 +31,76 @@ function sleep(ms) {
 }
 
 function parsePrice(priceText) {
+	if (!priceText) return null;
+
+	const text = priceText.toString();
 	if (
-		priceText.includes("Withdrawn") ||
-		priceText.includes("Sold Prior") ||
-		priceText.includes("Sold After")
+		text.includes("Withdrawn") ||
+		text.includes("Sold Prior") ||
+		text.includes("Sold After") ||
+		text.includes("Withdrawn Prior")
 	) {
 		return null;
 	}
-	const priceMatch = priceText.match(/£([\d,]+)/);
+
+	// Remove currency symbols and non-numeric chars except decimal point
+	const priceMatch = text.match(/[\d,.]+/);
 	if (!priceMatch) return null;
 
-	const priceClean = priceMatch[1].replace(/[^0-9]/g, "");
-	if (!priceClean) return null;
+	let priceClean = priceMatch[0].replace(/,/g, "");
+	// Handle decimal points if any
+	if (priceClean.includes(".")) {
+		priceClean = Math.round(parseFloat(priceClean)).toString();
+	}
 
-	// Return formated as string with commas for UK style
+	if (!priceClean || priceClean === "0") return null;
+
+	// Return formatted as string with commas for UK style
 	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-function parsePropertyCard($card) {
-	try {
-		const locationEl = $card.find(".__location");
-		let title = locationEl.text().trim();
+function parseBedrooms(prop) {
+	const text = `${prop.main_byline || ""} ${(prop.features || []).join(" ")}`.toLowerCase();
 
-		const priceText = $card.find(".__lot_price_grid").text().trim();
-		const price = parsePrice(priceText);
-		if (!price) return null;
+	// Check for studio
+	if (text.includes("studio")) return "0";
 
-		const description = $card.find(".__byline span").text().trim();
-		const bedroomsMatch = description.match(/(\d+)\s*bed/i);
-		const bedrooms = bedroomsMatch ? bedroomsMatch[1] : null;
+	// Map word numbers
+	const wordNumbers = {
+		one: "1",
+		two: "2",
+		three: "3",
+		four: "4",
+		five: "5",
+		six: "6",
+		seven: "7",
+		eight: "8",
+		nine: "9",
+		ten: "10",
+	};
 
-		const linkEl = $card.find(".__lot_image a");
-		let href = linkEl.attr("href");
-		if (!href) return null;
-
-		const link = href.startsWith("http") ? href : "https://www.allsop.co.uk" + href;
-
-		const titleAttr = linkEl.attr("title") || "";
-		const lotMatch = titleAttr.match(/LOT\s*(\d+)/i);
-		const lotNumber = lotMatch ? lotMatch[1] : null;
-
-		if (lotNumber) {
-			title = `LOT ${lotNumber} - ${title}`;
-		}
-
-		return {
-			link,
-			title,
-			price,
-			bedrooms,
-		};
-	} catch (error) {
-		return null;
+	const words = text.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/);
+	if (words) {
+		return wordNumbers[words[0]];
 	}
+
+	const digits = text.match(/(\d+)\s*(?:bed|bedroom)/);
+	if (digits) {
+		return digits[1];
+	}
+
+	return null;
 }
 
-function parseListingPage(htmlContent) {
-	const $ = cheerio.load(htmlContent);
-	const properties = [];
-
-	$(".col-sm-6").each((index, element) => {
-		const $card = $(element);
-		const property = parsePropertyCard($card);
-		if (property) {
-			properties.push(property);
-		}
-	});
-
-	return properties;
+function generatePropertyURL(prop) {
+	const mainByline = prop.main_byline || "";
+	const town = prop.town || "";
+	const slug = `${mainByline} in ${town}`
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	const ref = (prop.reference || "").toLowerCase().replace(/\s+/g, "-");
+	return `https://www.allsop.co.uk/lot-overview/${slug}/${ref}`;
 }
 
 // ============================================================================
@@ -161,7 +163,6 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		);
 
 		stats.totalScraped++;
-		stats.totalSaved++;
 	} catch (error) {
 		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
 	} finally {
@@ -170,30 +171,87 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 }
 
 // ============================================================================
-// REQUEST HANDLER
+// MAIN SCRAPER LOGIC
 // ============================================================================
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+async function handleSearchPage({ page, request, browserController }) {
+	const browserContext = browserController.browser.contexts()[0];
+	const url = request.url;
+	const isRental = url.includes("rental") || url.includes("letting");
 
-	// Wait for results to load
-	await page.waitForTimeout(2000);
+	console.log(`🔍 Navigating to: ${url}`);
+	await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-	// Parse properties from listing page
-	const htmlContent = await page.content();
-	const properties = parseListingPage(htmlContent);
+	// Extract auction_id from URL
+	const auctionIdMatch = url.match(/auction_id=([^&]+)/);
+	const auctionId = auctionIdMatch ? auctionIdMatch[1] : null;
 
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	if (!auctionId) {
+		console.error("❌ Could not find auction_id in URL");
+		return;
+	}
 
-	// Process each property
-	for (const property of properties) {
-		// Update price in database (or insert minimal record if new)
+	console.log(`📬 Fetching properties from API for auction: ${auctionId}...`);
+
+	// Fetch all properties via API directly in the browser context
+	const allProperties = await page.evaluate(async (aucId) => {
+		let results = [];
+		let currentPage = 1;
+		let totalPages = 1;
+
+		try {
+			// Get first page to find total pages
+			const firstResp = await fetch(
+				`https://www.allsop.co.uk/api/search?auction_id=${aucId}&page=1&react`,
+			);
+			const firstData = await firstResp.json();
+			if (firstData && firstData.results) {
+				results = results.concat(firstData.results);
+				totalPages = firstData.total_pages || 1;
+			}
+
+			// Fetch remaining pages
+			for (let p = 2; p <= totalPages && p <= 40; p++) {
+				const resp = await fetch(
+					`https://www.allsop.co.uk/api/search?auction_id=${aucId}&page=${p}&react`,
+				);
+				const data = await resp.json();
+				if (data && data.results) {
+					results = results.concat(data.results);
+				}
+			}
+		} catch (e) {
+			console.error("API error:", e);
+		}
+
+		return results;
+	}, auctionId);
+
+	console.log(`✅ Found ${allProperties.length} properties via API`);
+
+	for (const prop of allProperties) {
+		const link = generatePropertyURL(prop);
+
+		// If sold, use sale_price. Otherwise use sort_price (clean numeric) or guide_price
+		let priceText = prop.sort_price || prop.sale_price || prop.guide_price;
+		const price = parsePrice(priceText);
+
+		if (!price) continue;
+
+		// Extract bedrooms numeric
+		const bedrooms = parseBedrooms(prop);
+
+		const title =
+			prop.allsop_address ||
+			prop.full_address ||
+			`LOT ${prop.lot_number || ""} - ${prop.town || ""}`;
+
+		// Upsert minimal record
 		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms,
+			link,
+			price,
+			title,
+			bedrooms,
 			AGENT_ID,
 			isRental,
 		);
@@ -202,39 +260,12 @@ async function handleListingPage({ page, request }) {
 			stats.totalSaved++;
 		}
 
-		// If new property, scrape full details immediately
+		// If new property, scrape detail for coordinates
 		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), property, isRental);
+			await scrapePropertyDetail(browserContext, { link, price, title, bedrooms }, isRental);
 		}
 	}
 }
-
-// ============================================================================
-// CRAWLER SETUP
-// ============================================================================
-
-function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-			},
-		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
-		},
-	});
-}
-
-// ============================================================================
-// MAIN SCRAPER LOGIC
-// ============================================================================
 
 async function scrapeAllsop() {
 	console.log(`\n🚀 Starting Allsop scraper (Agent ${AGENT_ID})...\n`);
@@ -242,24 +273,21 @@ async function scrapeAllsop() {
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
-	const crawler = createCrawler(browserWSEndpoint);
-
-	const allRequests = [];
-	const totalPages = 10;
-	// Allsop seems to be mostly Sales (Auctions)
-	for (let pg = 1; pg <= totalPages; pg++) {
-		allRequests.push({
-			url: `https://www.allsop.co.uk/property-search?auction_id=f76e435a-46a5-11f0-ba8f-0242ac110002&page=${pg}`,
-			userData: {
-				pageNum: pg,
-				isRental: false,
-				label: "SALES",
+	const crawler = new PlaywrightCrawler({
+		maxConcurrency: 1, // Stay nice to the API
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
 			},
-		});
-	}
+		},
+		requestHandler: handleSearchPage,
+		requestHandlerTimeoutSecs: 600,
+	});
 
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	await crawler.run([
+		"https://www.allsop.co.uk/property-search?auction_id=f76e435a-46a5-11f0-ba8f-0242ac110002&page=1",
+	]);
 
 	console.log(
 		`\n✅ Completed Allsop - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,

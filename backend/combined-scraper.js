@@ -79,6 +79,31 @@ const AGENTS = [
 			},
 		],
 	},
+	{
+		id: 22,
+		name: "Allsop (Auction)",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl:
+					"https://www.allsop.co.uk/property-search?auction_id=f76e435a-46a5-11f0-ba8f-0242ac110002",
+				isRent: false,
+				totalPages: 10,
+			},
+		],
+	},
+	{
+		id: 24,
+		name: "Haboodle",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl: "https://www.haboodle.co.uk/properties-for-sale/in-greater-london",
+				isRent: false,
+				totalPages: 5,
+			},
+		],
+	},
 ];
 
 // Generic Cheerio crawler for agents that work with simple HTTP requests
@@ -614,6 +639,16 @@ async function runOptimizedCombinedScraper(selectedAgentIds = null) {
 	try {
 		for (const agent of agentsToProcess) {
 			console.log(`\n🏢 Processing ${agent.name} (Agent ${agent.id})...`);
+
+			// Use separate specialized scripts for agents with custom logic
+			if (agent.id === 22) {
+				await runAgent22Scraper();
+				continue;
+			}
+			if (agent.id === 24) {
+				await runAgent24Scraper();
+				continue;
+			}
 
 			for (const type of agent.propertyTypes) {
 				console.log(`\n📦 Processing ${type.name}...`);
