@@ -24,11 +24,9 @@ const stats = {
 };
 
 const SELECTORS = {
-	PROPERTY_CARD: ".property_card",
-	PROPERTY_LINK: "a",
-	PROPERTY_LABEL: ".property_label h4",
-	PROPERTY_PRICE: ".format_price",
-	STATUS_LABEL: ".status_label",
+	PROPERTY_LINK: 'a[href^="/property/"]',
+	PROPERTY_HEADING: "h4",
+	PROPERTY_PARAGRAPHS: "p",
 };
 
 const PROPERTY_TYPES = [
@@ -40,7 +38,7 @@ const PROPERTY_TYPES = [
 	},
 	{
 		urlBase:
-			"https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc",
+			"https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=For%20Rent&maxPrice=any&minBeds=any&sortOrder=price-desc",
 		isRental: true,
 		label: "LETTINGS",
 	},
@@ -56,6 +54,11 @@ function sleep(ms) {
 
 function randBetween(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function formatPriceUK(price) {
+	if (!price) return "£0";
+	return "£" + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function parsePrice(priceText) {
@@ -74,30 +77,45 @@ function parseBedrooms(cardText) {
 function parsePropertyCard($card) {
 	try {
 		// Get link
-		const linkEl = $card.find(SELECTORS.PROPERTY_LINK).first();
-		let href = linkEl.attr("href");
+		let href = $card.attr("href");
 		if (!href) return null;
 
 		const link = href.startsWith("http") ? href : "https://www.moveli.co.uk" + href;
 
-		// Get title
-		const title = $card.find(SELECTORS.PROPERTY_LABEL).text().trim();
+		// Get title from h4
+		const title = $card.find(SELECTORS.PROPERTY_HEADING).text().trim();
 		if (!title) return null;
 
-		// Get and validate price
-		const priceText = $card.find(SELECTORS.PROPERTY_PRICE).text().trim();
-		const price = parsePrice(priceText);
-		if (!price) return null;
+		// Get all paragraphs
+		const paragraphs = $card.find(SELECTORS.PROPERTY_PARAGRAPHS);
+		let priceText = "";
+		let bedroomsText = "";
+		let status = "";
+
+		// Parse paragraphs for price, beds, and status
+		paragraphs.each((i, el) => {
+			const text = $(el).text().trim();
+			if (/^[0-9,]+$/.test(text)) {
+				priceText = text;
+			} else if (/^\d+$/.test(text) && i > 0) {
+				// Bedroom count (just a number)
+				bedroomsText = text;
+			} else if (/AVAILABLE|SOLD|SALE AGREED/i.test(text)) {
+				status = text.toUpperCase();
+			}
+		});
 
 		// Check status - only include AVAILABLE properties
-		const status = $card.find(SELECTORS.STATUS_LABEL).text().trim().toUpperCase();
 		if (status !== "AVAILABLE") {
 			return null;
 		}
 
+		// Parse price
+		const price = parsePrice(priceText);
+		if (!price) return null;
+
 		// Get bedrooms
-		const cardText = $card.text() || "";
-		const bedrooms = parseBedrooms(cardText);
+		const bedrooms = bedroomsText || null;
 
 		return {
 			link,
@@ -114,7 +132,7 @@ function parseListingPage(htmlContent) {
 	const $ = cheerio.load(htmlContent);
 	const properties = [];
 
-	$(SELECTORS.PROPERTY_CARD).each((index, element) => {
+	$(SELECTORS.PROPERTY_LINK).each((index, element) => {
 		const property = parsePropertyCard($(element));
 		if (property) {
 			properties.push(property);
@@ -184,7 +202,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		const coordsStr =
 			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
 
-		console.log(`✅ ${property.title} - £${property.price} - ${coordsStr}`);
+		console.log(`✅ ${property.title} - ${formatPriceUK(property.price)} - ${coordsStr}`);
 	} finally {
 		await detailPage.close();
 	}
@@ -205,7 +223,7 @@ async function handleListingPage({ page, request }) {
 	});
 
 	// Wait for properties to load
-	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
+	await page.waitForSelector(SELECTORS.PROPERTY_LINK, { timeout: 30000 }).catch(() => {
 		console.log(`⚠️ No properties found`);
 	});
 
