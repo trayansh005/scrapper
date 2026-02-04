@@ -76,7 +76,7 @@ function parseBedrooms(cardText) {
 	return bedroomsMatch ? bedroomsMatch[1] : null;
 }
 
-function parsePropertyCard($card) {
+function parsePropertyCard($card, $) {
 	try {
 		// Get link
 		let href = $card.attr("href");
@@ -90,7 +90,8 @@ function parsePropertyCard($card) {
 
 		// Get status - only include AVAILABLE properties
 		const status = $card.find(SELECTORS.STATUS_LABEL).text().trim().toUpperCase();
-		if (status !== "AVAILABLE") {
+		if (status !== "" && status !== "AVAILABLE") {
+			// If status is present but not AVAILABLE, skip
 			return null;
 		}
 
@@ -99,7 +100,7 @@ function parsePropertyCard($card) {
 		const price = parsePrice(priceText);
 		if (!price) return null;
 
-		// Get bedrooms - find the number before "beds"
+		// Get bedrooms - find the number element
 		let bedrooms = null;
 		$card.find(SELECTORS.BEDROOMS).each((i, el) => {
 			const text = $(el).text().trim();
@@ -115,6 +116,7 @@ function parsePropertyCard($card) {
 			bedrooms,
 		};
 	} catch (error) {
+		console.error(`Error parsing card: ${error.message}`);
 		return null;
 	}
 }
@@ -124,7 +126,8 @@ function parseListingPage(htmlContent) {
 	const properties = [];
 
 	$(SELECTORS.PROPERTY_CARD).each((index, element) => {
-		const property = parsePropertyCard($(element));
+		const $card = $(element);
+		const property = parsePropertyCard($card, $);
 		if (property) {
 			properties.push(property);
 		}
