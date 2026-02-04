@@ -243,8 +243,8 @@ async function scrapeGuildProperty() {
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-	const totalSalesPages = 5;
-	const totalLettingsPages = 2;
+	const totalSalesPages = 436;
+	const totalLettingsPages = 80; // (1530 total properties / 20 per page ≈ 77 pages)
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
@@ -265,7 +265,10 @@ async function scrapeGuildProperty() {
 		});
 	}
 
-	// Build Lettings requests (standard page 1 only if startPage is 1)
+	// Build Lettings requests
+	// If startPage is 1, scrape all Lettings pages.
+	// If startPage > 1, we only queue Sales pages (or we can logic to start Lettings from a specific offset if needed,
+	// but usually startPage is used for the main Sales list).
 	if (startPage === 1) {
 		for (let p = 1; p <= totalLettingsPages; p++) {
 			allRequests.push({
