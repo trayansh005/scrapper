@@ -4,14 +4,23 @@
 // node backend/scraper-agent-19.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 19;
-let totalScraped = 0;
-let totalSaved = 0;
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
 
 function formatPrice(price) {
 	if (!price && price !== 0) return "N/A";
@@ -28,126 +37,211 @@ const PROPERTY_TYPES = [
 	// },
 	{
 		urlBase: "https://www.snellers.co.uk/properties/lettings/status-available",
-		totalPages: 20, // Adjust based on the number of pages
+		totalPages: 20,
 		recordsPerPage: 12,
 		isRental: true,
 		label: "RENTALS",
 	},
 ];
 
-async function scrapeSnellers() {
-	console.log(`\n🚀 Starting Snellers scraper (Agent ${AGENT_ID})...\n`);
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parsePrice(priceText) {
+	const priceMatch = priceText.match(/[0-9][0-9,\s]*/g);
+	if (!priceMatch) return null;
+
+	const priceClean = priceMatch.join("").replace(/[^0-9]/g, "");
+	return priceClean ? parseInt(priceClean) : null;
+}
+
+function parsePropertyCard($card) {
+	try {
+		// Get link
+		const linkEl = $card.find("a.no-decoration").first();
+		let href = linkEl.attr("href");
+		if (!href) return null;
+
+		const link = href.startsWith("http") ? href : "https://www.snellers.co.uk" + href;
+
+		// Get title
+		const title = linkEl.attr("title") || linkEl.text().trim();
+		if (!title) return null;
+
+		// Get and validate price
+		const priceText = $card.find(".price .money").text().trim();
+		const price = parsePrice(priceText);
+		if (!price) return null;
+
+		// Get bedrooms
+		const bedrooms = $card.find(".bed-baths li:nth-child(1)").text().trim() || null;
+
+		return {
+			link,
+			title,
+			price,
+			bedrooms,
+		};
+	} catch (error) {
+		return null;
+	}
+}
+
+function parseListingPage(htmlContent) {
+	const $ = cheerio.load(htmlContent);
+	const properties = [];
+
+	$(".property-card").each((index, element) => {
+		const property = parsePropertyCard($(element));
+		if (property) {
+			properties.push(property);
+		}
+	});
+
+	return properties;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		const response = await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 30000,
+		});
+
+		// Get HTML content and extract coordinates
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		// Save property to database
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+
+		const coordsStr =
+			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
+
+		console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData || {};
+
+	console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+
+	await page.goto(request.url, {
+		waitUntil: "domcontentloaded",
+		timeout: 30000,
+	});
+
+	// Wait for properties to load
+	await page.waitForSelector(".property-card", { timeout: 30000 }).catch(() => {
+		console.log(`⚠️ No properties found on page ${pageNum}`);
+	});
+
+	// Wait for dynamic content
+	await page.waitForTimeout(1500);
+
+	// Parse properties from listing page
+	const htmlContent = await page.content();
+	const properties = parseListingPage(htmlContent);
+
+	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+	// Process each property
+	for (const property of properties) {
+		// Update price in database (or insert minimal record if new)
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		// If new property, scrape full details immediately
+		if (!result.isExisting && !result.error) {
+			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			await scrapePropertyDetail(page.context(), property, isRental);
+		}
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				browserWSEndpoint,
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
-
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			// Wait for page content to populate
-			await page.waitForTimeout(1500);
-			await page.waitForSelector(".property-card", { timeout: 20000 }).catch(() => {
-				console.log(`⚠️ No listing container found on page ${pageNum}`);
-			});
-
-			// Extract properties from the DOM
-			const properties = await page.evaluate(() => {
-				const cards = Array.from(document.querySelectorAll(".property-card"));
-				return cards.map((card) => {
-					const linkEl = card.querySelector("a.no-decoration");
-					const link = linkEl ? linkEl.href : null;
-					const title = linkEl ? linkEl.title : "";
-					const priceText = card.querySelector(".price .money")?.textContent.trim() || "";
-					const priceMatch = priceText.match(/£([\d,]+)/); // Extract the first numeric value after '£'
-					const price = priceMatch ? priceMatch[1].replace(/,/g, "") : ""; // Remove commas
-					const bedrooms =
-						card.querySelector(".bed-baths li:nth-child(1)")?.textContent.trim() || "";
-					const descriptionEl = card.querySelector(".property-card-description");
-					const description = descriptionEl ? descriptionEl.textContent.trim() : ""; // Ensure description is defined
-
-					return { link, title, price, bedrooms, description };
-				});
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			// Replace the database insertion logic with `updatePriceByPropertyURL`
-			for (const property of properties) {
-				if (!property.link) continue;
-
-				let coords = { latitude: null, longitude: null };
-
-				// Visit detail page to extract coordinates
-				const detailPage = await page.context().newPage();
-				try {
-					await detailPage.goto(property.link, {
-						waitUntil: "domcontentloaded",
-						timeout: 30000,
-					});
-					await detailPage.waitForTimeout(500);
-
-					coords = await detailPage.evaluate(() => {
-						const mapEl = document.querySelector("#propertyShowStreetview.map");
-						if (mapEl) {
-							const lat = mapEl.getAttribute("data-lat");
-							const lng = mapEl.getAttribute("data-lng");
-							return { latitude: parseFloat(lat), longitude: parseFloat(lng) };
-						}
-						return { latitude: null, longitude: null };
-					});
-				} catch (err) {
-					console.error(`❌ Failed to extract details for ${property.link}: ${err.message}`);
-				} finally {
-					await detailPage.close();
-				}
-
-				// Save property to the database using `updatePriceByPropertyURL`
-				try {
-					const priceClean = (property.price || "").replace(/[£,\s]/g, "").trim();
-					await updatePriceByPropertyURL(
-						property.link,
-						priceClean,
-						property.title,
-						property.bedrooms,
-						AGENT_ID,
-						isRental,
-						coords.latitude,
-						coords.longitude
-					);
-					totalSaved++;
-					totalScraped++;
-
-					const coordsStr =
-						coords.latitude && coords.longitude
-							? `${coords.latitude}, ${coords.longitude}`
-							: "No coords";
-					console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
-				} catch (dbErr) {
-					console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
-				}
-
-				// Add a delay to handle rate limiting
-				await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			console.error(`❌ Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Enqueue all listing pages
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeSnellers() {
+	console.log(`\n🚀 Starting Snellers scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
+
+	// Process each property type
 	for (const propertyType of PROPERTY_TYPES) {
 		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
@@ -156,7 +250,11 @@ async function scrapeSnellers() {
 			const url = pg === 1 ? `${propertyType.urlBase}` : `${propertyType.urlBase}/page-${pg}`;
 			requests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNum: pg,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
 			});
 		}
 
@@ -165,11 +263,13 @@ async function scrapeSnellers() {
 	}
 
 	console.log(
-		`\n✅ Completed Snellers - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Snellers - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 
-(async () => {
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================(async () => {
 	try {
 		await scrapeSnellers();
 		await updateRemoveStatus(AGENT_ID);

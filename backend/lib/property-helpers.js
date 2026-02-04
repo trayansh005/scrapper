@@ -31,7 +31,15 @@ async function extractCoordinatesFromHTML(html) {
 	let longitude = null;
 
 	try {
-		// Try Moveli pattern first: const location = { lat: 51.5728027, lng: -0.1638948}
+		// Try Snellers pattern first: data-lat and data-lng attributes
+		const snellersMatch = html.match(/data-lat="([0-9.-]+)"[\s\S]*?data-lng="([0-9.-]+)"/);
+		if (snellersMatch) {
+			latitude = parseFloat(snellersMatch[1]);
+			longitude = parseFloat(snellersMatch[2]);
+			return { latitude, longitude };
+		}
+
+		// Try Moveli pattern: const location = { lat: 51.5728027, lng: -0.1638948}
 		const moveliMatch = html.match(
 			/const location = \{\s*lat:\s*([0-9.-]+),\s*lng:\s*([0-9.-]+)\s*\}/,
 		);

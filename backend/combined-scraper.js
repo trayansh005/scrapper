@@ -9,6 +9,7 @@ const {
 	runAgent15Scraper,
 	runAgent16Scraper,
 	runAgent18Scraper,
+	runAgent19Scraper,
 } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -674,6 +675,7 @@ let agent14StartPage = 1;
 let agent15StartPage = 1;
 let agent16StartPage = 1;
 let agent18StartPage = 1;
+let agent19StartPage = 1;
 
 if (args.length > 0) {
 	if (args[0] === "--from") {
@@ -740,6 +742,10 @@ if (args.length > 0) {
 			// Usage: node combined-scraper.js 18
 			console.log(`\n▶️  Running Agent 18`);
 			selectedAgents = [18];
+		} else if (firstAgentId === 19) {
+			// Usage: node combined-scraper.js 19
+			console.log(`\n▶️  Running Agent 19`);
+			selectedAgents = [19];
 		} else {
 			// Usage: node combined-scraper.js 8 12
 			// Scrapes only agents 8 and 12
@@ -764,6 +770,7 @@ if (selectedAgents === null) {
 	console.log(`  node combined-scraper.js 15 50        # Scrape agent 15 starting from page 50`);
 	console.log(`  node combined-scraper.js 16 30        # Scrape agent 16 starting from page 30`);
 	console.log(`  node combined-scraper.js 18           # Scrape agent 18 (Moveli)`);
+	console.log(`  node combined-scraper.js 19           # Scrape agent 19 (Snellers)`);
 	console.log(`  node combined-scraper.js --from 8     # Scrape agent 8 and onwards`);
 	console.log(`\n`);
 }
@@ -811,6 +818,16 @@ if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 		});
 } else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 18) {
 	runAgent18Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 19) {
+	runAgent19Scraper()
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);
