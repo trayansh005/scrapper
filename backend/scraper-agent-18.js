@@ -24,9 +24,11 @@ const stats = {
 };
 
 const SELECTORS = {
-	PROPERTY_LINK: 'a[href^="/property/"]',
+	PROPERTY_CARD: "a.property_card",
 	PROPERTY_HEADING: "h4",
-	PROPERTY_PARAGRAPHS: "p",
+	PROPERTY_PRICE: "p.format_price",
+	STATUS_LABEL: "p.status_label",
+	BEDROOMS: "p.inline_text",
 };
 
 const PROPERTY_TYPES = [
@@ -86,36 +88,25 @@ function parsePropertyCard($card) {
 		const title = $card.find(SELECTORS.PROPERTY_HEADING).text().trim();
 		if (!title) return null;
 
-		// Get all paragraphs
-		const paragraphs = $card.find(SELECTORS.PROPERTY_PARAGRAPHS);
-		let priceText = "";
-		let bedroomsText = "";
-		let status = "";
-
-		// Parse paragraphs for price, beds, and status
-		paragraphs.each((i, el) => {
-			const text = $(el).text().trim();
-			if (/^[0-9,]+$/.test(text)) {
-				priceText = text;
-			} else if (/^\d+$/.test(text) && i > 0) {
-				// Bedroom count (just a number)
-				bedroomsText = text;
-			} else if (/AVAILABLE|SOLD|SALE AGREED/i.test(text)) {
-				status = text.toUpperCase();
-			}
-		});
-
-		// Check status - only include AVAILABLE properties
+		// Get status - only include AVAILABLE properties
+		const status = $card.find(SELECTORS.STATUS_LABEL).text().trim().toUpperCase();
 		if (status !== "AVAILABLE") {
 			return null;
 		}
 
-		// Parse price
+		// Get price
+		const priceText = $card.find(SELECTORS.PROPERTY_PRICE).text().trim();
 		const price = parsePrice(priceText);
 		if (!price) return null;
 
-		// Get bedrooms
-		const bedrooms = bedroomsText || null;
+		// Get bedrooms - find the number before "beds"
+		let bedrooms = null;
+		$card.find(SELECTORS.BEDROOMS).each((i, el) => {
+			const text = $(el).text().trim();
+			if (/^\d+$/.test(text)) {
+				bedrooms = text;
+			}
+		});
 
 		return {
 			link,
@@ -132,7 +123,7 @@ function parseListingPage(htmlContent) {
 	const $ = cheerio.load(htmlContent);
 	const properties = [];
 
-	$(SELECTORS.PROPERTY_LINK).each((index, element) => {
+	$(SELECTORS.PROPERTY_CARD).each((index, element) => {
 		const property = parsePropertyCard($(element));
 		if (property) {
 			properties.push(property);
@@ -223,7 +214,7 @@ async function handleListingPage({ page, request }) {
 	});
 
 	// Wait for properties to load
-	await page.waitForSelector(SELECTORS.PROPERTY_LINK, { timeout: 30000 }).catch(() => {
+	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
 		console.log(`⚠️ No properties found`);
 	});
 
