@@ -34,7 +34,7 @@ const SELECTORS = {
 const PROPERTY_TYPES = [
 	{
 		urlBase:
-			"https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=all&maxPrice=any&minBeds=any&sortOrder=price-desc",
+			"https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=For%20Sale&maxPrice=any&minBeds=any&sortOrder=price-desc",
 		isRental: false,
 		label: "SALES",
 	},
@@ -145,10 +145,23 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
+		// Block unnecessary resources
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
 		const response = await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
 			timeout: 30000,
 		});
+
+		// Wait for dynamic content to load
+		await detailPage.waitForTimeout(1500);
 
 		// Get HTML content and extract coordinates
 		const htmlContent = await detailPage.content();
@@ -196,8 +209,8 @@ async function handleListingPage({ page, request }) {
 		console.log(`⚠️ No properties found`);
 	});
 
-	// Wait for dynamic content
-	await page.waitForTimeout(2000);
+	// Wait for dynamic content (React/Vue to render)
+	await page.waitForTimeout(3000);
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
@@ -240,6 +253,19 @@ function createCrawler(browserWSEndpoint) {
 				browserWSEndpoint,
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				// Block unnecessary resources for listing pages
+				await page.route("**/*", (route) => {
+					const resourceType = route.request().resourceType();
+					if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+						route.abort();
+					} else {
+						route.continue();
+					}
+				});
+			},
+		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
 			console.error(`❌ Failed listing page: ${request.url}`);

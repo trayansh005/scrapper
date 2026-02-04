@@ -28,13 +28,13 @@ function formatPrice(price) {
 }
 
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.snellers.co.uk/properties/sales/status-available",
-	// 	totalPages: 14,
-	// 	recordsPerPage: 12,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		urlBase: "https://www.snellers.co.uk/properties/sales/status-available",
+		totalPages: 14,
+		recordsPerPage: 12,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		urlBase: "https://www.snellers.co.uk/properties/lettings/status-available",
 		totalPages: 20,
@@ -269,7 +269,9 @@ async function scrapeSnellers() {
 
 // ============================================================================
 // MAIN EXECUTION
-// ============================================================================(async () => {
+// ============================================================================
+
+(async () => {
 	try {
 		await scrapeSnellers();
 		await updateRemoveStatus(AGENT_ID);
