@@ -15,6 +15,8 @@ const {
 	runAgent25Scraper,
 	runAgent32Scraper,
 	runAgent34Scraper,
+	runAgent35Scraper,
+	runAgent36Scraper,
 } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -161,6 +163,46 @@ const AGENTS = [
 				baseUrl: "https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on",
 				isRent: true,
 				totalPages: 1,
+			},
+		],
+	},
+	{
+		id: 35,
+		name: "Guild Property",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl:
+					"https://www.guildproperty.co.uk/search?page=1&national=false&p_department=RS&location=London&searchRadius=50&availability=1&limit=20",
+				isRent: false,
+				totalPages: 5,
+			},
+			{
+				name: "Lettings",
+				baseUrl:
+					"https://www.guildproperty.co.uk/search?page=1&national=false&p_department=RL&location=London&searchRadius=50&availability=1&limit=20",
+				isRent: true,
+				totalPages: 2,
+			},
+		],
+	},
+	{
+		id: 36,
+		name: "Winkworth",
+		propertyTypes: [
+			{
+				name: "Sales",
+				baseUrl:
+					"https://www.winkworth.co.uk/london/london/properties-for-sale?statusunderoffer=false&propertytype=all",
+				isRent: false,
+				totalPages: 2,
+			},
+			{
+				name: "Lettings",
+				baseUrl:
+					"https://www.winkworth.co.uk/london/london/properties-to-let?statusunderoffer=false&propertytype=all",
+				isRent: true,
+				totalPages: 2,
 			},
 		],
 	},
@@ -1000,6 +1042,26 @@ if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 13) {
 		});
 } else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 34) {
 	runAgent34Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 35) {
+	runAgent35Scraper()
+		.then(() => {
+			console.log("✅ All done!");
+			process.exit(0);
+		})
+		.catch((err) => {
+			console.error("❌ Scraper error:", err);
+			process.exit(1);
+		});
+} else if (selectedAgents && selectedAgents.length === 1 && selectedAgents[0] === 36) {
+	runAgent36Scraper()
 		.then(() => {
 			console.log("✅ All done!");
 			process.exit(0);

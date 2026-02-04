@@ -354,6 +354,64 @@ async function runAgent34Scraper() {
 	});
 }
 
+/**
+ * Run agent 36 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent36Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 36 (Winkworth) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-36.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 36 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 36 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 36 script: ${err.message}`));
+		});
+	});
+}
+
+/**
+ * Run agent 35 using the separate script
+ * @returns {Promise} - Promise that resolves when scraper completes
+ */
+async function runAgent35Scraper() {
+	return new Promise((resolve, reject) => {
+		console.log(`\n🚀 Running Agent 35 (Guild Property) from separate script...`);
+
+		const scriptPath = path.join(__dirname, "..", "scraper-agent-35.js");
+		const child = spawn("node", [scriptPath], {
+			stdio: "inherit",
+			cwd: path.join(__dirname, ".."),
+		});
+
+		child.on("close", (code) => {
+			if (code === 0) {
+				console.log(`✅ Agent 35 completed successfully`);
+				resolve();
+			} else {
+				reject(new Error(`Agent 35 script exited with code ${code}`));
+			}
+		});
+
+		child.on("error", (err) => {
+			reject(new Error(`Failed to start Agent 35 script: ${err.message}`));
+		});
+	});
+}
+
 module.exports = {
 	logMemoryUsage,
 	runAgent13Scraper,
@@ -367,4 +425,6 @@ module.exports = {
 	runAgent25Scraper,
 	runAgent32Scraper,
 	runAgent34Scraper,
+	runAgent36Scraper,
+	runAgent35Scraper,
 };

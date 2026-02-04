@@ -140,7 +140,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
-			htmlContent
+			htmlContent,
 		);
 
 		stats.totalScraped++;
@@ -189,7 +189,7 @@ async function handleListingPage({ page, request, crawler }) {
 			property.title,
 			property.bedrooms,
 			AGENT_ID,
-			isRental
+			isRental,
 		);
 
 		if (result.updated) {
@@ -276,167 +276,13 @@ async function scrapeStruttAndParker() {
 	await crawler.run();
 
 	console.log(
-		`\n✅ Completed Strutt & Parker - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`
+		`\n✅ Completed Strutt & Parker - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 
 // ============================================================================
 // MAIN EXECUTION
 // ============================================================================
-
-(async () => {
-	try {
-		await scrapeStruttAndParker();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
-		process.exit(1);
-	}
-})();
-								property.link.trim(),
-								logo,
-								latitude,
-								longitude,
-								currentTime,
-								currentTime,
-							]);
-							console.log(
-								`✅ Created: ${property.link.substring(0, 50)}... | Price: £${
-									property.price
-								} | Coords: ${latitude}, ${longitude}`
-							);
-						} else {
-							console.log(`🔍 Property does not exist - will create new`);
-
-							// Create new property
-							const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-							const logo = "property_for_sale/logo.png";
-							const currentTime = new Date();
-
-							await promisePool.query(insertQuery, [
-								property.title,
-								AGENT_ID,
-								property.price,
-								property.bedrooms,
-								property.link.trim(),
-								logo,
-								latitude,
-								longitude,
-								currentTime,
-								currentTime,
-							]);
-							console.log(
-								`✅ Created: ${property.link.substring(0, 50)}... | Price: £${
-									property.price
-								} | Coords: ${latitude}, ${longitude}`
-							);
-						}
-
-						totalSaved++;
-						totalScraped++;
-
-						if (latitude && longitude) {
-							console.log(`✅ ${property.title} - £${property.price} - ${latitude}, ${longitude}`);
-						} else {
-							console.log(`✅ ${property.title} - £${property.price} - No coords`);
-						}
-					} catch (error) {
-						console.error(`❌ Error processing ${property.link}: ${error.message}`);
-					}
-
-					// Delay between properties
-					await new Promise((resolve) => setTimeout(resolve, 500));
-				}
-
-				// Go back to listing page to click next button
-				console.log(`\n⬅️ Going back to listing page...`);
-				await page.goBack({ waitUntil: "domcontentloaded" });
-				await page.waitForTimeout(1500);
-
-				// Scroll to bottom to load pagination buttons
-				console.log(`📜 Scrolling to bottom to load pagination...`);
-				await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-				await page.waitForTimeout(1000);
-
-				// Wait for pagination to load
-				try {
-					await page.waitForSelector('[data-element="listing-pager"]', { timeout: 10000 });
-				} catch (e) {
-					console.log(`⚠️ Pagination element not found`);
-				}
-
-				// Check if there's a next page button and click it
-				if (currentPage < PAGES_TO_DO) {
-					try {
-						// Calculate next page number
-						const nextPageId = currentPage + 1;
-						console.log(`🔎 Looking for page ${nextPageId} button...`);
-
-						// Look for button with data-id matching the next page number
-						const nextButton = await page.$(`button[data-id="${nextPageId}"]`);
-
-						if (nextButton) {
-							console.log(`➡️ Clicking page ${nextPageId} button...`);
-							await nextButton.click();
-							await page.waitForTimeout(2000); // Wait for page to load
-							currentPage++;
-						} else {
-							console.log(`⚠️ No page ${nextPageId} button found, stopping pagination`);
-							hasNextPage = false;
-						}
-					} catch (error) {
-						console.error(`❌ Error clicking next button: ${error.message}`);
-						hasNextPage = false;
-					}
-				} else {
-					hasNextPage = false;
-				}
-			}
-		},
-
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
-		},
-	});
-
-	// Process property types one by one
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`\n🏠 Processing ${propertyType.label} properties\n`);
-
-		// Add the starting URL for this property type
-		const requests = [
-			{
-				url: `https://www.struttandparker.com/${propertyType.urlPath}?rad=20`,
-				userData: {
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-				},
-			},
-		];
-
-		await crawler.addRequests(requests);
-		await crawler.run();
-	}
-
-	console.log(
-		`\n✅ Completed Strutt & Parker - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
-}
-
-async function updateRemoveStatus(agent_id) {
-	try {
-		const remove_status = 1;
-		await promisePool.query(
-			`UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-			[remove_status, agent_id]
-		);
-		console.log(`🧹 Removed old properties for agent ${agent_id}`);
-	} catch (error) {
-		console.error("Error updating remove status:", error.message);
-	}
-}
 
 (async () => {
 	try {
