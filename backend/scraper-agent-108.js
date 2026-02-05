@@ -165,6 +165,7 @@ async function handleListingPage({ page, request }) {
 		if (!result.isExisting && !result.error) {
 			console.log(` Scraping detail for new property: ${property.title}`);
 			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+			await sleep(1000);
 		}
 
 		await sleep(800);
