@@ -203,7 +203,8 @@ async function scrapeHamptons() {
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
 	// Config
-	const totalLettingsPages = 100;
+	const totalSalesPages = 213;
+	const totalLettingsPages = 91;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
@@ -212,20 +213,40 @@ async function scrapeHamptons() {
 
 	const allRequests = [];
 
-	for (let p = Math.max(1, startPage); p <= totalLettingsPages; p++) {
+	// Build Sales requests
+	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
 		const url =
 			p === 1
-				? "https://www.hamptons.co.uk/properties/lettings/status-available"
-				: `https://www.hamptons.co.uk/properties/lettings/status-available/page-${p}`;
+				? "https://www.hamptons.co.uk/properties/sales/status-available"
+				: `https://www.hamptons.co.uk/properties/sales/status-available/page-${p}`;
 
 		allRequests.push({
 			url,
 			userData: {
 				pageNum: p,
-				isRental: true,
-				label: `HAMPTONS_LETTINGS_${p}`,
+				isRental: false,
+				label: `HAMPTONS_SALES_${p}`,
 			},
 		});
+	}
+
+	// Build Lettings requests
+	if (startPage === 1) {
+		for (let p = 1; p <= totalLettingsPages; p++) {
+			const url =
+				p === 1
+					? "https://www.hamptons.co.uk/properties/lettings/status-available"
+					: `https://www.hamptons.co.uk/properties/lettings/status-available/page-${p}`;
+
+			allRequests.push({
+				url,
+				userData: {
+					pageNum: p,
+					isRental: true,
+					label: `HAMPTONS_LETTINGS_${p}`,
+				},
+			});
+		}
 	}
 
 	if (allRequests.length === 0) {
