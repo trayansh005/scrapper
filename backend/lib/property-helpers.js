@@ -61,6 +61,8 @@ async function extractCoordinatesFromHTML(html) {
 
 		// Try Google Maps directions link pattern first (most common for Chestertons)
 		const googleMapsDirMatch = html.match(/google\.com\/maps\/dir\/\/([\d.-]+),([\d.-]+)/);
+		const googleMapsQMatch = html.match(/[?&]q=([\d.-]+),([\d.-]+)/);
+		const googleMapsCenterMatch = html.match(/[?&]center=([\d.-]+),([\d.-]+)/);
 		const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
 		const scriptMatch = html.match(/lat:\s*"?([\d.-]+)"?,\s*lng:\s*"?([\d.-]+)"?/);
 		// Match both escaped and unescaped quotes for latitude/longitude in JSON
@@ -84,6 +86,12 @@ async function extractCoordinatesFromHTML(html) {
 		if (googleMapsDirMatch) {
 			latitude = parseFloat(googleMapsDirMatch[1]);
 			longitude = parseFloat(googleMapsDirMatch[2]);
+		} else if (googleMapsQMatch) {
+			latitude = parseFloat(googleMapsQMatch[1]);
+			longitude = parseFloat(googleMapsQMatch[2]);
+		} else if (googleMapsCenterMatch) {
+			latitude = parseFloat(googleMapsCenterMatch[1]);
+			longitude = parseFloat(googleMapsCenterMatch[2]);
 		} else if (mapsMatch) {
 			latitude = parseFloat(mapsMatch[1]);
 			longitude = parseFloat(mapsMatch[2]);

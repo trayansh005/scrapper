@@ -60,6 +60,7 @@ Usage:
 Examples:
   node combined-scraper.js 35 10                    # Run Agent 35 starting from page 10
 	node combined-scraper.js 108                      # Run Agent 108
+	node combined-scraper.js 228                      # Run Agent 228
   node combined-scraper.js 24 25 32 34              # Run Agents 24, 25, 32, and 34 in order
 		`);
 		process.exit(0);
