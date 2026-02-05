@@ -1,17 +1,5 @@
 // Hamptons lettings scraper using Playwright with Crawlee
 // Agent ID: 108
-// Usage:
-// node backend/scraper-agent-108.js
-
-const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-
-// Reduce verbosity
-log.setLevel(log.LEVELS.ERROR);
-
-const AGENT_ID = 108;
-// Hamptons lettings scraper using Playwright with Crawlee
-// Agent ID: 108
 //
 // Usage:
 // node backend/scraper-agent-108.js
@@ -133,9 +121,7 @@ async function handleListingPage({ page, request }) {
 			const title = container.querySelector(".property-card__title")?.textContent?.trim() || "";
 
 			let bedrooms = null;
-			const bedEl = container.querySelector(
-				".property-card__bedbath .property-card__bedbath-item",
-			);
+			const bedEl = container.querySelector(".property-card__bedbath .property-card__bedbath-item");
 			if (bedEl) {
 				const bedText = bedEl.textContent?.trim() || "";
 				const m = bedText.match(/(\d+)/);
@@ -271,4 +257,3 @@ async function scrapeHamptons() {
 		process.exit(1);
 	}
 })();
-		},
