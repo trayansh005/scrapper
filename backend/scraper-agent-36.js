@@ -250,8 +250,8 @@ async function scrapeWinkworth() {
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-	const totalSalesPages = 5;
-	const totalLettingsPages = 5;
+	const totalSalesPages = 440; // ~8,707 properties / 20 per page
+	const totalLettingsPages = 100; // Roughly 2,000 properties
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
