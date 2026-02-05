@@ -102,6 +102,8 @@ async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData;
 	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
+	await sleep(1200);
+
 	await page.waitForTimeout(2000);
 	await page.waitForSelector("article.property-card", { timeout: 20000 }).catch(() => {
 		console.log(` No property cards found on page ${pageNum}`);
@@ -165,7 +167,7 @@ async function handleListingPage({ page, request }) {
 			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
 		}
 
-		await sleep(500);
+		await sleep(800);
 	}
 }
 
