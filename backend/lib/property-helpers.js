@@ -31,6 +31,16 @@ async function extractCoordinatesFromHTML(html) {
 	let longitude = null;
 
 	try {
+		// Try Homeflow properties data (Hamptons): Homeflow.set('properties', ... {"properties":[{"lat":..,"lng":..}]})
+		const homeflowMatch = html.match(
+			/Homeflow\.set\(['"]properties['"][\s\S]*?\\?"lat\\?"\s*:\s*([0-9.-]+)[\s\S]*?\\?"lng\\?"\s*:\s*([0-9.-]+)/,
+		);
+		if (homeflowMatch) {
+			latitude = parseFloat(homeflowMatch[1]);
+			longitude = parseFloat(homeflowMatch[2]);
+			return { latitude, longitude };
+		}
+
 		// Try Snellers pattern first: data-lat and data-lng attributes
 		const snellersMatch = html.match(/data-lat="([0-9.-]+)"[\s\S]*?data-lng="([0-9.-]+)"/);
 		if (snellersMatch) {
