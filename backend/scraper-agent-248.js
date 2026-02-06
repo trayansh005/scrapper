@@ -77,6 +77,16 @@ async function scrapePropertyDetail(browserContext, property) {
 					lng: null,
 				};
 
+				const mapEl = document.querySelector(
+					"#leaflet-map-single-property-container[data-lat][data-lng]",
+				);
+				if (mapEl) {
+					const lat = parseFloat(mapEl.getAttribute("data-lat"));
+					const lng = parseFloat(mapEl.getAttribute("data-lng"));
+					if (!Number.isNaN(lat)) data.lat = lat;
+					if (!Number.isNaN(lng)) data.lng = lng;
+				}
+
 				const scripts = Array.from(document.querySelectorAll("script[type='application/ld+json']"));
 				for (const script of scripts) {
 					try {
