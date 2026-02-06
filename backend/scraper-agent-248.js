@@ -318,8 +318,8 @@ async function scrapeNewtonFallowell() {
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
-	const totalSalesPages = 139;
-	const totalLettingsPages = 18;
+	const totalSalesPages = 187;
+	const totalLettingsPages = 20;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
@@ -328,9 +328,14 @@ async function scrapeNewtonFallowell() {
 
 	const allRequests = [];
 
+	const buildListingUrl = (basePath, pageNum) => {
+		const pageSegment = pageNum > 1 ? `page-${pageNum}/` : "";
+		return `https://www.newtonfallowell.co.uk${basePath}${pageSegment}?orderby=price_desc&radius=3`;
+	};
+
 	// Build Sales requests
 	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url = `${"https://www.newtonfallowell.co.uk/properties/sales"}/?per_page=11&drawMap=&address=&address_lat_lng=&price_min=&price_max=&bedrooms_min=-1&hide_under_offer=on&yield_min=&yield_max=&pg=${pg}`;
+		const url = buildListingUrl("/properties/for-sale/in-the-midlands/", pg);
 
 		allRequests.push({
 			url,
@@ -345,7 +350,7 @@ async function scrapeNewtonFallowell() {
 	// Build Lettings requests
 	if (startPage === 1) {
 		for (let pg = 1; pg <= totalLettingsPages; pg++) {
-			const url = `${"https://www.newtonfallowell.co.uk/properties/lettings"}/?per_page=11&drawMap=&address=&address_lat_lng=&price_min=&price_max=&bedrooms_min=-1&hide_let_agreed=on&yield_min=&yield_max=&pg=${pg}`;
+			const url = buildListingUrl("/properties/for-letting/in-the-midlands/", pg);
 
 			allRequests.push({
 				url,

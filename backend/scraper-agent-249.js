@@ -429,8 +429,8 @@ async function scrapeLinleyAndSimpson() {
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
-	const totalSalesPages = 17;
-	const totalLettingsPages = 25;
+	const totalSalesPages = 19;
+	const totalLettingsPages = 35;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
