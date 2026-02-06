@@ -454,21 +454,21 @@ async function scrapeLinleyAndSimpson() {
 	const allRequests = [];
 
 	// Build Sales requests
-	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url =
-			pg === 1
-				? "https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/"
-				: `https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/page-${pg}/`;
+	// for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
+	// 	const url =
+	// 		pg === 1
+	// 			? "https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/"
+	// 			: `https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/page-${pg}/`;
 
-		allRequests.push({
-			url,
-			userData: {
-				pageNum: pg,
-				isRental: false,
-				label: `SALES_PAGE_${pg}`,
-			},
-		});
-	}
+	// 	allRequests.push({
+	// 		url,
+	// 		userData: {
+	// 			pageNum: pg,
+	// 			isRental: false,
+	// 			label: `SALES_PAGE_${pg}`,
+	// 		},
+	// 	});
+	// }
 
 	// Build Lettings requests
 	if (startPage === 1) {
