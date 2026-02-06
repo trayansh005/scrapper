@@ -6,6 +6,7 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -219,7 +220,8 @@ async function handleListingPage({ page, request }) {
 					continue;
 				}
 
-				results.push({ link, title });
+				const statusText = container?.innerText || el.innerText || "";
+				results.push({ link, title, statusText });
 			}
 
 			return results;
@@ -232,6 +234,7 @@ async function handleListingPage({ page, request }) {
 
 	for (const property of properties) {
 		if (!property.link) continue;
+		if (isSoldProperty(property.statusText || "")) continue;
 
 		const detail = await scrapePropertyDetail(page.context(), property);
 		if (!detail || !detail.price) {

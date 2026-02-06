@@ -11,6 +11,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -130,8 +131,10 @@ async function handleListingPage({ page, request }) {
 			const key = propId || link;
 			if (!key) continue;
 
+			const statusText = container.textContent || "";
+
 			if (!map.has(key)) {
-				map.set(key, { id: propId, link, title, priceText, bedrooms });
+				map.set(key, { id: propId, link, title, priceText, bedrooms, statusText });
 			}
 		}
 
@@ -142,6 +145,7 @@ async function handleListingPage({ page, request }) {
 
 	for (const property of properties) {
 		if (!property.link) continue;
+		if (isSoldProperty(property.statusText || "")) continue;
 
 		const price = parsePrice(property.priceText);
 		if (!price) continue;

@@ -11,6 +11,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -132,8 +133,10 @@ async function handleListingPage({ page, request, crawler }) {
 
 					const priceText = element.querySelector(".amount")?.textContent?.trim() || "";
 
+					const statusText = element.textContent || "";
+
 					if (link && title && priceText) {
-						return { link, title, priceText, bedrooms };
+						return { link, title, priceText, bedrooms, statusText };
 					}
 					return null;
 				} catch (err) {
@@ -147,6 +150,8 @@ async function handleListingPage({ page, request, crawler }) {
 
 	// Process each property
 	for (const property of properties) {
+		if (isSoldProperty(property.statusText || "")) continue;
+
 		const price = parsePrice(property.priceText);
 		if (!price) continue;
 

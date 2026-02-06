@@ -10,6 +10,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -122,7 +123,9 @@ async function handleListingPage({ page, request }) {
 						const receptions =
 							el.querySelector(".room-receptions .room-count")?.textContent?.trim() || null;
 
-						return { link, title, priceText: rawPrice, bedrooms, bathrooms, receptions };
+						const statusText = `${title} ${rawPrice} ${el.textContent || ""}`.trim();
+
+						return { link, title, priceText: rawPrice, bedrooms, bathrooms, receptions, statusText };
 					} catch (e) {
 						return null;
 					}
@@ -136,6 +139,8 @@ async function handleListingPage({ page, request }) {
 	console.log(` Found ${properties.length} properties on page ${pageNum}`);
 
 	for (const property of properties) {
+		if (isSoldProperty(property.statusText || "")) continue;
+
 		const price = parsePrice(property.priceText);
 		if (!property.link || !price) continue;
 
