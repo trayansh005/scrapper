@@ -7,6 +7,7 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
+	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
@@ -30,11 +31,7 @@ function sleep(ms) {
 }
 
 function parsePrice(priceText) {
-	if (!priceText) return null;
-	const digits = priceText.replace(/[^0-9]/g, "");
-	if (!digits) return null;
-
-	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	return formatPriceUk(priceText);
 }
 
 // ============================================================================

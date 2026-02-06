@@ -7,6 +7,7 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
+	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
@@ -30,12 +31,7 @@ function sleep(ms) {
 }
 
 function parsePrice(priceText) {
-	if (!priceText) return null;
-	// Extract digits and format with commas
-	const digits = priceText.replace(/[^0-9]/g, "");
-	if (!digits) return null;
-
-	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	return formatPriceUk(priceText);
 }
 
 // ============================================================================
@@ -135,11 +131,9 @@ async function handleListingPage({ page, request, crawler }) {
 					const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
 
 					const priceText = element.querySelector(".amount")?.textContent?.trim() || "";
-					const digits = priceText.replace(/[^0-9]/g, "");
-					const price = digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : null;
 
-					if (link && title && price) {
-						return { link, title, price, bedrooms };
+					if (link && title && priceText) {
+						return { link, title, priceText, bedrooms };
 					}
 					return null;
 				} catch (err) {
@@ -153,9 +147,12 @@ async function handleListingPage({ page, request, crawler }) {
 
 	// Process each property
 	for (const property of properties) {
+		const price = parsePrice(property.priceText);
+		if (!price) continue;
+
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
-			property.price,
+			price,
 			property.title,
 			property.bedrooms,
 			AGENT_ID,
@@ -168,7 +165,7 @@ async function handleListingPage({ page, request, crawler }) {
 
 		if (!result.isExisting && !result.error) {
 			console.log(` Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), property, isRental);
+			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
 		}
 	}
 }

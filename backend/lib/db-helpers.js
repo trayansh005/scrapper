@@ -1,6 +1,14 @@
 // Database helper functions for property updates
 const { promisePool, updatePriceByPropertyURL } = require("../db.js");
 
+function formatPriceUk(value) {
+	if (value === null || value === undefined) return null;
+	const digits = value.toString().replace(/[^0-9]/g, "");
+	if (!digits) return null;
+
+	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 /**
  * Optimized update function - only updates price for existing properties
  * @param {string} link - Property URL
@@ -98,6 +106,7 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 }
 
 module.exports = {
+	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 };
