@@ -308,38 +308,40 @@ async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData;
 	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
-	await page
-		.waitForSelector('a[href*="/property-to-rent/"], a[href*="/property-for-sale/"]', {
-			timeout: 10000,
-		})
-		.catch(() => console.log(` No properties found on page ${pageNum}`));
-
-	await page.waitForTimeout(2000);
+	try {
+		const propertyListSelector = "ul#property-list, div.listing, main";
+		await page.waitForSelector(propertyListSelector, { timeout: 15000 });
+	} catch (e) {
+		console.log(` Listing container not found on page ${pageNum}`);
+	}
 
 	const properties = await page.evaluate((isRental) => {
 		try {
-			const linkPattern = isRental ? "/property-to-rent/" : "/property-for-sale/";
-			const items = Array.from(document.querySelectorAll(`a[href*="${linkPattern}"]`));
-			const seenLinks = new Set();
 			const results = [];
-
-			for (const el of items) {
-				let href = el.getAttribute("href");
-				if (!href) continue;
-
+			const seenLinks = new Set();
+			
+			// Select all items that look like property links
+			const anchors = Array.from(document.querySelectorAll("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']"));
+			
+			for (const anchor of anchors) {
+				const href = anchor.getAttribute("href");
+				if (!href || href.includes("/book-a-viewing/") || href.includes("/request-a-valuation/")) continue;
+				
 				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
-				if (seenLinks.has(link) || link.includes("/book-a-viewing/")) continue;
+				if (seenLinks.has(link)) continue;
 				seenLinks.add(link);
 
-				const title =
-					el.querySelector("h3")?.textContent?.trim() || el.textContent?.trim() || "Property";
-
-				const card = el.closest("article") || el.closest("div");
-				const statusText = card?.innerText || el.innerText || "";
-
+				// Find the closest container that holds this property's info
+				const container = anchor.closest("li") || anchor.closest("div > div") || anchor;
+				
+				const title = container.querySelector("h3")?.textContent?.trim() || 
+							 anchor.textContent?.trim() || 
+							 "Property";
+				
+				const statusText = container.innerText || "";
+				
 				results.push({ link, title, statusText });
 			}
-
 			return results;
 		} catch (e) {
 			return [];
