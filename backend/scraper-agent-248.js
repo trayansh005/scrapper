@@ -188,12 +188,12 @@ async function handleListingPage({ page, request }) {
 	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
 	await page
-		.waitForSelector("a[href*='/property/']", { timeout: 30000 })
+		.waitForSelector(".property--card__results a[href*='/properties-']", { timeout: 30000 })
 		.catch(() => console.log(` No properties found on page ${pageNum}`));
 
 	const properties = await page.evaluate(() => {
 		try {
-			const items = Array.from(document.querySelectorAll("a[href*='/property/']"));
+			const items = Array.from(document.querySelectorAll(".property--card__results a[href*='/properties-']"));
 			const seenLinks = new Set();
 			const results = [];
 
@@ -205,11 +205,14 @@ async function handleListingPage({ page, request }) {
 				if (seenLinks.has(link)) continue;
 				seenLinks.add(link);
 
-				if (!link.includes("/property/")) continue;
+				if (!link.includes("/properties-")) continue;
 
 				const container =
-					el.closest("div[class*='property']") || el.closest("article") || el.closest("div");
-				const title = el.querySelector("h")?.textContent?.trim() || "Property";
+					el.closest(".property--card__results") || el.closest("article") || el.closest("div");
+				const title =
+					container?.querySelector(".property-title--search a")?.textContent?.trim() ||
+					el.getAttribute("aria-label")?.trim() ||
+					"Property";
 
 				const cardHtml = container?.innerHTML || el.innerHTML;
 				if (
@@ -220,7 +223,12 @@ async function handleListingPage({ page, request }) {
 					continue;
 				}
 
-				const statusText = container?.innerText || el.innerText || "";
+				const statusText =
+					container?.querySelector(".property-card-status")?.textContent ||
+					container?.querySelector(".property-type--search")?.textContent ||
+					container?.innerText ||
+					el.innerText ||
+					"";
 				results.push({ link, title, statusText });
 			}
 
