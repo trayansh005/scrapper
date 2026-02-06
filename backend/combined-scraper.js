@@ -63,6 +63,8 @@ Examples:
 	node combined-scraper.js 228                      # Run Agent 228
   node combined-scraper.js 225                      # Run Agent 225
 	node combined-scraper.js 224                      # Run Agent 224
+	node combined-scraper.js 248                      # Run Agent 248
+	node combined-scraper.js 249                      # Run Agent 249
   node combined-scraper.js 24 25 32 34              # Run Agents 24, 25, 32, and 34 in order
 		`);
 		process.exit(0);
