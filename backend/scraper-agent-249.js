@@ -105,6 +105,18 @@ async function scrapePropertyDetail(browserContext, property) {
 					lng: null,
 				};
 
+				const mapForm = document.querySelector("form[action*='all_plugins.aspx?']");
+				if (mapForm) {
+					const action = mapForm.getAttribute("action") || "";
+					try {
+						const actionUrl = new URL(action, window.location.origin);
+						const latParam = actionUrl.searchParams.get("lat");
+						const lngParam = actionUrl.searchParams.get("lng");
+						if (latParam) data.lat = parseFloat(latParam);
+						if (lngParam) data.lng = parseFloat(lngParam);
+					} catch (e) {}
+				}
+
 				const locationIframe = document.querySelector("iframe#location-map");
 				if (locationIframe) {
 					const src = locationIframe.getAttribute("src") || locationIframe.src;
