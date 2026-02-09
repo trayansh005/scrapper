@@ -148,13 +148,21 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		
 		const coords = await detailPage.evaluate(() => {
 			try {
-				const geoEl = document.querySelector("[geo]");
+				// Search for map wrapper with geo attribute
+				const geoEl = document.querySelector("#mapWrap[geo]") || document.querySelector("[geo]");
 				if (!geoEl) return null;
+
 				const geoAttr = geoEl.getAttribute("geo");
 				if (!geoAttr) return null;
+
+				// Attribute often contains JSON-encoded coordinates
 				const geoData = JSON.parse(geoAttr);
-				if (geoData && geoData.lat && geoData.lon) {
-					return { lat: parseFloat(geoData.lat), lon: parseFloat(geoData.lon) };
+
+				if (geoData && (geoData.lat || geoData.latitude) && (geoData.lon || geoData.longitude)) {
+					return { 
+						lat: parseFloat(geoData.lat || geoData.latitude), 
+						lon: parseFloat(geoData.lon || geoData.longitude) 
+					};
 				}
 			} catch (e) {}
 			return null;
@@ -198,6 +206,12 @@ async function handleListingPage({ page, request }) {
 	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
 
 	for (const property of properties) {
+		// Skip properties with no price or "on request" (price "0")
+		if (!property.price || property.price === "0") {
+			console.log(`⏩ Skipping property (no price): ${property.title}`);
+			continue;
+		}
+
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
 			property.price,
