@@ -1,201 +1,316 @@
-const { PlaywrightCrawler } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db");
+// Carter Jonas scraper using Playwright with Crawlee
+// Agent ID: 113
+//
+// Usage:
+// node backend/scraper-agent-113.js
+
+const { PlaywrightCrawler, log } = require("crawlee");
+const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+
+// Disable Crawlee's verbose logging
+log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 113;
 
-const PROPERTY_TYPES = [
-	// {
-	// 	name: "residential-sales",
-	// 	url: "https://www.carterjonas.co.uk/property-search?division=Homes&radius=10&area=GreaterLondon&searchTerm=Greater+London&toBuy=true&includeSoldOrSoldSTC=true&includeLetAgreedOrUnderOffer=true&sortOrder=HighestPriceFirst&page=1",
-	// 	isRental: false,
-	// },
-	{
-		name: "residential-lettings",
-		url: "https://www.carterjonas.co.uk/property-search?division=Homes&radius=10&area=GreaterLondon&searchTerm=Greater+London&toBuy=false&includeSoldOrSoldSTC=true&includeLetAgreedOrUnderOffer=true&sortOrder=HighestPriceFirst&page=1",
-		isRental: true,
-	},
-];
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
 
-async function scrapeCarterJonas() {
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 3,
-		requestHandlerTimeoutSecs: 180,
-		async requestHandler({ page, request }) {
-			const { isRental, category } = request.userData;
-			console.log(`Processing ${category}: ${request.url}`);
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-			// Handle cookie consent if visible
-			const cookieButton = page.getByRole('button', { name: 'Accept All Cookies' });
-			if (await cookieButton.isVisible()) {
-				await cookieButton.click();
-				await page.waitForTimeout(1000);
-			}
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-			// Wait for results to load
-			await page.waitForSelector("li .property-card, li [data-property-id], li h3", { timeout: 15000 }).catch(() => console.log("No properties found on this page."));
+function parsePrice(priceText) {
+	if (!priceText) return null;
 
-			const properties = await page.evaluate((isRent) => {
-				// Each property seems to be in a listitem within a list
-				const items = Array.from(document.querySelectorAll('ul li')).filter(li => li.querySelector('h3') && li.querySelector('h4'));
-				
-				return items.map((item) => {
-					const titleEl = item.querySelector("h3");
-					const priceEl = item.querySelector("h4");
-					const linkEl = item.querySelector("h3 a");
-					
-					// Bedrooms are usually in a list with an icon
-					// We'll look for the list item that has an icon and a number
-					const specs = Array.from(item.querySelectorAll('ul li')).map(li => li.innerText.trim());
-					let bedrooms = "";
-					// Typically the first or second spec is bedrooms if it's just a number
-					// Let's try to find a number that might be bedrooms
-					// In the snapshot it was <li><img>text: "4"</li>
-					const bedsMatch = specs.find(s => /^\d+$/.test(s));
-					if (bedsMatch) bedrooms = bedsMatch;
-
-					let price = "";
-					if (priceEl) {
-						const priceText = priceEl.textContent.trim();
-						const match = priceText.replace(/,/g, "").match(/(\d+)/);
-						if (match) price = match[1];
-					}
-
-					return {
-						title: titleEl ? titleEl.textContent.trim() : "",
-						link: linkEl ? linkEl.href : "",
-						price: price,
-						bedrooms: bedrooms,
-						isRental: isRent,
-					};
-				});
-			}, isRental);
-
-			console.log(`Found ${properties.length} properties.`);
-
-			for (const property of properties) {
-				if (property.link) {
-					let coords = { latitude: null, longitude: null };
-
-					// Coordinate extraction from details page
-					const detailPage = await page.context().newPage();
-					try {
-						await detailPage.goto(property.link, {
-							waitUntil: "domcontentloaded",
-							timeout: 30000,
-						});
-
-						// Wait a bit for meta tags or dynamic content
-						await detailPage.waitForTimeout(1000);
-
-						const geo = await detailPage.evaluate(() => {
-							// Check meta tags first as they were very clear in the snapshot
-							const latMeta = document.querySelector('meta[property="place:location:latitude"]');
-							const lonMeta = document.querySelector('meta[property="place:location:longitude"]');
-							
-							if (latMeta && lonMeta) {
-								return { lat: latMeta.content, lon: lonMeta.content };
-							}
-
-							// Fallback to regex on HTML if meta tags not found
-							const html = document.documentElement.innerHTML;
-							const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
-							const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
-							
-							return {
-								lat: latMatch ? latMatch[1] : null,
-								lon: lonMatch ? lonMatch[1] : null,
-							};
-						});
-
-						if (geo.lat && geo.lon) {
-							coords.latitude = parseFloat(geo.lat);
-							coords.longitude = parseFloat(geo.lon);
-							console.log(`  📍 Found coords for ${property.title}: ${coords.latitude}, ${coords.longitude}`);
-						}
-					} catch (err) {
-						console.error(`  ⚠️ Error loading detail page for ${property.link}: ${err.message}`);
-					} finally {
-						await detailPage.close();
-					}
-
-					try {
-						await updatePriceByPropertyURL(
-							property.link,
-							property.price,
-							property.title,
-							property.bedrooms,
-							AGENT_ID,
-							property.isRental,
-							coords.latitude,
-							coords.longitude
-						);
-					} catch (error) {
-						console.error(`Error updating property ${property.link}:`, error.message);
-					}
-				}
-			}
-
-			// Pagination
-			const nextButton = page.getByRole('button', { name: 'Next' });
-			if (await nextButton.isVisible()) {
-				// Click next button and wait for the URL to change or the next page to load
-				// Actually, simpler to check if there is a next page link or just increment the URL
-				const currentUrl = new URL(request.url);
-				let pageNum = parseInt(currentUrl.searchParams.get("page") || "1");
-				
-				// Optional: Check if we are at the last page
-				// The snapshot showed "1-12 of 227", so we can calculate
-				const paginationInfo = await page.evaluate(() => {
-					const el = document.querySelector('nav[aria-label="Pagination"] + div');
-					if (el) {
-						const match = el.innerText.match(/of\s+(\d+)/);
-						return match ? parseInt(match[1]) : 0;
-					}
-					return 0;
-				});
-
-				const totalResults = paginationInfo;
-				const resultsPerPage = properties.length || 12;
-				const totalPages = Math.ceil(totalResults / resultsPerPage);
-
-				if (pageNum < totalPages) {
-					pageNum++;
-					currentUrl.searchParams.set("page", pageNum.toString());
-					const nextUrl = currentUrl.toString();
-					console.log(`Heading to next page: ${nextUrl} (Page ${pageNum} of ${totalPages})`);
-					await crawler.addRequests([
-						{
-							url: nextUrl,
-							userData: { isRental, category },
-						},
-					]);
-				}
-			}
-		},
-	});
-
-	for (const type of PROPERTY_TYPES) {
-		await crawler.addRequests([
-			{
-				url: type.url,
-				userData: { isRental: type.isRental, category: type.name },
-			},
-		]);
+	// Extract everything before non-numeric text like "Asking price" or "Offers in excess of"
+	const match = priceText.match(/[£€$]\s*([\d,]+)/);
+	if (!match) {
+		const fallbackMatch = priceText.match(/([\d,]{4,})/);
+		if (fallbackMatch) {
+			const priceClean = fallbackMatch[1].replace(/,/g, "");
+			return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		}
+		return null;
 	}
 
+	const priceClean = match[1].replace(/,/g, "");
+	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function parsePropertyCard($, element) {
+	try {
+		const $li = $(element);
+		const h3 = $li.find("h3");
+		const h4 = $li.find("h4");
+		
+		if (!h3.length || !h4.length) return null;
+
+		const title = h3.text().trim();
+		const priceAttr = h4.text().trim();
+		const price = parsePrice(priceAttr);
+
+		const linkRel = h3.find("a").attr("href") || $li.find("a").attr("href");
+		if (!linkRel) return null;
+		const link = linkRel.startsWith("http") ? linkRel : `https://www.carterjonas.co.uk${linkRel}`;
+
+		// Specs (Bedrooms)
+		const specs = [];
+		$li.find("ul li").each((j, specEl) => {
+			specs.push($(specEl).text().trim());
+		});
+		const bedsMatch = specs.find((s) => /^\d+$/.test(s));
+		const bedrooms = bedsMatch || null;
+
+		if (link && title) {
+			return { link, title, price, bedrooms };
+		}
+		return null;
+	} catch (error) {
+		return null;
+	}
+}
+
+function parseListingPage(htmlContent) {
+	const $ = cheerio.load(htmlContent);
+	const properties = [];
+
+	$("li").each((index, element) => {
+		const property = parsePropertyCard($, element);
+		if (property) {
+			properties.push(property);
+		}
+	});
+
+	return properties;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		// Block unnecessary resources
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 35000,
+		});
+
+		const htmlContent = await detailPage.content();
+		
+		const coords = await detailPage.evaluate(() => {
+			try {
+				// Check meta tags first
+				const latMeta = document.querySelector('meta[property="place:location:latitude"]');
+				const lonMeta = document.querySelector('meta[property="place:location:longitude"]');
+				if (latMeta && lonMeta) {
+					return { lat: parseFloat(latMeta.content), lon: parseFloat(lonMeta.content) };
+				}
+
+				// Fallback to script data or regex
+				const html = document.documentElement.innerHTML;
+				const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
+				const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
+				if (latMatch && lonMatch) {
+					return { lat: parseFloat(latMatch[1]), lon: parseFloat(lonMatch[1]) };
+				}
+			} catch (e) {}
+			return null;
+		});
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+			coords ? coords.lat : null,
+			coords ? coords.lon : null
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+	} catch (error) {
+		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request, crawler }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+
+	// Handle cookie dismissal if present
+	const cookieButton = page.getByRole("button", { name: "Accept All Cookies" });
+	if (await cookieButton.isVisible()) {
+		await cookieButton.click();
+		await page.waitForTimeout(1000);
+	}
+
+	await page.waitForTimeout(2000);
+	await page.waitForSelector("li h3", { timeout: 30000 }).catch(() => {});
+
+	const htmlContent = await page.content();
+	const properties = parseListingPage(htmlContent);
+
+	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		// Skip properties with no price
+		if (!property.price || property.price === "0") {
+			console.log(`⏩ Skipping property (no price): ${property.title}`);
+			continue;
+		}
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			await scrapePropertyDetail(page.context(), property, isRental);
+		}
+	}
+
+	// Dynamic Pagination
+	const nextButton = page.getByRole("button", { name: "Next" });
+	if (await nextButton.isVisible() && !await nextButton.isDisabled()) {
+		const currentUrl = new URL(request.url);
+		let nextP = pageNum + 1;
+		currentUrl.searchParams.set("page", nextP.toString());
+		
+		// Optional: Check total pages to avoid infinite loop if button stays visible
+		const paginationInfo = await page.evaluate(() => {
+			const el = document.querySelector('nav[aria-label="Pagination"] + div');
+			if (el) {
+				const match = el.innerText.match(/of\s+(\d+)/);
+				return match ? parseInt(match[1]) : 0;
+			}
+			return 0;
+		});
+
+		const totalResults = paginationInfo;
+		const totalPages = Math.ceil(totalResults / 12); // Carter Jonas uses 12 per page
+
+		if (nextP <= totalPages) {
+			await crawler.addRequests([{
+				url: currentUrl.toString(),
+				userData: { pageNum: nextP, isRental, label }
+			}]);
+		}
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 360,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			console.error(`❌ Failed listing page: ${request.url}`);
+		},
+	});
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeCarterJonas() {
+	console.log(`\n🚀 Starting Carter Jonas scraper (Agent ${AGENT_ID})...\n`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const allRequests = [
+		{
+			url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=true&sortOrder=HighestPriceFirst&page=${startPage}`,
+			userData: { pageNum: startPage, isRental: false, label: "SALES" },
+		},
+		{
+			url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=false&sortOrder=HighestPriceFirst&page=${startPage}`,
+			userData: { pageNum: startPage, isRental: true, label: "RENTALS" },
+		}
+	];
+
+	await crawler.addRequests(allRequests);
 	await crawler.run();
+
+	console.log(`\n✅ Finished - Scraped: ${stats.totalScraped}, Saved: ${stats.totalSaved}`);
 }
 
 (async () => {
 	try {
-		console.log(`Starting Agent ${AGENT_ID} (Carter Jonas)...`);
 		await scrapeCarterJonas();
-		console.log("Updating remove status...");
 		await updateRemoveStatus(AGENT_ID);
-		console.log("Done.");
-	} catch (error) {
-		console.error("Fatal error:", error);
-	} finally {
 		process.exit(0);
+	} catch (err) {
+		console.error("❌ Fatal error:", err);
+		process.exit(1);
 	}
 })();

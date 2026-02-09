@@ -23,6 +23,27 @@ function isSoldProperty(text) {
 }
 
 /**
+ * Parse a price string into a number
+ * @param {string} priceText - The price string to parse
+ * @returns {number|null} - The parsed price as a number, or null if invalid
+ */
+function parsePrice(priceText) {
+	if (!priceText) return null;
+
+	// Remove secondary prices in brackets
+	let cleanText = priceText.split("(")[0];
+
+	// Extract everything that looks like a price (currency symbol followed by digits/commas)
+	const match = cleanText.match(/[£$€]?\s*[\d,]+(\.\d+)?/);
+	if (!match) return null;
+
+	const numericPart = match[0].replace(/[£$€\s,]/g, "");
+	const price = parseFloat(numericPart);
+
+	return isNaN(price) ? null : price;
+}
+
+/**
  * Extract coordinates from HTML content
  * @param {string} html - HTML content to parse
  * @returns {Object} - Object with latitude and longitude
@@ -145,5 +166,6 @@ async function extractCoordinatesFromHTML(html) {
 module.exports = {
 	SOLD_KEYWORDS,
 	isSoldProperty,
+	parsePrice,
 	extractCoordinatesFromHTML,
 };

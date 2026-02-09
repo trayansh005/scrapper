@@ -1,9 +1,0 @@
-{
-	"id": "352QZye3ne2BA5t",
-	"json": "{\"id\":\"352QZye3ne2BA5t\",\"url\":\"https://remax.co.uk/properties-for-rent/\",\"uniqueKey\":\"https://remax.co.uk/properties-for-rent\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"page.goto: Target page, context or browser has been closed\\nCall log:\\n\\u001b[2m  - navigating to \\\"https://remax.co.uk/properties-for-rent/\\\", waiting until \\\"load\\\"\\u001b[22m\\n\\n    at gotoExtended (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@crawlee\\\\playwright\\\\internals\\\\utils\\\\playwright-utils.js:166:17)\\n    at PlaywrightCrawler._navigationHandler (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@crawlee\\\\playwright\\\\internals\\\\playwright-crawler.js:117:52)\\n    at PlaywrightCrawler._handleNavigation (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@crawlee\\\\browser\\\\internals\\\\browser-crawler.js:334:52)\\n    at async PlaywrightCrawler._runRequestHandler (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@crawlee\\\\browser\\\\internals\\\\browser-crawler.js:260:13)\\n    at async PlaywrightCrawler._runRequestHandler (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@crawlee\\\\playwright\\\\internals\\\\playwright-crawler.js:114:9)\\n    at async wrap (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":true,\"label\":\"LETTINGS\",\"__crawlee\":{\"state\":5}}}",
-	"method": "GET",
-	"orderNo": 1770190407486,
-	"retryCount": 1,
-	"uniqueKey": "https://remax.co.uk/properties-for-rent",
-	"url": "https://remax.co.uk/properties-for-rent/"
-}
