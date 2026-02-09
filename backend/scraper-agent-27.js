@@ -49,13 +49,15 @@ async function run() {
 				console.log(`Found ${properties.length} valid properties on this page.`);
 
 				for (const prop of properties) {
-					const isNewOrPriceChanged = await updatePriceByPropertyURLOptimized(
+					const result = await updatePriceByPropertyURLOptimized(
 						prop.url,
 						prop.price,
 						prop.title,
+						prop.bedrooms,
 						prop.agentId,
 					);
-					if (isNewOrPriceChanged) {
+					// Only scrape detail page if property is new or price changed
+					if (!result.isExisting || result.updated) {
 						await enqueueLinks({
 							urls: [prop.url],
 							userData: { propertyData: prop },
@@ -118,13 +120,13 @@ async function run() {
 				console.log(`Extracted coords for ${url}: ${lat}, ${lon}`);
 
 				await processPropertyWithCoordinates(
-					propertyData.title,
-					propertyData.price,
 					url,
-					propertyData.agentId,
+					propertyData.price,
+					propertyData.title,
 					propertyData.bedrooms,
-					null, // description
-					null, // image
+					propertyData.agentId,
+					false, // isRent
+					null, // html
 					lat,
 					lon,
 				);
