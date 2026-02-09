@@ -84,6 +84,20 @@ async function extractCoordinatesFromHTML(html) {
 		const latCommentMatch2 = html.match(/property-latitude:"([0-9.-]+)"/);
 		const lngCommentMatch2 = html.match(/property-longitude:"([0-9.-]+)"/);
 
+		// Try Nestseekers geo attribute as a fallback in regex
+		const geoAttrMatch = html.match(/geo=['"](\{[\s\S]*?\})['"]/);
+		if (geoAttrMatch) {
+			try {
+				const geoJson = geoAttrMatch[1].replace(/&quot;/g, '"');
+				const geoData = JSON.parse(geoJson);
+				latitude = parseFloat(geoData.lat || geoData.latitude);
+				longitude = parseFloat(geoData.lon || geoData.longitude || geoData.lng);
+				if (!isNaN(latitude) && !isNaN(longitude)) {
+					return { latitude, longitude };
+				}
+			} catch (e) {}
+		}
+
 		if (googleMapsDirMatch) {
 			latitude = parseFloat(googleMapsDirMatch[1]);
 			longitude = parseFloat(googleMapsDirMatch[2]);

@@ -78,12 +78,32 @@ async function updatePriceByPropertyURLOptimized(
  * @param {number} agentId - Agent ID
  * @param {boolean} isRent - Whether it's a rental
  * @param {string} html - HTML content to extract coordinates from
+ * @param {number} manualLat - Optional manual latitude
+ * @param {number} manualLon - Optional manual longitude
  */
-async function processPropertyWithCoordinates(url, price, title, bedrooms, agentId, isRent, html) {
+async function processPropertyWithCoordinates(
+	url,
+	price,
+	title,
+	bedrooms,
+	agentId,
+	isRent,
+	html,
+	manualLat = null,
+	manualLon = null,
+) {
 	const { extractCoordinatesFromHTML } = require("./property-helpers.js");
 
 	try {
-		const coords = await extractCoordinatesFromHTML(html);
+		let latitude = manualLat;
+		let longitude = manualLon;
+
+		// If no manual coords, extract from HTML
+		if (latitude === null || longitude === null) {
+			const coords = await extractCoordinatesFromHTML(html);
+			latitude = coords.latitude;
+			longitude = coords.longitude;
+		}
 
 		await updatePriceByPropertyURL(
 			url,
@@ -92,13 +112,11 @@ async function processPropertyWithCoordinates(url, price, title, bedrooms, agent
 			bedrooms,
 			agentId,
 			isRent,
-			coords.latitude,
-			coords.longitude,
+			latitude,
+			longitude,
 		);
 
-		console.log(
-			`✅ New property: ${title} (£${price}) - Coords: ${coords.latitude}, ${coords.longitude}`,
-		);
+		console.log(`✅ New property: ${title} (£${price}) - Coords: ${latitude}, ${longitude}`);
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);
 		// Don't throw - just log the error
