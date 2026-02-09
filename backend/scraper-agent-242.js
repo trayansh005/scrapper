@@ -1,155 +1,263 @@
-const { PlaywrightCrawler } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db");
+// Fenn Wright scraper using Playwright with Crawlee
+// Agent ID: 242
+//
+// Usage:
+// node backend/scraper-agent-242.js
+
+const { PlaywrightCrawler, log } = require("crawlee");
+const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+
+// Disable Crawlee's verbose logging
+log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 242;
 
-const PROPERTY_TYPES = [
-	// {
-	// 	name: "residential-sales",
-	// 	url: "https://www.fennwright.co.uk/property-search/?address_keyword=&radius=&property_type=&officeID=&minimum_price=&maximum_price=&minimum_bedrooms=0&department=residential-sales",
-	// 	isRental: false,
-	// },
-	{
-		name: "residential-lettings",
-		url: "https://www.fennwright.co.uk/property-search/?address_keyword=&radius=&property_type=&officeID=&minimum_rent=&maximum_rent=&minimum_bedrooms=0&department=residential-lettings",
-		isRental: true,
-	},
-];
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
 
-async function scrapeFennWright() {
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		requestHandlerTimeoutSecs: 60,
-		async requestHandler({ page, request }) {
-			const { isRental, category } = request.userData;
-			console.log(`Processing ${category}: ${request.url}`);
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-			await page
-				.waitForSelector(".info-item", { timeout: 10000 })
-				.catch(() => console.log("No .info-item found."));
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-			const properties = await page.evaluate((isRent) => {
-				const items = Array.from(document.querySelectorAll(".info-item"));
-				return items.map((item) => {
-					const linkEl = item.querySelector("a.caption");
-					const titleEl = item.querySelector("h3");
-					const priceEl = item.querySelector(".price");
-					const bedroomsEl = item.querySelector("figure");
+function parsePrice(priceText) {
+	if (!priceText) return null;
+	const match = priceText.match(/[£€]\s*([\d,]+)/);
+	if (!match) return null;
 
-					let bedrooms = "";
-					if (bedroomsEl) {
-						const match = bedroomsEl.textContent.match(/(\d+)/);
-						if (match) bedrooms = match[1];
-					}
+	const priceClean = match[1].replace(/,/g, "");
+	if (!priceClean) return null;
 
-					let price = "";
-					if (priceEl) {
-						const priceText = priceEl.textContent.trim();
-						const match = priceText.replace(/,/g, "").match(/(\d+)/);
-						if (match) price = match[1];
-					}
+	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
 
-					return {
-						title: titleEl ? titleEl.textContent.trim() : "",
-						link: linkEl ? linkEl.href : "",
-						price: price,
-						bedrooms: bedrooms,
-						isRental: isRent,
-					};
-				});
-			}, isRental);
+function parsePropertyCard($, element) {
+	try {
+		const $item = $(element);
+		const linkEl = $item.find("a.caption");
+		const titleEl = $item.find("h3");
+		const priceEl = $item.find(".price");
+		const bedroomsEl = $item.find("figure");
 
-			console.log(`Found ${properties.length} properties.`);
+		let bedrooms = null;
+		if (bedroomsEl.length) {
+			const match = bedroomsEl.text().match(/(\d+)/);
+			if (match) bedrooms = match[1];
+		}
 
-			for (const property of properties) {
-				if (property.link) {
-					let coords = { latitude: null, longitude: null };
+		let price = parsePrice(priceEl.text().trim());
+		let link = linkEl.attr("href");
+		let title = titleEl.text().trim();
 
-					// Coordinate extraction from details page
-					const detailPage = await page.context().newPage();
-					try {
-						await detailPage.goto(property.link, {
-							waitUntil: "domcontentloaded",
-							timeout: 30000,
-						});
+		if (link && title) {
+			return { link, title, price, bedrooms };
+		}
+		return null;
+	} catch (error) {
+		return null;
+	}
+}
 
-						const geo = await detailPage.evaluate(() => {
-							const html = document.documentElement.innerHTML;
-							const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
-							const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
-							return {
-								lat: latMatch ? latMatch[1] : null,
-								lon: lonMatch ? lonMatch[1] : null,
-							};
-						});
+function parseListingPage(htmlContent) {
+	const $ = cheerio.load(htmlContent);
+	const properties = [];
 
-						if (geo.lat && geo.lon) {
-							coords.latitude = parseFloat(geo.lat);
-							coords.longitude = parseFloat(geo.lon);
-							console.log(`  📍 Found coords: ${coords.latitude}, ${coords.longitude}`);
-						}
-					} catch (err) {
-						console.error(`  ⚠️ Error loading detail page: ${err.message}`);
-					} finally {
-						await detailPage.close();
-					}
-
-					try {
-						await updatePriceByPropertyURL(
-							property.link,
-							property.price,
-							property.title,
-							property.bedrooms,
-							AGENT_ID,
-							property.isRental,
-							coords.latitude,
-							coords.longitude
-						);
-					} catch (error) {
-						console.error(`Error updating property ${property.link}:`, error.message);
-					}
-				}
-			}
-
-			// Pagination using Next button
-			const nextButton = await page.$("a.next.page-numbers");
-			if (nextButton) {
-				const nextUrl = await nextButton.getAttribute("href");
-				if (nextUrl) {
-					console.log(`Heading to next page: ${nextUrl}`);
-					await crawler.addRequests([
-						{
-							url: nextUrl,
-							userData: { isRental, category },
-						},
-					]);
-				}
-			}
-		},
+	$(".info-item").each((index, element) => {
+		const property = parsePropertyCard($, element);
+		if (property) {
+			properties.push(property);
+		}
 	});
 
-	for (const type of PROPERTY_TYPES) {
-		await crawler.addRequests([
-			{
-				url: type.url,
-				userData: { isRental: type.isRental, category: type.name },
-			},
-		]);
+	return properties;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 30000,
+		});
+
+		const htmlContent = await detailPage.content();
+
+		// Coordinate extraction
+		const geo = await detailPage.evaluate(() => {
+			const html = document.documentElement.innerHTML;
+			const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
+			const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
+			return {
+				lat: latMatch ? parseFloat(latMatch[1]) : null,
+				lon: lonMatch ? parseFloat(lonMatch[1]) : null,
+			};
+		});
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+			geo.lat,
+			geo.lon
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+	} catch (error) {
+		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request, crawler }) {
+	const { isRental, label, pageNum } = request.userData;
+	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+
+	await page.waitForTimeout(2000);
+	await page.waitForSelector(".info-item", { timeout: 30000 }).catch(() => {});
+
+	const htmlContent = await page.content();
+	const properties = parseListingPage(htmlContent);
+
+	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			await scrapePropertyDetail(page.context(), property, isRental);
+		}
 	}
 
+	// Pagination
+	const nextButton = await page.$("a.next.page-numbers");
+	if (nextButton) {
+		const nextUrl = await nextButton.getAttribute("href");
+		if (nextUrl) {
+			await crawler.addRequests([
+				{
+					url: nextUrl,
+					userData: { isRental, label, pageNum: pageNum + 1 },
+				},
+			]);
+		}
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			console.error(`❌ Failed listing page: ${request.url}`);
+		},
+	});
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeFennWright() {
+	console.log(`\n🚀 Starting Fenn Wright scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const initialRequests = [
+		{
+			url: "https://www.fennwright.co.uk/property-search/?address_keyword=&radius=&property_type=&officeID=&minimum_price=&maximum_price=&minimum_bedrooms=0&department=residential-sales",
+			userData: { isRental: false, label: "SALES", pageNum: 1 },
+		},
+		{
+			url: "https://www.fennwright.co.uk/property-search/?address_keyword=&radius=&property_type=&officeID=&minimum_rent=&maximum_rent=&minimum_bedrooms=0&department=residential-lettings",
+			userData: { isRental: true, label: "RENTALS", pageNum: 1 },
+		},
+	];
+
+	await crawler.addRequests(initialRequests);
 	await crawler.run();
+
+	console.log(`\n✅ Finished - Scraped: ${stats.totalScraped}, Saved: ${stats.totalSaved}`);
 }
 
 (async () => {
 	try {
-		console.log(`Starting Agent ${AGENT_ID} (Fenn Wright)...`);
 		await scrapeFennWright();
-		console.log("Updating remove status...");
 		await updateRemoveStatus(AGENT_ID);
-		console.log("Done.");
-	} catch (error) {
-		console.error("Fatal error:", error);
-	} finally {
 		process.exit(0);
+	} catch (err) {
+		console.error("❌ Fatal error:", err);
+		process.exit(1);
 	}
 })();

@@ -1,283 +1,299 @@
 // Nestseekers scraper using Playwright with Crawlee
 // Agent ID: 241
+//
 // Usage:
 // node backend/scraper-agent-241.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 
+// Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 241;
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
 };
 
-let totalScraped = 0;
-let totalSaved = 0;
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-// NestSeekers properties for United Kingdom
-// Sales: 418 properties, 36 per page => 12 pages
-// Rentals: 176 properties, 36 per page => 5 pages
-const PROPERTY_TYPES = [
-	// {
-	// 	baseUrl: "https://www.nestseekers.com/Sales/united-kingdom/",
-	// 	totalRecords: 418,
-	// 	propertiesPerPage: 36,
-	// 	isRental: false,
-	// 	label: "FOR SALE - UNITED KINGDOM",
-	// },
-	{
-		baseUrl: "https://www.nestseekers.com/Rentals/united-kingdom/",
-		totalRecords: 176,
-		propertiesPerPage: 36,
-		isRental: true,
-		label: "FOR RENT - UNITED KINGDOM",
-	},
-];
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parsePrice(priceText) {
+	if (!priceText) return null;
+
+	// Nestseekers sites often display multiple currencies; the first one is primary.
+	// We extract the part before any parentheses to isolate the main price.
+	const primaryText = priceText.split("(")[0].trim();
+
+	// Extract the first price found with a currency symbol (£, €, or $)
+	const match = primaryText.match(/[£€$]\s*([\d,]+)/) || priceText.match(/[£€$]\s*([\d,]+)/);
+	if (!match) {
+		// Fallback for numeric sequences (at least 4 digits)
+		const fallbackMatch = priceText.match(/([\d,]{4,})/);
+		if (fallbackMatch) {
+			const priceClean = fallbackMatch[1].replace(/,/g, "");
+			return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		}
+		if (priceText.toLowerCase().includes("request")) return "0";
+		return null;
+	}
+
+	const priceClean = match[1].replace(/,/g, "");
+	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function parsePropertyCard($, element) {
+	try {
+		const $row = $(element);
+
+		// Link
+		const linkEl = $row.find("a[href]").first();
+		if (!linkEl.length) return null;
+
+		let href = linkEl.attr("href");
+		if (!href) return null;
+		const link = href.startsWith("http") ? href : `https://www.nestseekers.com${href}`;
+
+		// Title
+		let title = $row.find("a strong").text().trim();
+		const address = $row.find("h2").text().trim().replace(/\s+/g, " ");
+		if (address) title += " - " + address;
+
+		// Price
+		let $priceEl = $row.find(".price");
+		if (!$priceEl.length) {
+			$priceEl = $row.find(".p-4.text-center").first();
+		}
+		const priceAttr = $priceEl.text().trim();
+		const price = parsePrice(priceAttr);
+
+		// Bedrooms
+		let bedrooms = null;
+		const infoText = $row.find(".info .tight").text();
+		const bedroomMatch = infoText.match(/(\d+)\+?\s*(?:BR|bedroom)/i);
+		if (bedroomMatch) bedrooms = bedroomMatch[1];
+
+		if (link && title) {
+			return { link, title, price, bedrooms };
+		}
+		return null;
+	} catch (error) {
+		return null;
+	}
+}
+
+function parseListingPage(htmlContent) {
+	const $ = cheerio.load(htmlContent);
+	const properties = [];
+
+	$("tr[id]").each((index, element) => {
+		const property = parsePropertyCard($, element);
+		if (property) {
+			properties.push(property);
+		}
+	});
+
+	return properties;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		// Block unnecessary resources
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 30000,
+		});
+
+		const htmlContent = await detailPage.content();
+		
+		const coords = await detailPage.evaluate(() => {
+			try {
+				const geoEl = document.querySelector("[geo]");
+				if (!geoEl) return null;
+				const geoAttr = geoEl.getAttribute("geo");
+				if (!geoAttr) return null;
+				const geoData = JSON.parse(geoAttr);
+				if (geoData && geoData.lat && geoData.lon) {
+					return { lat: parseFloat(geoData.lat), lon: parseFloat(geoData.lon) };
+				}
+			} catch (e) {}
+			return null;
+		});
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+			coords ? coords.lat : null,
+			coords ? coords.lon : null
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+	} catch (error) {
+		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+
+	await page.waitForTimeout(2000);
+	await page.waitForSelector("tr[id]", { timeout: 30000 }).catch(() => {});
+
+	const htmlContent = await page.content();
+	const properties = parseListingPage(htmlContent);
+
+	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			await scrapePropertyDetail(page.context(), property, isRental);
+		}
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			console.error(`❌ Failed listing page: ${request.url}`);
+		},
+	});
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
 async function scrapeNestseekers() {
 	console.log(`\n🚀 Starting Nestseekers scraper (Agent ${AGENT_ID})...\n`);
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 600,
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	
+	const totalSalesPages = 15; 
+	const totalRentalPages = 10; 
 
-		launchContext: {
-			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
 
-		async requestHandler({ page, request }) {
-			const { isRental, label, pageNum } = request.userData;
+	const allRequests = [];
 
-			console.log(`📋 ${label} - Page ${pageNum}`);
-
-			await page.waitForTimeout(2000);
-
-			// Wait for property rows to load
-			await page
-				.waitForSelector("tr[id]", {
-					timeout: 15000,
-				})
-				.catch(() => console.log(`⚠️ No property rows found`));
-
-			await page.waitForTimeout(1000);
-
-			const properties = await page.evaluate(() => {
-				try {
-					const rows = Array.from(document.querySelectorAll("tr[id]"));
-					return rows
-						.map((row) => {
-							try {
-								// Extract property ID from tr id attribute
-								const propertyId = row.getAttribute("id");
-								if (!propertyId) return null;
-
-								// Extract URL from link
-								const linkEl = row.querySelector("a[href]");
-								if (!linkEl) return null;
-
-								const href = linkEl.getAttribute("href");
-								if (!href) return null;
-								const link = href.startsWith("http") ? href : `https://www.nestseekers.com${href}`;
-
-								// Extract title from strong tag inside link
-								let title = "";
-								const titleEl = row.querySelector("a strong");
-								if (titleEl) {
-									title = titleEl.textContent.trim();
-								}
-
-								// Extract address from h2
-								let address = "";
-								const addressEl = row.querySelector("h2");
-								if (addressEl) {
-									address = addressEl.textContent.trim().replace(/\s+/g, " ");
-								}
-
-								// Combine title and address
-								const fullTitle = title + (address ? " - " + address : "");
-
-								// Extract price - format with only numeric and commas
-								let price = "";
-								const priceEl = row.querySelector(".price");
-								if (priceEl) {
-									const priceText = priceEl.innerText.trim();
-									// Extract GBP price: £413,889 or From £35,000,000 or £86,667 ($115,357)
-									// We look for £ followed by numbers and commas
-									const match = priceText.match(/£\s*([0-9,]{1,})/);
-									if (match) {
-										// Remove commas and parse as integer to reformat
-										const numOnly = match[1].replace(/,/g, "");
-										price = numOnly; // Keep as string of digits
-									} else {
-										// Fallback: try any sequence of numbers if £ is missing but requested text is there
-										const fallbackMatch = priceText.match(/([0-9,]{4,})/);
-										if (fallbackMatch) {
-											price = fallbackMatch[1].replace(/,/g, "");
-										} else if (priceText.toLowerCase().includes("request")) {
-											price = "0"; // Flag for "on request"
-										}
-									}
-								}
-
-								// Extract bedrooms from info div
-								let bedrooms = null;
-								const infoDiv = row.querySelector(".info .tight");
-								if (infoDiv) {
-									const text = infoDiv.textContent;
-									// Handle "4 BR" or "3+ bedroom" or "From 4 BR"
-									const bedroomMatch = text.match(/(\d+)\+?\s*(?:BR|bedroom)/i);
-									if (bedroomMatch) {
-										bedrooms = bedroomMatch[1];
-									}
-								}
-
-								return { link, title: fullTitle, price, bedrooms, propertyId };
-							} catch (e) {
-								console.error("Error parsing property row:", e);
-								return null;
-							}
-						})
-						.filter((p) => p !== null);
-				} catch (err) {
-					console.error("Error in page evaluation:", err);
-					return [];
-				}
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			for (const property of properties) {
-				if (!property.link) continue;
-
-				let coords = { latitude: null, longitude: null };
-
-				const detailPage = await page.context().newPage();
-				try {
-					await detailPage.goto(property.link, {
-						waitUntil: "domcontentloaded",
-						timeout: 30000,
-					});
-					await detailPage.waitForTimeout(1000);
-
-					// Extract coordinates from geo attribute
-					const geoCoords = await detailPage.evaluate(() => {
-						try {
-							// Look for element with geo attribute
-							const geoEl = document.querySelector("[geo]");
-							if (!geoEl) return null;
-
-							const geoAttr = geoEl.getAttribute("geo");
-							if (!geoAttr) return null;
-
-							// Parse the geo JSON string
-							const geoData = JSON.parse(geoAttr);
-
-							if (geoData && geoData.lat && geoData.lon) {
-								return {
-									latitude: parseFloat(geoData.lat),
-									longitude: parseFloat(geoData.lon),
-								};
-							}
-
-							return null;
-						} catch (e) {
-							return null;
-						}
-					});
-
-					if (geoCoords && geoCoords.latitude && geoCoords.longitude) {
-						coords.latitude = geoCoords.latitude;
-						coords.longitude = geoCoords.longitude;
-						console.log(`  📍 Found coords: ${coords.latitude}, ${coords.longitude}`);
-					}
-				} catch (err) {
-					console.error(`  ⚠️ Error loading detail page: ${err.message}`);
-				} finally {
-					await detailPage.close();
-				}
-
-				try {
-					const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-					const priceNum = parseFloat(priceClean);
-
-					await updatePriceByPropertyURL(
-						property.link,
-						priceClean,
-						property.title,
-						property.bedrooms,
-						AGENT_ID,
-						isRental,
-						coords.latitude,
-						coords.longitude
-					);
-
-					totalSaved++;
-					totalScraped++;
-
-					const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
-					if (coords.latitude && coords.longitude) {
-						console.log(
-							`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`
-						);
-					} else {
-						console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
-					}
-				} catch (dbErr) {
-					console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
-				}
-
-				await new Promise((resolve) => setTimeout(resolve, 500));
-			}
-		},
-
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
-		},
-	});
-
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label}`);
-
-		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.propertiesPerPage);
-		console.log(`📄 Total pages to scrape: ${totalPages}`);
-
-		const requests = [];
-		for (let page = 1; page <= totalPages; page++) {
-			const url = page === 1 ? propertyType.baseUrl : `${propertyType.baseUrl}?page=${page}`;
-			requests.push({
-				url: url,
-				userData: {
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-					pageNum: page,
-				},
-			});
-		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
+	// Sales
+	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
+		allRequests.push({
+			url: p === 1 ? "https://www.nestseekers.com/Sales/united-kingdom/" : `https://www.nestseekers.com/Sales/united-kingdom/?page=${p}`,
+			userData: { pageNum: p, isRental: false, label: "SALES" },
+		});
 	}
 
-	console.log(
-		`\n✅ Completed Nestseekers scraper - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
+	// Rentals
+	if (startPage === 1) {
+		for (let p = 1; p <= totalRentalPages; p++) {
+			allRequests.push({
+				url: p === 1 ? "https://www.nestseekers.com/Rentals/united-kingdom/" : `https://www.nestseekers.com/Rentals/united-kingdom/?page=${p}`,
+				userData: { pageNum: p, isRental: true, label: "RENTALS" },
+			});
+		}
+	}
+
+	if (allRequests.length === 0) {
+		console.log("⚠️ No pages to scrape.");
+		return;
+	}
+
+	await crawler.addRequests(allRequests);
+	await crawler.run();
+
+	console.log(`\n✅ Finished - Scraped: ${stats.totalScraped}, Saved: ${stats.totalSaved}`);
 }
 
 (async () => {
 	try {
 		await scrapeNestseekers();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		console.error("❌ Fatal error:", err);
 		process.exit(1);
 	}
 })();
