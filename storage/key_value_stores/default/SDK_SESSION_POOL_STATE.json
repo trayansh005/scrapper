@@ -1,5 +1,5 @@
 {
-  "usableSessionsCount": 41,
+  "usableSessionsCount": 44,
   "retiredSessionsCount": 0,
   "sessions": [
     {
@@ -34,13 +34,13 @@
         "cookies": [
           {
             "key": "propertyhive_recently_viewed",
-            "value": "987521121%7C987521018%7C987520945%7C987519981%7C987520713%7C987520559%7C987520489%7C987520417%7C987519885",
-            "expires": "2026-02-09T08:19:20.658Z",
+            "value": "987521121%7C987521018%7C987520945%7C987519981%7C987520713%7C987520559%7C987520489%7C987520417%7C987520016%7C987519637%7C987515702",
+            "expires": "2026-02-09T08:19:30.713Z",
             "domain": "livinestateagents.co.uk",
             "path": "/",
             "hostOnly": true,
             "creation": "2026-02-09T07:28:30.169Z",
-            "lastAccessed": "2026-02-09T07:29:20.658Z"
+            "lastAccessed": "2026-02-09T07:29:30.714Z"
           }
         ]
       },
@@ -49,7 +49,7 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-02-09T08:18:21.737Z",
       "createdAt": "2026-02-09T07:28:21.737Z",
-      "usageCount": 34,
+      "usageCount": 43,
       "maxUsageCount": 50,
       "errorScore": 0
     },
@@ -829,6 +829,66 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-02-09T08:19:20.304Z",
       "createdAt": "2026-02-09T07:29:20.304Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Mztjk9RudU",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-09T08:19:26.796Z",
+      "createdAt": "2026-02-09T07:29:26.796Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_kewyb21ndL",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-09T08:19:26.802Z",
+      "createdAt": "2026-02-09T07:29:26.802Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_KfLYuDAh2q",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-09T08:19:26.827Z",
+      "createdAt": "2026-02-09T07:29:26.827Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

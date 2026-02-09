@@ -11,6 +11,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -51,6 +52,15 @@ function parsePrice(priceText) {
 function parsePropertyCard($, element) {
 	try {
 		const $li = $(element);
+
+		// Check for "Sold" status in any badge or text
+		// Using the user-provided snippet indicator (bg-plum)
+		const soldBadgeText = $li.find(".bg-plum").text().trim();
+		if (soldBadgeText.toLowerCase().includes("sold")) return null;
+
+		// General sold keyword check on the card
+		if (isSoldProperty($li.text())) return null;
+
 		const h3 = $li.find("h3");
 		const h4 = $li.find("h4");
 		
