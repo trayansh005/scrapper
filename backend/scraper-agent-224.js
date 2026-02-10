@@ -29,68 +29,62 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		console.log(`    Detail: ${property.link}`);
 		await page.goto(property.link, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-		const content = await page.content();
-		const $ = cheerio.load(content);
+		// Use page.evaluate for robust extraction directly from the browser
+		const coords = await page.evaluate(() => {
+			let lat = null,
+				lng = null;
 
-		// Mistoria detail pages often have coordinates in a script or we can just try to find them
-		// Usually Mistoria uses PropertyHive or similar. Let's look for JSON-LD.
-		let lat = null,
-			lng = null;
+			// 1. Try JSON-LD
+			const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+			for (const script of scripts) {
+				try {
+					const json = JSON.parse(script.innerText);
+					const items = json["@graph"] || (Array.isArray(json) ? json : [json]);
 
-		$('script[type="application/ld+json"]').each((i, el) => {
-			try {
-				const scriptContent = $(el).text().trim();
-				if (!scriptContent) return;
-				const json = JSON.parse(scriptContent);
+					for (const item of items) {
+						if (item.geo && item.geo.latitude != null) {
+							lat = item.geo.latitude;
+							lng = item.geo.longitude;
+							break;
+						}
+						if (item.latitude != null && item.longitude != null) {
+							lat = item.latitude;
+							lng = item.longitude;
+							break;
+						}
+					}
+				} catch (e) {}
+				if (lat && lng) break;
+			}
 
-				// Standardize to an array of objects
-				const items = json["@graph"] ? json["@graph"] : Array.isArray(json) ? json : [json];
-
-				for (const item of items) {
-					// Check for geo property
-					if (item.geo && item.geo.latitude != null) {
-						lat = item.geo.latitude;
-						lng = item.geo.longitude;
+			// 2. Fallback: Google Maps LatLng
+			if (!lat || !lng) {
+				const scripts = Array.from(document.querySelectorAll("script"));
+				for (const script of scripts) {
+					const content = script.innerText;
+					const gmapsMatch = content.match(
+						/new\s+google\.maps\.LatLng\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/i,
+					);
+					if (gmapsMatch) {
+						lat = gmapsMatch[1];
+						lng = gmapsMatch[2];
 						break;
 					}
-					// Some variations might have lat/long directly on item
-					if (item.latitude != null && item.longitude != null) {
-						lat = item.latitude;
-						lng = item.longitude;
+					const coordMatch = content.match(
+						/lat\s*[:=]\s*["']?([\d.-]+)["']?\s*,\s*lng\s*[:=]\s*["']?([\d.-]+)["']?/i,
+					);
+					if (coordMatch) {
+						lat = coordMatch[1];
+						lng = coordMatch[2];
 						break;
 					}
 				}
-			} catch (e) {}
-			if (lat && lng) return false; // Break each loop
+			}
+
+			return { lat, lng };
 		});
 
-		// Fallback 1: Check for Google Maps LatLng pattern in scripts
-		if (!lat || !lng) {
-			$("script").each((i, el) => {
-				const scriptContent = $(el).text();
-				if (!scriptContent) return;
-
-				// Match new google.maps.LatLng(53.34764, -2.894023)
-				const gmapsMatch = scriptContent.match(
-					/new\s+google\.maps\.LatLng\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/i,
-				);
-				if (gmapsMatch) {
-					lat = gmapsMatch[1];
-					lng = gmapsMatch[2];
-					return false;
-				}
-
-				// Match lat: 53.34764, lng: -2.894023
-				const coordMatch = scriptContent.match(
-					/lat\s*[:=]\s*["']?([\d.-]+)["']?\s*,\s*lng\s*[:=]\s*["']?([\d.-]+)["']?/i,
-				);
-				if (coordMatch) {
-					lat = coordMatch[1];
-					lng = coordMatch[2];
-					return false;
-				}
-			});
-		}
+		let { lat, lng } = coords;
 
 		if (lat && lng) {
 			console.log(`    📍 Coordinates found: ${lat}, ${lng}`);
@@ -105,6 +99,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			property.bedrooms,
 			AGENT_ID,
 			isRental,
+			null, // html not needed since we passed manual coords
 			lat,
 			lng,
 		);
