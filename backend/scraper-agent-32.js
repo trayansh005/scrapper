@@ -180,9 +180,8 @@ async function handleListingPage({ request, page, crawler, log }) {
 		}
 	}
 
-	// Pagination logic: use explicit page number parameter
-	const nextLink = $("a.page-link[aria-label='Next']");
-	if (nextLink.length > 0) {
+	// Pagination logic: keep incrementing until a page returns no items
+	if ($items.length > 0) {
 		const baseUrl = isRental
 			? "https://remax.co.uk/properties-for-rent/"
 			: "https://remax.co.uk/properties-for-sale/";
