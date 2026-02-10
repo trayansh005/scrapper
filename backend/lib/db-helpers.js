@@ -1,13 +1,6 @@
 // Database helper functions for property updates
 const { promisePool, updatePriceByPropertyURL } = require("../db.js");
-
-function formatPriceUk(value) {
-	if (value === null || value === undefined) return null;
-	const digits = value.toString().replace(/[^0-9]/g, "");
-	if (!digits) return null;
-
-	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
+const { formatPriceUk } = require("./property-helpers.js");
 
 /**
  * Optimized update function - only updates price for existing properties

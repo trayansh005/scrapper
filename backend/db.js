@@ -27,7 +27,7 @@ async function updatePriceByPropertyURL(
 	agent_id,
 	is_rent = false,
 	latitude = null,
-	longitude = null
+	longitude = null,
 ) {
 	try {
 		if (link) {
@@ -41,7 +41,7 @@ async function updatePriceByPropertyURL(
 			// Check if property exists for THIS agent
 			const [propertiesUrlRows] = await promisePool.query(
 				`SELECT COUNT(*) as count FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
-				[linkTrimmed, agent_id]
+				[linkTrimmed, agent_id],
 			);
 
 			if (propertiesUrlRows[0].count > 0) {
@@ -50,15 +50,15 @@ async function updatePriceByPropertyURL(
 					`UPDATE ${tableName}
                     SET price = ?, latitude = ?, longitude = ?, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
-					[price, latitude, longitude, linkTrimmed, agent_id]
+					[price, latitude, longitude, linkTrimmed, agent_id],
 				);
 
 				if (result.affectedRows > 0) {
 					console.log(
 						`✅ Updated: ${linkTrimmed.substring(
 							0,
-							50
-						)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`
+							50,
+						)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
 					);
 				} else {
 					console.log(`⚠️ No update: ${linkTrimmed.substring(0, 50)}...`);
@@ -86,8 +86,8 @@ async function updatePriceByPropertyURL(
 				console.log(
 					`✅ Created: ${linkTrimmed.substring(
 						0,
-						50
-					)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`
+						50,
+					)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
 				);
 			}
 		}
@@ -109,7 +109,7 @@ async function updateRemoveStatus(agent_id) {
              SET remove_status = ?
              WHERE agent_id = ?
              AND (updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY)`,
-			params
+			params,
 		);
 
 		const [rentResult] = await promisePool.query(
@@ -117,13 +117,14 @@ async function updateRemoveStatus(agent_id) {
              SET remove_status = ?
              WHERE agent_id = ?
              AND (updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY)`,
-			params
+			params,
 		);
 
 		const removedCount = (saleResult?.affectedRows || 0) + (rentResult?.affectedRows || 0);
 		console.log(
-			`🧹 Removed old or future-dated properties for agent ${agent_id} (sale: ${saleResult?.affectedRows || 0
-			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount})`
+			`🧹 Removed old or future-dated properties for agent ${agent_id} (sale: ${
+				saleResult?.affectedRows || 0
+			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount})`,
 		);
 	} catch (error) {
 		console.error("Error updating remove status:", error.message);

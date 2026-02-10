@@ -163,9 +163,23 @@ async function extractCoordinatesFromHTML(html) {
 	return { latitude, longitude };
 }
 
+/**
+ * Formats a price number into a UK formatted string with commas
+ * @param {number|string} value - The price to format
+ * @returns {string|null} - The formatted price string, or null if invalid
+ */
+function formatPriceUk(value) {
+	if (value === null || value === undefined) return null;
+	const digits = value.toString().replace(/[^0-9]/g, "");
+	if (!digits) return null;
+
+	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 module.exports = {
 	SOLD_KEYWORDS,
 	isSoldProperty,
 	parsePrice,
+	formatPriceUk,
 	extractCoordinatesFromHTML,
 };
