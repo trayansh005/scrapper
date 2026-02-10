@@ -180,19 +180,21 @@ async function handleListingPage({ request, page, crawler, log }) {
 		}
 	}
 
-	// Pagination logic
+	// Pagination logic: use explicit page number parameter
 	const nextLink = $("a.page-link[aria-label='Next']");
 	if (nextLink.length > 0) {
-		const nextUrl = nextLink.attr("href");
-		if (nextUrl) {
-			const fullNextUrl = nextUrl.startsWith("http") ? nextUrl : `https://remax.co.uk${nextUrl}`;
-			await crawler.addRequests([
-				{
-					url: fullNextUrl,
-					userData: { pageNum: pageNum + 1, isRental, label },
-				},
-			]);
-		}
+		const baseUrl = isRental
+			? "https://remax.co.uk/properties-for-rent/"
+			: "https://remax.co.uk/properties-for-sale/";
+		const nextPage = pageNum + 1;
+		const nextUrl = `${baseUrl}?page=${nextPage}`;
+
+		await crawler.addRequests([
+			{
+				url: nextUrl,
+				userData: { pageNum: nextPage, isRental, label },
+			},
+		]);
 	}
 }
 
@@ -225,14 +227,14 @@ async function run() {
 
 	// Sales
 	initialRequests.push({
-		url: `https://remax.co.uk/properties-for-sale/${startPage > 1 ? `page/${startPage}/` : ""}`,
+		url: `https://remax.co.uk/properties-for-sale/?page=${startPage}`,
 		userData: { pageNum: startPage, isRental: false, label: "SALES" },
 	});
 
 	// Lettings (only if startPage is 1 or user explicitly wants rentals)
 	if (startPage === 1) {
 		initialRequests.push({
-			url: `https://remax.co.uk/properties-for-rent/`,
+			url: `https://remax.co.uk/properties-for-rent/?page=1`,
 			userData: { pageNum: 1, isRental: true, label: "RENTALS" },
 		});
 	}
