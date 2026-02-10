@@ -39,29 +39,63 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		$('script[type="application/ld+json"]').each((i, el) => {
 			try {
-				const json = JSON.parse($(el).html());
-				const graph = json["@graph"] || [json];
-				for (const item of graph) {
-					if (item.geo && item.geo.latitude) {
+				const scriptContent = $(el).text().trim();
+				if (!scriptContent) return;
+				const json = JSON.parse(scriptContent);
+
+				// Standardize to an array of objects
+				const items = json["@graph"] ? json["@graph"] : Array.isArray(json) ? json : [json];
+
+				for (const item of items) {
+					// Check for geo property
+					if (item.geo && item.geo.latitude != null) {
 						lat = item.geo.latitude;
 						lng = item.geo.longitude;
+						break;
+					}
+					// Some variations might have lat/long directly on item
+					if (item.latitude != null && item.longitude != null) {
+						lat = item.latitude;
+						lng = item.longitude;
+						break;
 					}
 				}
 			} catch (e) {}
+			if (lat && lng) return false; // Break each loop
 		});
 
-		// Fallback: Check for Google Maps LatLng pattern in scripts
+		// Fallback 1: Check for Google Maps LatLng pattern in scripts
 		if (!lat || !lng) {
 			$("script").each((i, el) => {
-				const scriptContent = $(el).html();
-				const match = scriptContent.match(
-					/new google\.maps\.LatLng\((\-?\d+\.\d+),\s*(\-?\d+\.\d+)\)/,
+				const scriptContent = $(el).text();
+				if (!scriptContent) return;
+
+				// Match new google.maps.LatLng(53.34764, -2.894023)
+				const gmapsMatch = scriptContent.match(
+					/new\s+google\.maps\.LatLng\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/i,
 				);
-				if (match) {
-					lat = match[1];
-					lng = match[2];
+				if (gmapsMatch) {
+					lat = gmapsMatch[1];
+					lng = gmapsMatch[2];
+					return false;
+				}
+
+				// Match lat: 53.34764, lng: -2.894023
+				const coordMatch = scriptContent.match(
+					/lat\s*[:=]\s*["']?([\d.-]+)["']?\s*,\s*lng\s*[:=]\s*["']?([\d.-]+)["']?/i,
+				);
+				if (coordMatch) {
+					lat = coordMatch[1];
+					lng = coordMatch[2];
+					return false;
 				}
 			});
+		}
+
+		if (lat && lng) {
+			console.log(`    📍 Coordinates found: ${lat}, ${lng}`);
+		} else {
+			console.log(`    ⚠️ No coordinates found for: ${property.link}`);
 		}
 
 		await processPropertyWithCoordinates(

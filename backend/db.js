@@ -16,6 +16,8 @@ console.log("Database pool created and ready for connections");
 // Export a promise-based pool for async/await usage
 const promisePool = pool.promise();
 
+const { formatPriceUk } = require("./lib/property-helpers.js");
+
 // Update or insert property by URL (check then update, else create)
 async function updatePriceByPropertyURL(
 	link,
@@ -56,7 +58,7 @@ async function updatePriceByPropertyURL(
 						`✅ Updated: ${linkTrimmed.substring(
 							0,
 							50
-						)}... | Price: £${price} | Coords: ${latitude}, ${longitude}`
+						)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`
 					);
 				} else {
 					console.log(`⚠️ No update: ${linkTrimmed.substring(0, 50)}...`);
@@ -85,7 +87,7 @@ async function updatePriceByPropertyURL(
 					`✅ Created: ${linkTrimmed.substring(
 						0,
 						50
-					)}... | Price: £${price} | Coords: ${latitude}, ${longitude}`
+					)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`
 				);
 			}
 		}

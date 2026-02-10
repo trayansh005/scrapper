@@ -43,16 +43,19 @@ async function updatePriceByPropertyURLOptimized(
 			);
 
 			if (propertiesUrlRows[0].count > 0) {
+				const formattedPrice = formatPriceUk(price);
 				// UPDATE existing property - only price
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
                     SET price = ?, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
-					[price, linkTrimmed, agent_id],
+					[formattedPrice, linkTrimmed, agent_id],
 				);
 
 				if (result.affectedRows > 0) {
-					console.log(`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Price: £${price}`);
+					console.log(
+						`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Price: £${formattedPrice}`,
+					);
 				}
 				return { isExisting: true, updated: result.affectedRows > 0 };
 			} else {
@@ -107,7 +110,7 @@ async function processPropertyWithCoordinates(
 
 		await updatePriceByPropertyURL(
 			url,
-			price,
+			formatPriceUk(price),
 			title,
 			bedrooms,
 			agentId,
@@ -116,7 +119,9 @@ async function processPropertyWithCoordinates(
 			longitude,
 		);
 
-		console.log(`✅ New property: ${title} (£${price}) - Coords: ${latitude}, ${longitude}`);
+		console.log(
+			`✅ New property: ${title} (£${formatPriceUk(price)}) - Coords: ${latitude}, ${longitude}`,
+		);
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);
 		// Don't throw - just log the error
