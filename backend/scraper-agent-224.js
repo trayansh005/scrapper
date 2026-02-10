@@ -1,15 +1,24 @@
 ﻿const { PlaywrightCrawler, sleep } = require("crawlee");
 const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
-	updateRemoveStatus,
-	getBrowserlessEndpoint,
-} = require("./db");
+} = require("./lib/db-helpers");
 const { parsePrice, isSoldProperty } = require("./lib/property-helpers");
 
 const AGENT_ID = 224;
 const stats = { totalScraped: 0, totalSaved: 0 };
+
+/**
+ * Get the Browserless WebSocket endpoint
+ */
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
 
 /**
  * Scrape individual property details
