@@ -50,6 +50,20 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			} catch (e) {}
 		});
 
+		// Fallback: Check for Google Maps LatLng pattern in scripts
+		if (!lat || !lng) {
+			$("script").each((i, el) => {
+				const scriptContent = $(el).html();
+				const match = scriptContent.match(
+					/new google\.maps\.LatLng\((\-?\d+\.\d+),\s*(\-?\d+\.\d+)\)/,
+				);
+				if (match) {
+					lat = match[1];
+					lng = match[2];
+				}
+			});
+		}
+
 		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
