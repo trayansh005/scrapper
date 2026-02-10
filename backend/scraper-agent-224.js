@@ -1,188 +1,138 @@
-// Mistoria Estate Agents scraper using Playwright with Crawlee
-// Agent ID: 224
-// Usage:
-// node backend/scraper-agent-224.js
-
-const { PlaywrightCrawler, log } = require("crawlee");
-const { updateRemoveStatus } = require("./db.js");
+﻿const { PlaywrightCrawler, sleep } = require("crawlee");
+const cheerio = require("cheerio");
 const {
-	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
-} = require("./lib/db-helpers.js");
-const { isSoldProperty } = require("./lib/property-helpers.js");
-
-log.setLevel(log.LEVELS.ERROR);
+	updateRemoveStatus,
+	getBrowserlessEndpoint,
+} = require("./db");
+const { parsePrice, isSoldProperty } = require("./lib/property-helpers");
 
 const AGENT_ID = 224;
+const stats = { totalScraped: 0, totalSaved: 0 };
 
-const stats = {
-	totalScraped: 0,
-	totalSaved: 0,
-};
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parsePrice(rawPrice) {
-	return formatPriceUk(rawPrice);
-}
-
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
+/**
+ * Scrape individual property details
+ */
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(700);
-
-	const detailPage = await browserContext.newPage();
-
+	const page = await browserContext.newPage();
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		console.log(`    Detail: ${property.link}`);
+		await page.goto(property.link, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 30000,
-		});
+		const content = await page.content();
+		const $ = cheerio.load(content);
 
-		const htmlContent = await detailPage.content();
+		// Mistoria detail pages often have coordinates in a script or we can just try to find them
+		// Usually Mistoria uses PropertyHive or similar. Let's look for JSON-LD.
+		let lat = null,
+			lng = null;
+
+		$('script[type="application/ld+json"]').each((i, el) => {
+			try {
+				const json = JSON.parse($(el).html());
+				const graph = json["@graph"] || [json];
+				for (const item of graph) {
+					if (item.geo && item.geo.latitude) {
+						lat = item.geo.latitude;
+						lng = item.geo.longitude;
+					}
+				}
+			} catch (e) {}
+		});
 
 		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			htmlContent,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
-	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
-
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
-
-	await page.waitForTimeout(2000);
-	await page
-		.waitForSelector("li.type-property", { timeout: 15000 })
-		.catch(() => console.log(` No property cards found on page ${pageNum}`));
-
-	const properties = await page.evaluate(() => {
-		try {
-			const items = Array.from(document.querySelectorAll("li.type-property"));
-
-			return items
-				.map((el) => {
-					try {
-						const flagEl = el.querySelector(".flag");
-						if (flagEl) {
-							const flagText = flagEl.textContent.trim();
-							if (flagText.includes("Sold") || flagText.includes("Let Agreed")) {
-								return null;
-							}
-						}
-
-						const linkEl = el.querySelector(".thumbnail a");
-						const link = linkEl ? linkEl.href : null;
-						if (!link) return null;
-
-						const title = el.querySelector("h3 a")?.textContent?.trim() || "";
-						const rawPrice = el.querySelector("div.price")?.textContent?.trim() || "";
-
-						const bedrooms =
-							el.querySelector(".room-bedrooms .room-count")?.textContent?.trim() || null;
-						const bathrooms =
-							el.querySelector(".room-bathrooms .room-count")?.textContent?.trim() || null;
-						const receptions =
-							el.querySelector(".room-receptions .room-count")?.textContent?.trim() || null;
-
-						const statusText = `${flagEl?.textContent || ""} ${title} ${rawPrice}`.trim();
-
-						return { link, title, priceText: rawPrice, bedrooms, bathrooms, receptions, statusText };
-					} catch (e) {
-						return null;
-					}
-				})
-				.filter(Boolean);
-		} catch (err) {
-			return [];
-		}
-	});
-
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
-
-	for (const property of properties) {
-		if (isSoldProperty(property.statusText || "")) continue;
-
-		const price = parsePrice(property.priceText);
-		if (!property.link || !price) continue;
-
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			price,
-			property.title,
 			property.bedrooms,
 			AGENT_ID,
 			isRental,
+			lat,
+			lng,
 		);
 
-		if (result.updated) {
-			stats.totalSaved++;
-		}
-
-		if (!result.isExisting && !result.error) {
-			console.log(` Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-		}
-
-		await sleep(350);
+		stats.totalSaved++;
+	} catch (err) {
+		console.error(`    Detail Error (${property.link}):`, err.message);
+	} finally {
+		await page.close();
 	}
 }
 
-// ============================================================================
-// CRAWLER SETUP
+/**
+ * Handle listing pages
+ */
+async function handleListingPage({ request, page, log }) {
+	const { pageNum, isRental } = request.userData;
+	log.info(`Processing ${request.userData.label} page ${pageNum}`);
+
+	try {
+		await page.waitForSelector("li.type-property", { timeout: 20000 });
+	} catch (e) {
+		log.warning(`No properties found on ${request.url}`);
+		return;
+	}
+
+	const content = await page.content();
+	const $ = cheerio.load(content);
+	const $items = $("li.type-property");
+
+	log.info(`Found ${$items.length} properties`);
+
+	for (let i = 0; i < $items.length; i++) {
+		const $item = $($items[i]);
+
+		const statusText = $item.find(".flag, div.price, h3").text() || "";
+		if (isSoldProperty(statusText)) continue;
+
+		const link = $item.find("h3 a").attr("href");
+		const title = $item.find("h3 a").text().trim();
+
+		// Extract price, ensuring we remove the "Tenancy Info" popup text often found in rentals
+		const $priceContainer = $item.find("div.price").clone();
+		$priceContainer.find("span.lettings-fees, div.propertyhive_lettings_fees_popup").remove();
+		const priceRaw = $priceContainer.text().trim();
+		const price = parsePrice(priceRaw);
+
+		const bedroomsMatch = $item.find(".room-bedrooms").text().match(/\d+/);
+		const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
+
+		if (!link || !price) continue;
+
+		stats.totalScraped++;
+
+		const result = await updatePriceByPropertyURLOptimized(
+			link,
+			price,
+			title,
+			bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (!result.isExisting || result.updated) {
+			await scrapePropertyDetail(page.context(), { link, price, title, bedrooms }, isRental);
+			await sleep(500);
+		}
+	}
+}
+
+// MAIN SCRAPER LOGIC
 // ============================================================================
 
-function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
+async function run() {
+	console.log(` Starting Mistoria Refactored (Agent ${AGENT_ID})...`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+
+	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+		requestHandlerTimeoutSecs: 360,
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -192,91 +142,45 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			console.error(` Failed request: ${request.url}`);
 		},
 	});
-}
 
-// ============================================================================
-// MAIN SCRAPER LOGIC
-// ============================================================================
+	const initialRequests = [];
 
-async function scrapeMistoriaEstateAgents() {
-	console.log(`\n Starting Mistoria Estate Agents scraper (Agent ${AGENT_ID})...\n`);
-
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-
-	const totalSalesPages = 5;
-	const totalLettingsPages = 6;
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
-	const crawler = createCrawler(browserWSEndpoint);
-
-	const allRequests = [];
-
-	// Build Sales requests
-	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url = `${
-			"https://mistoriaestateagents.co.uk/property-search/page/"
-		}${pg}/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms`;
-
-		allRequests.push({
+	// Build Sales requests (approx 5-10 pages)
+	for (let pg = Math.max(1, startPage); pg <= 10; pg++) {
+		const url = `https://mistoriaestateagents.co.uk/property-search/page/${pg}/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms`;
+		initialRequests.push({
 			url,
-			userData: {
-				pageNum: pg,
-				isRental: false,
-				label: `FOR_SALE_${pg}`,
-			},
+			userData: { pageNum: pg, isRental: false, label: "SALES" },
 		});
 	}
 
-	// Build Lettings requests
+	// Build Lettings requests (approx 10-15 pages)
 	if (startPage === 1) {
-		for (let pg = 1; pg <= totalLettingsPages; pg++) {
-			const url = `${
-				"https://mistoriaestateagents.co.uk/property-search/page/"
-			}${pg}/?address_keyword=&department=residential-lettings&availability=&minimum_bedrooms=&maximum_bedrooms=`;
-
-			allRequests.push({
+		for (let pg = 1; pg <= 15; pg++) {
+			const url = `https://mistoriaestateagents.co.uk/property-search/page/${pg}/?address_keyword=&department=residential-lettings&availability=&minimum_bedrooms=&maximum_bedrooms=`;
+			initialRequests.push({
 				url,
-				userData: {
-					pageNum: pg,
-					isRental: true,
-					label: `TO_LET_${pg}`,
-				},
+				userData: { pageNum: pg, isRental: true, label: "RENTALS" },
 			});
 		}
 	}
 
-	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
-		return;
-	}
+	await crawler.run(initialRequests);
+	await updateRemoveStatus(AGENT_ID);
 
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
-
-	console.log(
-		`\n Completed Mistoria Estate Agents - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
+	console.log(`\n Completed Agent ${AGENT_ID}`);
+	console.log(`Total Scraped: ${stats.totalScraped}`);
+	console.log(`Total Saved: ${stats.totalSaved}`);
 }
 
-// ============================================================================
-// MAIN EXECUTION
-// ============================================================================
-
-(async () => {
-	try {
-		await scrapeMistoriaEstateAgents();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
+if (require.main === module) {
+	run().catch((err) => {
+		console.error(` Fatal Error:`, err.message);
 		process.exit(1);
-	}
-})();
+	});
+}
+
+module.exports = { run };
