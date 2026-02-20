@@ -7,6 +7,7 @@ const SOLD_KEYWORDS = [
 	"sold",
 	"under offer",
 	"let agreed",
+	"let stc",
 	"sale agreed",
 	"withdrawn",
 	"off market",
@@ -53,9 +54,38 @@ async function extractCoordinatesFromHTML(html) {
 	let longitude = null;
 
 	try {
-		// Try Homeflow properties data (Hamptons): Homeflow.set('properties', ... {"properties":[{"lat":..,"lng":..}]})
+		// Try eapowmapoptions pattern (Map Estate Agents): var eapowmapoptions = { lat: "50.2063...", lon: "-5.4937...", ...}
+		const eapowMatch = html.match(
+			/eapowmapoptions\s*=\s*\{[^}]*?lat:\s*['"]([0-9.-]+)['"][^}]*?lon:\s*['"]([0-9.-]+)['"]/,
+		);
+		if (eapowMatch) {
+			latitude = parseFloat(eapowMatch[1]);
+			longitude = parseFloat(eapowMatch[2]);
+			return { latitude, longitude };
+		}
+
+		// Try Ashtons / Locratingplugin pattern: loadLocratingPlugin({..., lat: '51.888', lng: '-0.3312', ...})
+		const asbtonsMatch = html.match(
+			/loadLocratingPlugin\(\{[^}]*?lat:\s*['"]([0-9.-]+)['"][^}]*?lng:\s*['"]([0-9.-]+)['"]/,
+		);
+		if (asbtonsMatch) {
+			latitude = parseFloat(asbtonsMatch[1]);
+			longitude = parseFloat(asbtonsMatch[2]);
+			return { latitude, longitude };
+		}
+
+		// Try Rodgers Estates / Google Maps embed in ShowMap function: ShowMap(...q=51.6122665405273440%2C-0.5506179332733154")
+		const rodgersMatch = html.match(/[&?]q=([0-9.-]+)%2C([0-9.-]+)/);
+		if (rodgersMatch) {
+			latitude = parseFloat(rodgersMatch[1]);
+			longitude = parseFloat(rodgersMatch[2]);
+			return { latitude, longitude };
+		}
+
+		// Try Homeflow property data (Hamptons): Homeflow.set('property', ... {"lat":..,"lng":..})
+		// Flexible enough for both 'property' and 'properties'
 		const homeflowMatch = html.match(
-			/Homeflow\.set\(['"]properties['"][\s\S]*?\\?"lat\\?"\s*:\s*([0-9.-]+)[\s\S]*?\\?"lng\\?"\s*:\s*([0-9.-]+)/,
+			/Homeflow\.set\(['"]propert(?:y|ies)['"][\s\S]*?\\?"?lat\\?"?\s*:\s*([0-9.-]+)[\s\S]*?\\?"?lng\\?"?\s*:\s*([0-9.-]+)/,
 		);
 		if (homeflowMatch) {
 			latitude = parseFloat(homeflowMatch[1]);
@@ -99,6 +129,8 @@ async function extractCoordinatesFromHTML(html) {
 		);
 		const dataLocationMatch = html.match(/data-location="([\d.-]+),([\d.-]+)"/);
 		const atMatch = html.match(/@([0-9.-]+),([0-9.-]+),\d+z/);
+		const expertAgentLatMatch = html.match(/id="hdnLatitude"\s+value="([\d.-]+)"/);
+		const expertAgentLonMatch = html.match(/id="hdnLongitude"\s+value="([\d.-]+)"/);
 		const latCommentMatch = html.match(/<!--property-latitude:["']([0-9.-]+)["']-->/);
 		const lngCommentMatch = html.match(/<!--property-longitude:["']([0-9.-]+)["']-->/);
 		// Additional pattern for Sequence Home style comments
@@ -146,6 +178,9 @@ async function extractCoordinatesFromHTML(html) {
 		} else if (dataLocationMatch) {
 			latitude = parseFloat(dataLocationMatch[1]);
 			longitude = parseFloat(dataLocationMatch[2]);
+		} else if (expertAgentLatMatch && expertAgentLonMatch) {
+			latitude = parseFloat(expertAgentLatMatch[1]);
+			longitude = parseFloat(expertAgentLonMatch[1]);
 		} else if (atMatch) {
 			latitude = parseFloat(atMatch[1]);
 			longitude = parseFloat(atMatch[2]);
@@ -176,10 +211,54 @@ function formatPriceUk(value) {
 	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+/**
+ * Extract bedroom count from text or HTML
+ * @param {string} text - Text to extract from
+ * @returns {number|null} - Number of bedrooms or null
+ */
+function extractBedroomsFromHTML(text) {
+	if (!text) return null;
+
+	const bedroomWords = {
+		one: 1,
+		two: 2,
+		three: 3,
+		four: 4,
+		five: 5,
+		six: 6,
+		seven: 7,
+		eight: 8,
+		nine: 9,
+		ten: 10,
+	};
+
+	// 1. Try numeric match: "3 bedroom", "3 bed"
+	const numMatch = text.match(/(\d+)\s*(?:bedrooms?|beds?|bdrms?)/i);
+	if (numMatch) return parseInt(numMatch[1], 10);
+
+	// 2. Try word match: "six bedroom", "Six Bed"
+	const wordPattern = new RegExp(
+		`\\b(${Object.keys(bedroomWords).join("|")})\\s*(?:bedrooms?|beds?)`,
+		"i",
+	);
+	const wordMatch = text.match(wordPattern);
+	if (wordMatch) return bedroomWords[wordMatch[1].toLowerCase()];
+
+	// 2b. Studio fallback when no numeric/word beds exist
+	if (/\bstudio\b/i.test(text)) return 0;
+
+	// 3. Fallback for "3 & 3 bathrooms" type strings
+	const combinedMatch = text.match(/(\d+)\s*bedrooms?\s*(?:&|\+)\s*\d+\s*bathrooms?/i);
+	if (combinedMatch) return parseInt(combinedMatch[1], 10);
+
+	return null;
+}
+
 module.exports = {
 	SOLD_KEYWORDS,
 	isSoldProperty,
 	parsePrice,
 	formatPriceUk,
 	extractCoordinatesFromHTML,
+	extractBedroomsFromHTML,
 };

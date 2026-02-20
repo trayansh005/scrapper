@@ -4,18 +4,36 @@
 // node backend/scraper-agent-246.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 246;
-let totalScraped = 0;
-let totalSaved = 0;
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
 
 function formatPrice(num, isRental) {
 	if (!num || isNaN(num)) return isRental ? "£0 pcm" : "£0";
 	return "£" + Number(num).toLocaleString("en-GB") + (isRental ? " pcm" : "");
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
 }
 
 // Configuration for Simon Blyth
@@ -37,7 +55,6 @@ async function scrapeSimonBlyth() {
 		maxConcurrency: 5,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
 			launchOptions: {
 				headless: true,
@@ -107,6 +124,8 @@ async function scrapeSimonBlyth() {
 								timeout: 45000,
 							});
 
+							const html = await detailPage.content();
+
 							const detailData = await detailPage.evaluate(async () => {
 								try {
 									const data = {
@@ -168,31 +187,47 @@ async function scrapeSimonBlyth() {
 								const bedrooms = detailData.bedrooms || null;
 								const address = detailData.address || property.title || "Property";
 
-								await updatePriceByPropertyURL(
+								const result = await updatePriceByPropertyURLOptimized(
 									property.link.trim(),
 									priceClean || null,
 									address,
 									bedrooms,
 									AGENT_ID,
 									isRental,
-									detailData.lat,
-									detailData.lng
 								);
+
+								if (result.updated) {
+									stats.totalSaved++;
+								}
+
+								if (!result.isExisting && !result.error) {
+									await processPropertyWithCoordinates(
+										property.link.trim(),
+										priceClean || null,
+										address,
+										bedrooms,
+										AGENT_ID,
+										isRental,
+										html,
+										detailData.lat,
+										detailData.lng,
+									);
+									stats.totalSaved++;
+									stats.totalScraped++;
+								}
 
 								console.log(
 									`✅ ${address.substring(0, 30)} - ${formatPrice(priceClean, isRental)} - ${
 										property.link
-									}`
+									}`,
 								);
-								totalSaved++;
-								totalScraped++;
 							}
 						} catch (err) {
 							console.log(`⚠️ Error processing ${property.link}: ${err.message}`);
 						} finally {
 							await detailPage.close();
 						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 500));
@@ -224,7 +259,7 @@ async function scrapeSimonBlyth() {
 	await crawler.run();
 
 	console.log(
-		`\n✅ Completed Simon Blyth - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Simon Blyth - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 

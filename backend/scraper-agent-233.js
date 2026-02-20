@@ -1,21 +1,34 @@
-// Gatekeeper scraper using Playwright with Camoufox
+// Gatekeeper scraper using Playwright with Crawlee
 // Agent ID: 233
 // Website: gatekeeper.co.uk
 // Usage:
 // node backend/scraper-agent-233.js
 
-const { firefox } = require("playwright");
-const { launchOptions } = require("camoufox-js");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { PlaywrightCrawler, log } = require("crawlee");
+const { updateRemoveStatus, updatePriceByPropertyURL } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+
+log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 233;
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
-let totalScraped = 0;
-let totalSaved = 0;
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
 
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
@@ -33,41 +46,8 @@ const PROPERTY_TYPES = [
 	},
 ];
 
-async function scrapeGatekeeper() {
-	console.log(`\n🚀 Starting Gatekeeper scraper (Agent ${AGENT_ID})...\n`);
-
-	const browser = await firefox.launch(
-		await launchOptions({
-			headless: true,
-		})
-	);
-
-	const page = await browser.newPage({
-		ignoreHTTPSErrors: true,
-	});
-
-	// Create a separate browser instance for detail page extraction
-	const detailBrowser = await firefox.launch(
-		await launchOptions({
-			headless: true,
-		})
-	);
-
-	for (const propertyType of PROPERTY_TYPES) {
-		await scrapePropertyType(propertyType, page, detailBrowser);
-	}
-
-	await page.close();
-	await browser.close();
-	await detailBrowser.close();
-
-	console.log(`\n✅ Scraping complete!`);
-	console.log(`Total scraped: ${totalScraped}`);
-	console.log(`Total saved: ${totalSaved}\n`);
-}
-
-async function scrapePropertyType(propertyType, page, detailBrowser) {
-	const { url, isRental, label, buttonSelector } = propertyType;
+async function handleListingPage({ page, request }) {
+	const { url, isRental, label, buttonSelector } = request.userData;
 
 	console.log(`\n📋 Starting ${label} scrape...\n`);
 
@@ -115,7 +95,7 @@ async function scrapePropertyType(propertyType, page, detailBrowser) {
 		const properties = await extractPropertiesFromPage(page, isRental);
 
 		console.log(`✅ Found ${properties.length} ${label.toLowerCase()}`);
-		totalScraped += properties.length;
+		stats.totalScraped += properties.length;
 
 		// Save properties to database with details page extraction
 		const batchSize = 2;
@@ -125,38 +105,64 @@ async function scrapePropertyType(propertyType, page, detailBrowser) {
 			await Promise.all(
 				batch.map(async (property) => {
 					try {
-						// Extract coordinates from details page using separate browser
-						const coords = await extractCoordsFromDetailsPage(detailBrowser, property.url);
+						const coords = await extractCoordsFromDetailsPage(page.context(), property.url);
 						if (coords) {
 							property.latitude = coords.latitude;
 							property.longitude = coords.longitude;
 						}
 
-						const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-						const priceNum = parseFloat(priceClean);
+						const priceNum = property.price
+							? parseFloat(property.price.replace(/[^0-9.]/g, ""))
+							: null;
 
-						await updatePriceByPropertyURL(
-							property.url,
-							priceClean,
+						if (priceNum === null) {
+							console.log(`⚠️ No price found: ${property.title}`);
+							return;
+						}
+
+						const result = await updatePriceByPropertyURLOptimized(
+							property.url.trim(),
+							priceNum,
 							property.title,
 							property.bedrooms,
 							AGENT_ID,
 							isRental,
-							property.latitude,
-							property.longitude
 						);
 
-						totalSaved++;
-						const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
+						let persisted = !!result.updated;
+
+						if (!result.isExisting) {
+							await updatePriceByPropertyURL(
+								property.url.trim(),
+								formatPriceUk(priceNum),
+								property.title,
+								property.bedrooms,
+								AGENT_ID,
+								isRental,
+								property.latitude,
+								property.longitude,
+							);
+							persisted = true;
+						}
+
+						if (persisted) {
+							stats.totalSaved++;
+						}
+
+						const priceDisplay = formatPriceUk(priceNum);
 						console.log(
 							`✅ ${property.title} - ${priceDisplay}${
 								property.latitude ? ` - (${property.latitude}, ${property.longitude})` : ""
-							}`
+							}`,
 						);
+						if (persisted) {
+							if (isRental) stats.savedRentals++;
+							else stats.savedSales++;
+						}
 					} catch (err) {
 						console.error(`❌ Error saving property: ${err.message}`);
 					}
-				})
+				}),
 			);
 
 			await page.waitForTimeout(500);
@@ -164,6 +170,52 @@ async function scrapePropertyType(propertyType, page, detailBrowser) {
 	} catch (error) {
 		console.error(`❌ Error in ${label} scrape: ${error.message}`);
 	}
+}
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			log.error(` Failed listing page: ${request.url}`);
+		},
+	});
+}
+
+async function scrapeGatekeeper() {
+	console.log(`\n🚀 Starting Gatekeeper scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const requests = PROPERTY_TYPES.map((propertyType) => ({
+		url: propertyType.url,
+		userData: {
+			url: propertyType.url,
+			isRental: propertyType.isRental,
+			label: propertyType.label,
+			buttonSelector: propertyType.buttonSelector,
+		},
+	}));
+
+	await crawler.addRequests(requests);
+	await crawler.run();
+
+	console.log(`\n✅ Scraping complete!`);
+	console.log(`Total scraped: ${stats.totalScraped}`);
+	console.log(`Total saved: ${stats.totalSaved}`);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}\n`);
 }
 
 async function loadAllProperties(page) {
@@ -186,7 +238,7 @@ async function loadAllProperties(page) {
 			const button = await page.$('button[data-turbo-submits-with="Loading More Properties ..."]');
 			if (!button) {
 				console.log(
-					`✅ All properties loaded - button not found (${clickCount} clicks, ${currentCount} total)`
+					`✅ All properties loaded - button not found (${clickCount} clicks, ${currentCount} total)`,
 				);
 				break;
 			}
@@ -194,7 +246,7 @@ async function loadAllProperties(page) {
 			const isVisible = await button.isVisible().catch(() => false);
 			if (!isVisible) {
 				console.log(
-					`✅ All properties loaded - button not visible (${clickCount} clicks, ${currentCount} total)`
+					`✅ All properties loaded - button not visible (${clickCount} clicks, ${currentCount} total)`,
 				);
 				break;
 			}
@@ -206,7 +258,7 @@ async function loadAllProperties(page) {
 
 				if (noChangeCount >= 3) {
 					console.log(
-						`✅ All properties loaded - no new properties for 3 checks (${clickCount} clicks, ${currentCount} total)`
+						`✅ All properties loaded - no new properties for 3 checks (${clickCount} clicks, ${currentCount} total)`,
 					);
 					break;
 				}
@@ -260,7 +312,7 @@ async function extractPropertiesFromPage(page, isRental) {
 					(p) =>
 						p.textContent.includes("Oxfordshire") ||
 						p.textContent.includes("Witney") ||
-						p.textContent.includes("Standlake")
+						p.textContent.includes("Standlake"),
 				);
 				const location =
 					locationEls.length > 0
@@ -269,7 +321,7 @@ async function extractPropertiesFromPage(page, isRental) {
 
 				// Extract price (£ sign text); keep numeric with commas, strip currency/extra chars
 				const priceEls = Array.from(card.querySelectorAll("p")).filter((p) =>
-					p.textContent.match(/£[\d,]+/)
+					p.textContent.match(/£[\d,]+/),
 				);
 				const priceRaw = priceEls.length > 0 ? priceEls[0].textContent.trim() : "N/A";
 				const priceText = priceRaw
@@ -283,7 +335,7 @@ async function extractPropertiesFromPage(page, isRental) {
 				let size = null;
 
 				const flexItems = Array.from(
-					card.querySelectorAll(".flex.flex-col.justify-center.items-center")
+					card.querySelectorAll(".flex.flex-col.justify-center.items-center"),
 				);
 				flexItems.forEach((item) => {
 					const text = item.textContent;
@@ -320,16 +372,24 @@ async function extractPropertiesFromPage(page, isRental) {
 	return properties;
 }
 
-async function extractCoordsFromDetailsPage(browser, propertyUrl) {
+async function extractCoordsFromDetailsPage(browserContext, propertyUrl) {
 	let detailPage = null;
+	const mapRequestUrls = [];
 	try {
 		console.log(`📍 Extracting coordinates from: ${propertyUrl}`);
 
 		// Wrap entire function in timeout
 		return await Promise.race([
 			(async () => {
-				detailPage = await browser.newPage({
+				detailPage = await browserContext.newPage({
 					ignoreHTTPSErrors: true,
+				});
+
+				detailPage.on("request", (req) => {
+					const reqUrl = req.url();
+					if (reqUrl.includes("StaticMapService.GetMapImage") || reqUrl.includes("/maps/vt?pb=")) {
+						mapRequestUrls.push(reqUrl);
+					}
 				});
 
 				await detailPage.goto(propertyUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
@@ -368,8 +428,16 @@ async function extractCoordsFromDetailsPage(browser, propertyUrl) {
 				// Wait for maps to load
 				await detailPage.waitForTimeout(2000);
 
-				// First, try to extract from main page
-				let coords = await detailPage.evaluate(() => {
+				// First attempt: decode coordinates from map network requests
+				let coords = extractCoordsFromMapRequests(mapRequestUrls);
+				if (coords) {
+					console.log(`✓ Found coordinates in map requests`);
+					console.log(`✓ Extracted coords: ${coords.latitude}, ${coords.longitude}`);
+					return coords;
+				}
+
+				// Fallback: try to extract from main page
+				coords = await detailPage.evaluate(() => {
 					// Try to find the Google Maps link with ll parameter
 					const mapLink = document.querySelector('a[href*="maps.google.com"]');
 					if (mapLink) {
@@ -418,7 +486,7 @@ async function extractCoordsFromDetailsPage(browser, propertyUrl) {
 												return null;
 											}),
 											new Promise((_, reject) =>
-												setTimeout(() => reject(new Error("iframe evaluation timeout")), 5000)
+												setTimeout(() => reject(new Error("iframe evaluation timeout")), 5000),
 											),
 										]);
 
@@ -479,21 +547,84 @@ async function extractCoordsFromDetailsPage(browser, propertyUrl) {
 				return coords;
 			})(),
 			new Promise((_, reject) =>
-				setTimeout(() => reject(new Error("Coordinate extraction timeout after 20 seconds")), 20000)
+				setTimeout(
+					() => reject(new Error("Coordinate extraction timeout after 20 seconds")),
+					20000,
+				),
 			),
 		]);
 	} catch (err) {
 		console.error(`Error extracting coordinates: ${err.message}`);
-		// Ensure page gets closed on error
-		try {
-			if (detailPage) {
-				await detailPage.close().catch(() => {});
-			}
-		} catch (e) {
-			// Ignore errors closing page
+		return null;
+	} finally {
+		if (detailPage) {
+			await detailPage.close().catch(() => {});
 		}
+	}
+}
+
+function extractCoordsFromMapRequests(requestUrls) {
+	if (!Array.isArray(requestUrls) || requestUrls.length === 0) {
 		return null;
 	}
+
+	for (const requestUrl of requestUrls) {
+		// Pattern 1: Static map request with pixel center at fixed zoom (usually 15)
+		const staticMatch = requestUrl.match(/[?&]1i=(\d+).*?[?&]2i=(\d+).*?[?&]3u=(\d+)/);
+		if (staticMatch) {
+			const pixelX = parseInt(staticMatch[1], 10);
+			const pixelY = parseInt(staticMatch[2], 10);
+			const zoom = parseInt(staticMatch[3], 10);
+
+			const coords = pixelToLatLng(pixelX, pixelY, zoom);
+			if (coords && isUkCoordinate(coords.latitude, coords.longitude)) {
+				return coords;
+			}
+		}
+
+		// Pattern 2: Vector tile request with E7 integers in protobuf-like path
+		const vtMatch = requestUrl.match(/!1x(-?\d+)!2x(-?\d+)/);
+		if (vtMatch) {
+			const latE7 = parseInt(vtMatch[1], 10);
+			const lonRaw = parseInt(vtMatch[2], 10);
+			const lonE7 = toSigned32(lonRaw);
+
+			const latitude = latE7 / 1e7;
+			const longitude = lonE7 / 1e7;
+
+			if (isUkCoordinate(latitude, longitude)) {
+				return { latitude, longitude };
+			}
+		}
+	}
+
+	return null;
+}
+
+function pixelToLatLng(pixelX, pixelY, zoom) {
+	if (!Number.isFinite(pixelX) || !Number.isFinite(pixelY) || !Number.isFinite(zoom)) {
+		return null;
+	}
+
+	const worldSize = 256 * Math.pow(2, zoom);
+	const longitude = (pixelX / worldSize) * 360 - 180;
+	const n = Math.PI - (2 * Math.PI * pixelY) / worldSize;
+	const latitude = (180 / Math.PI) * Math.atan(Math.sinh(n));
+
+	if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+		return null;
+	}
+
+	return { latitude, longitude };
+}
+
+function toSigned32(value) {
+	if (!Number.isFinite(value)) return value;
+	return value > 2147483647 ? value - 4294967296 : value;
+}
+
+function isUkCoordinate(latitude, longitude) {
+	return latitude > 49 && latitude < 61 && longitude > -11 && longitude < 3;
 }
 
 (async () => {

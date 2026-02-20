@@ -29,15 +29,17 @@ async function updatePriceByPropertyURLOptimized(
 
 			const linkTrimmed = link.trim();
 
-			// Check if property exists for THIS agent
+			// Check if property exists for THIS agent and get current price
 			const [propertiesUrlRows] = await promisePool.query(
-				`SELECT COUNT(*) as count FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
+				`SELECT price FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
 				[linkTrimmed, agent_id],
 			);
 
-			if (propertiesUrlRows[0].count > 0) {
+			if (propertiesUrlRows.length > 0) {
+				const currentPrice = propertiesUrlRows[0].price;
 				const formattedPrice = formatPriceUk(price);
-				// UPDATE existing property - only price
+
+				// UPDATE existing property - always update updated_at, but only log if price changed
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
                     SET price = ?, updated_at = NOW()
@@ -45,12 +47,12 @@ async function updatePriceByPropertyURLOptimized(
 					[formattedPrice, linkTrimmed, agent_id],
 				);
 
-				if (result.affectedRows > 0) {
+				if (currentPrice !== formattedPrice) {
 					console.log(
-						`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Price: £${formattedPrice}`,
+						`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Old: £${currentPrice} -> New: £${formattedPrice}`,
 					);
 				}
-				return { isExisting: true, updated: result.affectedRows > 0 };
+				return { isExisting: true, updated: currentPrice !== formattedPrice };
 			} else {
 				// For new properties, we'll need coordinates
 				return { isExisting: false, updated: false };
@@ -88,11 +90,12 @@ async function processPropertyWithCoordinates(
 	manualLat = null,
 	manualLon = null,
 ) {
-	const { extractCoordinatesFromHTML } = require("./property-helpers.js");
+	const { extractCoordinatesFromHTML, extractBedroomsFromHTML } = require("./property-helpers.js");
 
 	try {
 		let latitude = manualLat;
 		let longitude = manualLon;
+		let finalBedrooms = bedrooms;
 
 		// If no manual coords, extract from HTML
 		if (latitude === null || longitude === null) {
@@ -101,11 +104,16 @@ async function processPropertyWithCoordinates(
 			longitude = coords.longitude;
 		}
 
+		// If no bedrooms, try to extract from HTML
+		if (finalBedrooms === null || finalBedrooms === undefined || finalBedrooms === "") {
+			finalBedrooms = extractBedroomsFromHTML(html);
+		}
+
 		await updatePriceByPropertyURL(
 			url,
 			formatPriceUk(price),
 			title,
-			bedrooms,
+			finalBedrooms,
 			agentId,
 			isRent,
 			latitude,
@@ -113,7 +121,9 @@ async function processPropertyWithCoordinates(
 		);
 
 		console.log(
-			`✅ New property: ${title} (£${formatPriceUk(price)}) - Coords: ${latitude}, ${longitude}`,
+			`✅ New property: ${title} (£${formatPriceUk(price)}) - Coords: ${latitude}, ${longitude}${
+				finalBedrooms ? `, Beds: ${finalBedrooms}` : ""
+			}`,
 		);
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);

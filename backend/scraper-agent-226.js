@@ -1,26 +1,36 @@
-// Palmer Partners scraper using Playwright with Crawlee
+﻿// Palmer Partners scraper using Playwright with Crawlee
 // Agent ID: 226
+// Website: palmerpartners.com
 // Usage:
 // node backend/scraper-agent-226.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 226;
-let totalScraped = 0;
-let totalSaved = 0;
-let savedSales = 0;
-let savedRentals = 0;
-const processedUrls = new Set();
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
 
-function formatPrice(num, isRental) {
-	if (!num || isNaN(num)) return isRental ? "£0 pcm" : "£0";
-	return "£" + Number(num).toLocaleString("en-GB") + (isRental ? " pcm" : "");
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
 }
 
+// Configuration for sales and lettings
 const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.palmerpartners.com/buy/property-for-sale/",
@@ -30,246 +40,226 @@ const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.palmerpartners.com/let/property-to-let/",
 		isRental: true,
-		label: "LETTINGS",
+		label: "RENTALS",
 	},
 ];
 
-async function scrapePalmerPartners() {
-	console.log(`\n🚀 Starting Palmer Partners scraper (Agent ${AGENT_ID})...\n`);
-
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 3,
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-
-		async requestHandler({ page, request, enqueueLinks }) {
-			const { isRental, label, isDetail } = request.userData;
-
-			if (!isDetail) {
-				// LIST PAGE
-				console.log(`📋 ${label} - List Page - ${request.url}`);
-
-				// Wait for properties to load
-				await page.waitForSelector('a[href*="/property/"]', { timeout: 15000 }).catch(() => {
-					console.log(`⚠️ No properties found on current list page`);
-				});
-
-				// Extract links to detail pages
-				const detailLinks = await page.evaluate((isRental) => {
-					const links = Array.from(document.querySelectorAll('a[href*="/property/"]'));
-					return links.map((a) => a.href).filter((href) => !href.includes("#"));
-				}, isRental);
-
-				for (const link of detailLinks) {
-					if (!processedUrls.has(link)) {
-						await enqueueLinks({
-							urls: [link],
-							userData: {
-								isRental,
-								label,
-								isDetail: true,
-							},
-						});
-					}
-				}
-
-				// Check for next page if we are on page 1 of the list
-				// We can just enqueue pages 2, 3, 4 etc. if they exist
-				if (!request.url.includes("page=")) {
-					// Extract max page from pagination
-					const maxPage = await page.evaluate(() => {
-						const paginationLinks = Array.from(
-							document.querySelectorAll("ul.pagination li a, .pagination a")
-						);
-						let highest = 1;
-						paginationLinks.forEach((a) => {
-							const val = parseInt(a.textContent.trim());
-							if (!isNaN(val) && val > highest) highest = val;
-						});
-						return highest;
-					});
-
-					if (maxPage > 1) {
-						console.log(`🔢 Detected ${maxPage} pages for ${label}`);
-						for (let p = 2; p <= maxPage; p++) {
-							const pageUrl = `${request.url}${request.url.includes("?") ? "&" : "?"}page=${p}`;
-							await enqueueLinks({
-								urls: [pageUrl],
-								userData: { isRental, label, isDetail: false },
-							});
-						}
-					}
-				}
-				return;
-			}
-
-			// DETAIL PAGE
-			totalScraped++;
-			const propertyUrl = request.url;
-			processedUrls.add(propertyUrl);
-
-			console.log(`🏠 Processing (${totalScraped}): ${propertyUrl}`);
-
-			try {
-				// Extract data from hidden inputs
-				const propData = await page.evaluate(() => {
-					const data = {
-						price: null,
-						address: null,
-						lat: null,
-						lng: null,
-						bedrooms: null,
-						propertyCode: null,
-					};
-
-					// Price
-					const priceInput = document.querySelector('input[name="price"]');
-					if (priceInput) data.price = priceInput.value;
-
-					// Address
-					const addressInput = document.querySelector('input[name="propertyAddress"]');
-					if (addressInput) data.address = addressInput.value;
-
-					// Property Code
-					const codeInput = document.querySelector('input[name="propertyCode"]');
-					if (codeInput) data.propertyCode = codeInput.value;
-
-					// Bedrooms
-					const bedsInput = document.querySelector('input[name="beds"]');
-					if (bedsInput) data.bedrooms = bedsInput.value;
-
-					// Fallback for bedrooms from UI
-					if (!data.bedrooms) {
-						const allLi = Array.from(document.querySelectorAll("li"));
-						const bedsLi = allLi.find((li) => li.textContent.includes("Bedrooms"));
-						if (bedsLi) {
-							const match =
-								bedsLi.textContent.match(/Bedrooms\s*(\d+)/i) ||
-								bedsLi.textContent.match(/(\d+)\s*Bedrooms/i);
-							if (match) {
-								data.bedrooms = match[1];
-							} else {
-								// Try just finding the number in the text
-								const numMatch = bedsLi.textContent.match(/(\d+)/);
-								if (numMatch) data.bedrooms = numMatch[1];
-							}
-						}
-					}
-
-					// Coordinates from JSON hidden input
-					const allHiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'));
-					for (const input of allHiddenInputs) {
-						const val = input.value ? input.value.trim() : "";
-						if (val.startsWith("[") && val.includes('"lat"') && val.includes('"lng"')) {
-							try {
-								const coords = JSON.parse(val);
-								if (coords && coords.length > 0) {
-									data.lat = coords[0].lat;
-									data.lng = coords[0].lng;
-									// Fallback for missing fields if they are in JSON
-									if (!data.price && coords[0].price) data.price = coords[0].price;
-									if (!data.address && coords[0].title) data.address = coords[0].title;
-									if (!data.bedrooms && coords[0].beds) data.bedrooms = coords[0].beds;
-								}
-							} catch (e) {
-								// ignore parse error
-							}
-						}
-					}
-
-					return data;
-				});
-
-				if (!propData.price || !propData.address) {
-					console.log(`⚠️ Missing critical data for ${propertyUrl}`);
-					return;
-				}
-
-				// Clean price
-				let numericPrice = 0;
-				if (propData.price) {
-					// Remove currency symbols, commas, and pcm/pw
-					const cleanPrice = propData.price
-						.replace(/[£,]/g, "")
-						.replace(/pcm|pw/gi, "")
-						.trim();
-					numericPrice = parseFloat(cleanPrice);
-				}
-
-				if (isNaN(numericPrice) || numericPrice === 0) {
-					console.log(`⚠️ Invalid price "${propData.price}" for ${propertyUrl}`);
-					return;
-				}
-
-				const formattedPrice = formatPrice(numericPrice, isRental);
-				const bedrooms = propData.bedrooms ? parseInt(propData.bedrooms) : null;
-
-				// Log what we found
-				console.log(
-					`   Price: ${formattedPrice} | Coords: ${propData.lat}, ${propData.lng} | Address: ${propData.address}`
-				);
-
-				// Update database
-				const result = await updatePriceByPropertyURL(
-					AGENT_ID,
-					propertyUrl,
-					formattedPrice,
-					numericPrice,
-					propData.address,
-					propData.lat,
-					propData.lng,
-					bedrooms,
-					isRental
-				);
-
-				if (result) {
-					totalSaved++;
-					if (isRental) savedRentals++;
-					else savedSales++;
-				}
-			} catch (error) {
-				console.error(`❌ Error processing ${propertyUrl}: ${error.message}`);
-			}
-		},
-
-		async failedRequestHandler({ request }) {
-			console.error(`❌ Request ${request.url} failed after multiple retries.`);
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			log.error(`Failed listing page: ${request.url}`);
 		},
 	});
-
-	// Initial requests
-	const initialRequests = PROPERTY_TYPES.map((type) => ({
-		url: type.urlBase,
-		userData: {
-			isRental: type.isRental,
-			label: type.label,
-			isDetail: false,
-		},
-	}));
-
-	await crawler.run(initialRequests);
-
-	console.log(`\n✅ Scraping finished!`);
-	console.log(`📊 Total properties processed: ${totalScraped}`);
-	console.log(`💾 Total properties saved/updated: ${totalSaved}`);
-	console.log(`   💰 Sales: ${savedSales}`);
-	console.log(`   🏠 Rentals: ${savedRentals}`);
-
-	// Mark properties not found in this run as removed
-	// Note: In some setups, we only do this if we are sure we scraped EVERY property.
-	// if (totalScraped > 50) {
-	// 	await updateRemoveStatus(AGENT_ID, Array.from(processedUrls));
-	// }
 }
 
-scrapePalmerPartners().catch((err) => {
-	console.error("Fatal error:", err);
-	process.exit(1);
-});
+async function handleListingPage({ page, request, crawler }) {
+	const { isRental, label, pageNum = 1 } = request.userData;
+
+	console.log(` ${label} - Page ${pageNum} - ${request.url}`);
+
+	try {
+		await page.waitForTimeout(2000);
+		await page
+			.waitForSelector('.property, .property-card, a[href*="/property/"]', { timeout: 20000 })
+			.catch(() => {
+				console.log(` No listing container found on page ${pageNum}`);
+			});
+
+		// Extract properties
+		const properties = await page.evaluate((isRental) => {
+			try {
+				const items = Array.from(
+					document.querySelectorAll(".property-card, .search-items li, .property, .row.property"),
+				);
+				return items
+					.map((el) => {
+						const linkTag = el.querySelector('a[href*="/property/"]');
+						const priceText =
+							el.querySelector(".price, .property-price, .price-display, .list-price")?.innerText ||
+							"";
+						const title =
+							el.querySelector(".address, .property-address, .address-display, .list-address")
+								?.innerText || "";
+						const status =
+							el.querySelector(".property-status, .status, .label")?.innerText?.trim() || "";
+						return { link: linkTag?.href, priceText, title, status };
+					})
+					.filter((p) => p.link);
+			} catch (err) {
+				return [];
+			}
+		}, isRental);
+
+		console.log(` Found ${properties.length} properties on page ${pageNum}`);
+		stats.totalScraped += properties.length;
+
+		const batchSize = 2;
+		for (let i = 0; i < properties.length; i += batchSize) {
+			const batch = properties.slice(i, i + batchSize);
+
+			await Promise.all(
+				batch.map(async (property) => {
+					if (!property.link) return;
+
+					const statusLower = property.status.toLowerCase();
+					if (isRental) {
+						if (statusLower.includes("let agreed") || statusLower.includes("let stc")) return;
+					} else {
+						if (
+							statusLower.includes("sold") ||
+							statusLower.includes("under offer") ||
+							statusLower.includes("sold stc")
+						)
+							return;
+					}
+
+					const priceNum = property.priceText
+						? parseFloat(property.priceText.replace(/[^0-9.]/g, ""))
+						: null;
+					if (priceNum === null) return;
+
+					const updateResult = await updatePriceByPropertyURLOptimized(
+						property.link.trim(),
+						priceNum,
+						property.title,
+						null,
+						AGENT_ID,
+						isRental,
+					);
+
+					let persisted = !!updateResult.updated;
+
+					if (!updateResult.isExisting) {
+						const detailPage = await page.context().newPage();
+						try {
+							await detailPage.goto(property.link, {
+								waitUntil: "domcontentloaded",
+								timeout: 40000,
+							});
+							const htmlContent = await detailPage.content();
+							const propData = await detailPage.evaluate(() => {
+								const data = { lat: null, lng: null, bedrooms: null };
+								const bedsInput = document.querySelector('input[name="beds"]');
+								if (bedsInput) data.bedrooms = bedsInput.value;
+								const allHiddenInputs = Array.from(
+									document.querySelectorAll('input[type="hidden"]'),
+								);
+								for (const input of allHiddenInputs) {
+									const val = input.value?.trim() || "";
+									if (val.startsWith("[") && val.includes('"lat"') && val.includes('"lng"')) {
+										try {
+											const coords = JSON.parse(val);
+											if (coords?.[0]) {
+												data.lat = coords[0].lat;
+												data.lng = coords[0].lng;
+												if (!data.bedrooms && coords[0].beds) data.bedrooms = coords[0].beds;
+											}
+										} catch (e) {}
+									}
+								}
+								return data;
+							});
+
+							await processPropertyWithCoordinates(
+								property.link.trim(),
+								formatPriceUk(priceNum),
+								property.title,
+								propData.bedrooms,
+								AGENT_ID,
+								isRental,
+								htmlContent,
+								propData.lat,
+								propData.lng,
+							);
+							persisted = true;
+						} catch (err) {
+						} finally {
+							await detailPage.close();
+						}
+					}
+
+					if (persisted) {
+						stats.totalSaved++;
+						if (isRental) stats.savedRentals++;
+						else stats.savedSales++;
+					}
+
+					console.log(` ${property.title} - ${formatPriceUk(priceNum)}`);
+				}),
+			);
+			await page.waitForTimeout(500);
+		}
+
+		// Handle pagination
+		if (pageNum === 1) {
+			const maxPage = await page.evaluate(() => {
+				const paginationLinks = Array.from(document.querySelectorAll(".pagination a"));
+				let highest = 1;
+				paginationLinks.forEach((a) => {
+					const val = parseInt(a.textContent.trim());
+					if (!isNaN(val) && val > highest) highest = val;
+				});
+				return highest;
+			});
+
+			if (maxPage > 1) {
+				for (let p = 2; p <= maxPage; p++) {
+					const pageUrl = `${request.url}${request.url.includes("?") ? "&" : "?"}page=${p}`;
+					await crawler.addRequests([
+						{
+							url: pageUrl,
+							userData: { isRental, label, pageNum: p },
+						},
+					]);
+				}
+			}
+		}
+	} catch (error) {
+		console.error(` Error in ${label} page ${pageNum}: ${error.message}`);
+	}
+}
+
+async function scrapePalmerPartners() {
+	console.log(`\n Starting Palmer Partners scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+
+	for (const propertyType of PROPERTY_TYPES) {
+		console.log(`\n Processing ${propertyType.label}`);
+		const crawler = createCrawler(browserWSEndpoint);
+		await crawler.addRequests([
+			{
+				url: propertyType.urlBase,
+				userData: { isRental: propertyType.isRental, label: propertyType.label, pageNum: 1 },
+			},
+		]);
+		await crawler.run();
+	}
+
+	console.log(`\n Scraping complete!`);
+	console.log(`Total scraped: ${stats.totalScraped}`);
+	console.log(`Total saved: ${stats.totalSaved}`);
+}
+
+(async () => {
+	try {
+		await scrapePalmerPartners();
+		await updateRemoveStatus(AGENT_ID);
+		console.log("\n All done!");
+		process.exit(0);
+	} catch (err) {
+		console.error(" Fatal error:", err?.message || err);
+		process.exit(1);
+	}
+})();

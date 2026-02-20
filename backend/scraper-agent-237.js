@@ -4,30 +4,116 @@
 // node backend/scraper-agent-237.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { parsePrice } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 237;
 
-// Updated pagination based on site check
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+const processedUrls = new Set();
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(500);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 45000,
+		});
+
+		const htmlContent = await detailPage.content();
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.address,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+		);
+
+		stats.totalSaved++;
+		stats.totalScraped++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+	} catch (error) {
+		console.error(` Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// Dynamic pagination - no fixed page count, continues until no properties found
 const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.selectiv.co.uk/properties/for-sale/hide-completed/page/",
-		totalPages: 14, // 164 properties / 12 per page
 		isRental: false,
 		label: "FOR SALE",
+		typeIndex: 0,
 	},
 	{
 		urlBase: "https://www.selectiv.co.uk/properties/to-rent/hide-completed/page/",
-		totalPages: 1, // Only 1 property found
 		isRental: true,
 		label: "TO RENT",
+		typeIndex: 1,
 	},
 ];
 
+const pagePropertyCount = {}; // Track properties found per page per type
+
 async function scrapeSelectiv() {
-	console.log(`\n Starting Selectiv scraper (Agent ${AGENT_ID})...\n`);
+	console.log(`\n🚀 Starting Selectiv scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 3,
@@ -36,15 +122,14 @@ async function scrapeSelectiv() {
 
 		launchContext: {
 			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				browserWSEndpoint,
 			},
 		},
 
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+			const { pageNum, isRental, label, typeIndex } = request.userData;
 
-			console.log(` ${label} - Page ${pageNum} - ${request.url}`);
+			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
 			await page.waitForTimeout(1000);
 
@@ -62,8 +147,8 @@ async function scrapeSelectiv() {
 
 					const links = Array.from(
 						document.querySelectorAll(
-							'a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]'
-						)
+							'a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]',
+						),
 					);
 
 					links.forEach((link) => {
@@ -86,21 +171,16 @@ async function scrapeSelectiv() {
 							const address = h2.textContent.trim();
 
 							let bedrooms = null;
-							let debugInfo = "";
 							try {
 								// Target the specific row we know contains the numbers
 								const iconRow = link.querySelector('div[class*="flex"][class*="items-center"]');
 								if (iconRow) {
 									const numberSpans = Array.from(iconRow.querySelectorAll("span")).filter((s) =>
-										/^\d+$/.test(s.textContent.trim())
+										/^\d+$/.test(s.textContent.trim()),
 									);
 									if (numberSpans.length > 0) {
 										bedrooms = numberSpans[0].textContent.trim();
-									} else {
-										debugInfo += "[No digit span in iconRow] ";
 									}
-								} else {
-									debugInfo += "[No iconRow found] ";
 								}
 
 								if (!bedrooms) {
@@ -110,10 +190,10 @@ async function scrapeSelectiv() {
 									}
 								}
 							} catch (e) {
-								debugInfo += `[Err: ${e.message}] `;
+								// ignore
 							}
 
-							results.push({ link: fullLink, priceText, address, bedrooms, debugInfo });
+							results.push({ link: fullLink, priceText, address, bedrooms });
 						}
 					});
 					return results;
@@ -122,14 +202,24 @@ async function scrapeSelectiv() {
 				}
 			});
 
-			console.log(` Found ${properties.length} properties on page ${pageNum}`);
+			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			pagePropertyCount[`${typeIndex}-${pageNum}`] = properties.length;
 
-			// Log properties with missing bedrooms to help debug
-			properties.forEach((p) => {
-				if (!p.bedrooms) {
-					console.log(`  Bedroom Null for: ${p.address} | Info: ${p.debugInfo}`);
-				}
-			});
+			// If properties found, enqueue next page
+			if (properties.length > 0) {
+				const propertyType = PROPERTY_TYPES[typeIndex];
+				await crawler.addRequests([
+					{
+						url: `${propertyType.urlBase}${pageNum + 1}`,
+						userData: {
+							pageNum: pageNum + 1,
+							isRental,
+							label,
+							typeIndex,
+						},
+					},
+				]);
+			}
 
 			const batchSize = 5;
 			for (let i = 0; i < properties.length; i += batchSize) {
@@ -139,98 +229,81 @@ async function scrapeSelectiv() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let lat = null;
-						let lon = null;
-
-						const detailPage = await page.context().newPage();
-						try {
-							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 45000,
-							});
-							await detailPage.waitForTimeout(500);
-
-							// Extract coords from JSON-LD or scripts
-							const coords = await detailPage.evaluate(() => {
-								try {
-									// 1. Check JSON-LD schema
-									const schema = document.querySelector('script[type="application/ld+json"]');
-									if (schema) {
-										const data = JSON.parse(schema.textContent);
-										const geo = data.geo || (data.itemOffered && data.itemOffered.geo);
-										if (geo && geo.latitude && geo.longitude) {
-											return { lat: parseFloat(geo.latitude), lon: parseFloat(geo.longitude) };
-										}
-									}
-
-									// 2. Fallback to regex in scripts
-									const scripts = Array.from(document.querySelectorAll("script"));
-									for (const s of scripts) {
-										const txt = s.textContent || "";
-										const latM = txt.match(/"latitude"\s*:\s*([-0-9.]+)/);
-										const lngM = txt.match(/"longitude"\s*:\s*([-0-9.]+)/);
-										if (latM && lngM) {
-											return { lat: parseFloat(latM[1]), lon: parseFloat(lngM[1]) };
-										}
-									}
-								} catch (e) {}
-								return null;
-							});
-
-							if (coords) {
-								lat = coords.lat;
-								lon = coords.lon;
-							}
-						} catch (err) {
-							// console.log(` Detail page error: ${property.link}`);
-						} finally {
-							await detailPage.close();
+						if (processedUrls.has(property.link)) {
+							log.info(` Skipping duplicate: ${property.address}`);
+							return;
 						}
-
-						// Clean price
-						const priceMatch = (property.priceText || "").replace(/,/g, "").match(/\d+/);
-						const priceClean = priceMatch ? priceMatch[0] : null;
+						processedUrls.add(property.link);
 
 						try {
-							await updatePriceByPropertyURL(
+							const priceNum = parsePrice(property.priceText);
+
+							if (priceNum === null) {
+								log.warn(` No price found: ${property.address}`);
+								return;
+							}
+
+							const result = await updatePriceByPropertyURLOptimized(
 								property.link.trim(),
-								priceClean,
+								priceNum,
 								property.address,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								lat,
-								lon
 							);
-							// Skip logging for clean output unless needed
-							// console.log(` Saved: ${property.address}`);
+
+							if (result.updated) {
+								stats.totalSaved++;
+							}
+
+							if (!result.isExisting && !result.error) {
+								await scrapePropertyDetail(
+									page.context(),
+									{
+										...property,
+										price: priceNum,
+									},
+									isRental,
+								);
+							}
+
+							const priceDisplay = formatPriceUk(priceNum);
+							console.log(`✅ ${property.address} - ${priceDisplay}`);
 						} catch (dbErr) {
-							console.error(` DB error for ${property.link}: ${dbErr.message}`);
+							console.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 						}
-					})
+					}),
 				);
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(` Failed: ${request.url}`);
+			console.error(`❌ Failed: ${request.url}`);
 		},
 	});
 
-	// Enqueue all pages
+	// Enqueue first page for each property type - subsequent pages will be auto-enqueued
 	for (const propertyType of PROPERTY_TYPES) {
-		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			requests.push({
-				url: `${propertyType.urlBase}${pg}`,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
-		}
-		console.log(` Enqueuing ${propertyType.label} (${propertyType.totalPages} pages)`);
-		await crawler.addRequests(requests);
+		console.log(`🏠 Starting ${propertyType.label}`);
+		await crawler.addRequests([
+			{
+				url: `${propertyType.urlBase}1`,
+				userData: {
+					pageNum: 1,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+					typeIndex: propertyType.typeIndex,
+				},
+			},
+		]);
 	}
 
 	await crawler.run();
+
+	console.log(
+		`\n✅ Completed Selectiv scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 (async () => {

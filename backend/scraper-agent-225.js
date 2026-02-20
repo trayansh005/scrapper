@@ -1,5 +1,6 @@
-// Taylforths scraper using Playwright with Crawlee
+﻿// Taylforths scraper using Playwright with Crawlee
 // Agent ID: 225
+// Website: taylforths.co.uk
 // Usage:
 // node backend/scraper-agent-225.js
 
@@ -12,30 +13,16 @@ const {
 } = require("./lib/db-helpers.js");
 const { isSoldProperty } = require("./lib/property-helpers.js");
 
+// Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 225;
-
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parsePrice(rawPrice) {
-	return formatPriceUk(rawPrice);
-}
-
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
 
 function getBrowserlessEndpoint() {
 	return (
@@ -44,131 +31,24 @@ function getBrowserlessEndpoint() {
 	);
 }
 
-// ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(700);
-
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 30000,
-		});
-
-		const htmlContent = await detailPage.content();
-
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			htmlContent,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
-	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
-
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
-
-	await page.waitForTimeout(2000);
-	await page
-		.waitForSelector("li.type-property", { timeout: 15000 })
-		.catch(() => console.log(` No property cards found on page ${pageNum}`));
-
-	const properties = await page.evaluate(() => {
-		try {
-			const items = Array.from(document.querySelectorAll("li.type-property"));
-
-			return items
-				.map((el) => {
-					try {
-						const linkEl = el.querySelector("h3 a");
-						const link = linkEl ? linkEl.href : null;
-						if (!link) return null;
-
-						const title = el.querySelector("h3 a")?.textContent?.trim() || "";
-						const rawPrice = el.querySelector("div.price")?.textContent?.trim() || "";
-
-						const bedrooms =
-							el.querySelector(".room-bedrooms .room-count")?.textContent?.trim() || null;
-						const bathrooms =
-							el.querySelector(".room-bathrooms .room-count")?.textContent?.trim() || null;
-						const receptions =
-							el.querySelector(".room-receptions .room-count")?.textContent?.trim() || null;
-
-						const statusText = `${title} ${rawPrice} ${el.textContent || ""}`.trim();
-
-						return { link, title, priceText: rawPrice, bedrooms, bathrooms, receptions, statusText };
-					} catch (e) {
-						return null;
-					}
-				})
-				.filter(Boolean);
-		} catch (err) {
-			return [];
-		}
-	});
-
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
-
-	for (const property of properties) {
-		if (isSoldProperty(property.statusText || "")) continue;
-
-		const price = parsePrice(property.priceText);
-		if (!property.link || !price) continue;
-
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-		);
-
-		if (result.updated) {
-			stats.totalSaved++;
-		}
-
-		if (!result.isExisting && !result.error) {
-			console.log(` Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-		}
-
-		await sleep(350);
-	}
-}
-
-// ============================================================================
-// CRAWLER SETUP
-// ============================================================================
+// Configuration for sales and lettings
+const PROPERTY_TYPES = [
+	{
+		baseUrl: "https://www.taylforths.co.uk/find-a-property/page/",
+		params:
+			"/?address_keyword&radius=20&minimum_bedrooms&maximum_rent&maximum_price&department=residential-sales",
+		totalPages: 5,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		baseUrl: "https://www.discoverpm.co.uk/find-a-property/page/",
+		params: "",
+		totalPages: 5,
+		isRental: true,
+		label: "RENTALS",
+	},
+];
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
@@ -184,84 +64,138 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			log.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
 
-// ============================================================================
-// MAIN SCRAPER LOGIC
-// ============================================================================
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
 
-async function scrapeTaylforthsAndDiscoverPM() {
-	console.log(`\n Starting Taylforths and Discover PM scraper (Agent ${AGENT_ID})...\n`);
+	console.log(` ${label} - Page ${pageNum} - ${request.url}`);
 
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-
-	const totalSalesPages = 2;
-	const totalLettingsPages = 1;
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
-	const crawler = createCrawler(browserWSEndpoint);
-
-	const allRequests = [];
-
-	// Build Sales requests
-	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url = `${
-			"https://www.taylforths.co.uk/find-a-property/page/"
-		}${pg}/?address_keyword&radius=20&minimum_bedrooms&maximum_rent&maximum_price&department=residential-sales`;
-
-		allRequests.push({
-			url,
-			userData: {
-				pageNum: pg,
-				isRental: false,
-				label: `FOR_SALE_${pg}`,
-			},
+	try {
+		await page.waitForTimeout(2000);
+		await page.waitForSelector("li.type-property", { timeout: 20000 }).catch(() => {
+			console.log(` No listing container found on page ${pageNum}`);
 		});
-	}
 
-	// Build Lettings requests
-	if (startPage === 1) {
-		for (let pg = 1; pg <= totalLettingsPages; pg++) {
-			const url = `${"https://www.discoverpm.co.uk/find-a-property/page/"}${pg}/`;
+		// Extract properties
+		const properties = await page.evaluate(() => {
+			try {
+				const items = Array.from(document.querySelectorAll("li.type-property"));
+				return items
+					.map((el) => {
+						const linkEl = el.querySelector("h3 a");
+						const link = linkEl ? linkEl.href : null;
+						const title = linkEl ? linkEl.innerText.trim() : "";
+						const rawPrice = el.querySelector("div.price")?.innerText.trim() || "";
+						const bedrooms =
+							el.querySelector(".room-bedrooms .room-count")?.innerText.trim() || null;
+						const statusText = `${title} ${rawPrice} ${el.innerText || ""}`.trim();
+						return { link, title, rawPrice, bedrooms, statusText };
+					})
+					.filter((p) => p.link);
+			} catch (err) {
+				return [];
+			}
+		});
 
-			allRequests.push({
-				url,
-				userData: {
-					pageNum: pg,
-					isRental: true,
-					label: `TO_LET_${pg}`,
-				},
-			});
+		console.log(` Found ${properties.length} properties on page ${pageNum}`);
+		stats.totalScraped += properties.length;
+
+		const batchSize = 2;
+		for (let i = 0; i < properties.length; i += batchSize) {
+			const batch = properties.slice(i, i + batchSize);
+
+			await Promise.all(
+				batch.map(async (property) => {
+					if (!property.link) return;
+					if (isSoldProperty(property.statusText)) return;
+
+					const priceNum = property.rawPrice
+						? parseFloat(property.rawPrice.replace(/[^0-9.]/g, ""))
+						: null;
+					if (priceNum === null) return;
+
+					const updateResult = await updatePriceByPropertyURLOptimized(
+						property.link.trim(),
+						priceNum,
+						property.title,
+						property.bedrooms,
+						AGENT_ID,
+						isRental,
+					);
+
+					let persisted = !!updateResult.updated;
+
+					if (!updateResult.isExisting) {
+						const detailPage = await page.context().newPage();
+						try {
+							await detailPage.goto(property.link, {
+								waitUntil: "domcontentloaded",
+								timeout: 40000,
+							});
+							const htmlContent = await detailPage.content();
+							await processPropertyWithCoordinates(
+								property.link.trim(),
+								formatPriceUk(priceNum),
+								property.title,
+								property.bedrooms,
+								AGENT_ID,
+								isRental,
+								htmlContent,
+							);
+							persisted = true;
+						} catch (err) {
+						} finally {
+							await detailPage.close();
+						}
+					}
+
+					if (persisted) {
+						stats.totalSaved++;
+						if (isRental) stats.savedRentals++;
+						else stats.savedSales++;
+					}
+
+					console.log(` ${property.title} - ${formatPriceUk(priceNum)}`);
+				}),
+			);
+			await page.waitForTimeout(500);
 		}
+	} catch (error) {
+		console.error(` Error in ${label} page ${pageNum}: ${error.message}`);
 	}
-
-	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
-		return;
-	}
-
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
-
-	console.log(
-		`\n Completed Taylforths and Discover PM - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
 }
 
-// ============================================================================
-// MAIN EXECUTION
-// ============================================================================
+async function scrapeTaylforths() {
+	console.log(`\n Starting Taylforths scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+
+	for (const propertyType of PROPERTY_TYPES) {
+		console.log(`\n Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		const crawler = createCrawler(browserWSEndpoint);
+		const requests = [];
+		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
+			requests.push({
+				url: `${propertyType.baseUrl}${pg}${propertyType.params}`,
+				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+			});
+		}
+		await crawler.addRequests(requests);
+		await crawler.run();
+	}
+
+	console.log(`\n Scraping complete!`);
+	console.log(`Total scraped: ${stats.totalScraped}`);
+	console.log(`Total saved: ${stats.totalSaved}`);
+}
 
 (async () => {
 	try {
-		await scrapeTaylforthsAndDiscoverPM();
+		await scrapeTaylforths();
 		await updateRemoveStatus(AGENT_ID);
 		console.log("\n All done!");
 		process.exit(0);

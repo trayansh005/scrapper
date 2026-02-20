@@ -1,277 +1,438 @@
-// Howards scraper using Playwright with Crawlee
+﻿// Howards scraper using Playwright with Crawlee
 // Agent ID: 229
+// Website: howards.co.uk
 // Usage:
 // node backend/scraper-agent-229.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus, updatePriceByPropertyURL } = require("./db.js");
+const { 
+    formatPriceUk, 
+    updatePriceByPropertyURLOptimized,
+    processPropertyWithCoordinates 
+} = require("./lib/db-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 229;
-let totalScraped = 0;
-let totalSaved = 0;
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	const num = Number(price);
-	if (isNaN(num)) return "N/A";
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+totalScraped: 0,
+totalSaved: 0,
+savedSales: 0,
+savedRentals: 0,
+};
+
+function getBrowserlessEndpoint() {
+return (
+process.env.BROWSERLESS_WS_ENDPOINT ||
+`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+);
 }
 
-// Two searches: sales and lettings
+// Configuration for sales and lettings
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://howards.co.uk/listings",
-	// 	// 315 properties / 12 per page = 27 pages (rounded up)
-	// 	totalRecords: 315,
-	// 	recordsPerPage: 12,
-	// 	totalPages: 27,
-	// 	isRental: false,
-	// 	label: "FOR SALE",
-	// 	params: {
-	// 		viewType: "gallery",
-	// 		sortby: "dateListed-desc",
-	// 		saleOrRental: "Sale",
-	// 		rental_period: "week",
-	// 		status: "available",
-	// 	},
-	// },
-	{
-		urlBase: "https://howards.co.uk/listings",
-		// 16 properties / 12 per page = 2 pages (rounded up)
-		totalRecords: 16,
-		recordsPerPage: 12,
-		totalPages: 2,
-		isRental: true,
-		label: "TO LET",
-		params: {
-			viewType: "gallery",
-			sortby: "dateListed-desc",
-			saleOrRental: "Rental",
-			rental_period: "month",
-			status: "available",
-		},
-	},
+{
+baseUrl:
+"https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available",
+isRental: false,
+label: "SALES",
+},
+{
+baseUrl:
+"https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Rental&rental_period=month&status=available",
+isRental: true,
+label: "RENTALS",
+},
 ];
 
-async function scrapeHowards() {
-	console.log(`\n🚀 Starting Howards scraper (Agent ${AGENT_ID})...\n`);
+function createCrawler(browserWSEndpoint) {
+return new PlaywrightCrawler({
+maxConcurrency: 1,
+maxRequestRetries: 2,
+requestHandlerTimeoutSecs: 300,
+launchContext: {
+launcher: undefined,
+launchOptions: {
+browserWSEndpoint,
+args: ["--no-sandbox", "--disable-setuid-sandbox"],
+},
+},
+requestHandler: handleListingPage,
+failedRequestHandler({ request }) {
+log.error(`Failed listing page: ${request.url}`);
+},
+});
+}
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+async function handleListingPage({ page, request, crawler }) {
+const { isRental, label, pageNumber } = request.userData;
 
-		launchContext: {
-			launchOptions: {
-				headless: false,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
+console.log(` Loading: ${request.url}`);
 
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+try {
+await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+await page.waitForTimeout(3000);
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+const result = await extractPropertiesFromPage(page, isRental);
+let rawProperties = result.properties;
+const hasNextPage = result.hasNextPage;
 
-			await page.waitForTimeout(3000);
+// De-duplicate by normalized URL to prevent parallel processing of the same property
+const urlMap = new Map();
+for (const p of rawProperties) {
+const normalizedUrl = p.url.trim().toLowerCase().replace(/\/$/, ""); // trim, lowercase, remove trailing slash
+if (!urlMap.has(normalizedUrl)) {
+urlMap.set(normalizedUrl, p);
+}
+}
+const properties = Array.from(urlMap.values());
 
-			// Wait for property cards to load - try multiple selectors
-			const loaded = await Promise.race([
-				page.waitForSelector("h4 a", { timeout: 20000 }).then(() => true),
-				page.waitForSelector("a[href*='residential_']", { timeout: 20000 }).then(() => true),
-			]).catch(() => false);
+if (properties.length === 0) {
+console.log(` No ${label.toLowerCase()} found on this page.`);
+} else {
+console.log(` Found ${properties.length} unique ${label.toLowerCase()}`);
+}
+stats.totalScraped += properties.length;
 
-			if (!loaded) {
-				console.log(`⚠️ No property cards found on page ${pageNum}`);
-			}
+// Save properties to database
+for (const property of properties) {
+try {
+const priceNum = property.price
+? parseFloat(property.price.replace(/[^0-9.]/g, ""))
+: null;
 
-			const properties = await page.evaluate(() => {
-				try {
-					// Find all links to property listings - try multiple patterns
-					let titleLinks = Array.from(document.querySelectorAll("a[href*='residential_']"));
+if (priceNum === null) {
+console.log(` No price found: ${property.title}`);
+continue;
+}
 
-					// If no residential_ links found, try h4 a tags
-					if (titleLinks.length === 0) {
-						titleLinks = Array.from(document.querySelectorAll("h4 a"));
-					}
+const updateResult = await updatePriceByPropertyURLOptimized(
+property.url.trim(),
+priceNum,
+property.title,
+property.bedrooms,
+AGENT_ID,
+isRental,
+);
 
-					console.log(`Found ${titleLinks.length} title links`);
+if (!updateResult.isExisting || updateResult.updated) {
+// Need coordinates for new property or price change
+const coords = await extractCoordsFromDetailsPage(page.context(), property.url);
 
-					return titleLinks
-						.map((titleLink) => {
-							try {
-								const link = titleLink.href;
+await processPropertyWithCoordinates(
+property.url.trim(),
+priceNum,
+property.title,
+property.bedrooms,
+AGENT_ID,
+isRental,
+null, // htmlContent
+coords ? coords.latitude : null,
+coords ? coords.longitude : null
+);
 
-								// Skip if not a property listing
-								if (!link.includes("/listings/")) return null;
+stats.totalSaved++;
+if (isRental) stats.savedRentals++;
+else stats.savedSales++;
 
-								// Find the parent card container
-								let cardEl = titleLink.closest("div[class*='v2-flex']");
-								if (!cardEl) {
-									cardEl = titleLink.parentElement?.parentElement?.parentElement;
-								}
-								if (!cardEl) return null;
+const priceDisplay = formatPriceUk(priceNum);
+console.log(
+` ${property.title} - ${priceDisplay}${
+coords ? ` - (${coords.latitude}, ${coords.longitude})` : ""
+}`,
+);
+} else {
+console.log(`ℹ No change for: ${property.title}`);
+}
+} catch (err) {
+console.error(` Error saving property: ${err.message}`);
+}
+}
 
-								const title = titleLink.textContent?.trim() || "";
+// Queue next page if available
+if (hasNextPage) {
+const nextPage = (pageNumber || 1) + 1;
+const urlObj = new URL(request.url);
+urlObj.searchParams.set("page", nextPage.toString());
+const nextUrl = urlObj.toString();
 
-								// Extract price - look for strong or any element with price
-								let rawPrice = cardEl.querySelector("strong")?.textContent?.trim() || "";
-								if (!rawPrice) {
-									// Try finding price with £ symbol
-									const allText = cardEl.textContent || "";
-									const priceMatch = allText.match(/£[\d,]+/);
-									rawPrice = priceMatch ? priceMatch[0] : "";
-								}
+await crawler.addRequests([
+{
+url: nextUrl,
+userData: { ...request.userData, pageNumber: nextPage },
+},
+]);
+}
+} catch (error) {
+console.error(` Error in ${label} scrape: ${error.message}`);
+}
+}
 
-								let price = "";
-								if (rawPrice) {
-									const m = rawPrice.match(/[0-9,.]+/);
-									if (m) price = m[0].replace(/,/g, "");
-								}
+async function scrapeAllTypes() {
+console.log(`\n Starting Howards scraper (Agent ${AGENT_ID})...\n`);
 
-								// Extract bedrooms, bathrooms from the room divs
-								const roomTexts = Array.from(cardEl.querySelectorAll("p"))
-									.map((p) => p.textContent.trim())
-									.filter((t) => t.includes("Bed") || t.includes("Bath"));
-								const bedrooms = roomTexts.find((t) => t.includes("Bed")) || null;
-								const bathrooms = roomTexts.find((t) => t.includes("Bath")) || null;
+const browserWSEndpoint = getBrowserlessEndpoint();
+console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
-								if (!link || !title) return null;
+for (const propertyType of PROPERTY_TYPES) {
+const { baseUrl, isRental, label } = propertyType;
 
-								return { link, title, price, bedrooms, bathrooms };
-							} catch (e) {
-								return null;
-							}
-						})
-						.filter((p) => p !== null);
-				} catch (err) {
-					return [];
-				}
-			});
+console.log(`\n Starting ${label} scrape...\n`);
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+const crawler = createCrawler(browserWSEndpoint);
 
-			const batchSize = 5;
-			for (let i = 0; i < properties.length; i += batchSize) {
-				const batch = properties.slice(i, i + batchSize);
+await crawler.addRequests([
+{
+url: baseUrl,
+userData: { isRental, label, pageNumber: 1 },
+},
+]);
 
-				await Promise.all(
-					batch.map(async (property) => {
-						if (!property.link) return;
+await crawler.run();
+}
 
-						let coords = { latitude: null, longitude: null };
+console.log(`\n Scraping complete!`);
+console.log(`Total scraped: ${stats.totalScraped}`);
+console.log(`Total saved: ${stats.totalSaved}`);
+console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}\n`);
+}
 
-						const detailPage = await page.context().newPage();
-						try {
-							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							await detailPage.waitForTimeout(500);
+async function extractPropertiesFromPage(page, isRental) {
+const result = await page.evaluate((isRental) => {
+const propertyMap = new Map();
 
-							// Extract latitude and longitude from script tag (JSON format with quotes around values)
-							const scriptCoords = await detailPage.evaluate(() => {
-								const scripts = Array.from(document.querySelectorAll("script"));
-								for (const script of scripts) {
-									const text = script.textContent || "";
-									// Look for "latitude":"52.46994340","longitude":"1.72935920"
-									const latMatch = text.match(/"latitude"\s*:\s*"([\-0-9.]+)"/);
-									const lngMatch = text.match(/"longitude"\s*:\s*"([\-0-9.]+)"/);
-									if (latMatch && lngMatch) {
-										return {
-											latitude: parseFloat(latMatch[1]),
-											longitude: parseFloat(lngMatch[1]),
-										};
-									}
-								}
-								return null;
-							});
+// Find links to property listings
+const links = Array.from(document.querySelectorAll('a[href*="/listings/"]'));
 
-							if (scriptCoords && scriptCoords.latitude && scriptCoords.longitude) {
-								coords.latitude = scriptCoords.latitude;
-								coords.longitude = scriptCoords.longitude;
-								console.log(`  📍 Found script coords: ${coords.latitude}, ${coords.longitude}`);
-							}
-						} catch (err) {
-							// ignore
-						} finally {
-							await detailPage.close();
-						}
+links.forEach((linkEl) => {
+try {
+const url = linkEl.href;
+if (!url || propertyMap.has(url)) return;
 
-						try {
-							const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
+// Find the parent card container
+const card = linkEl.closest('div[class*="v2-flex"]') || linkEl.parentElement?.parentElement;
+if (!card || !card.textContent.includes("Bed")) return;
 
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude
-							);
+// Extract title
+const titleEl = card.querySelector("h4");
+const title = titleEl ? titleEl.textContent.trim() : "N/A";
 
-							totalSaved++;
-							totalScraped++;
+// Extract price
+let price = null;
+const strongEl = card.querySelector("strong");
+if (strongEl) {
+const priceMatch = strongEl.textContent.match(/([\d,]+)/);
+if (priceMatch) {
+price = priceMatch[1];
+}
+}
 
-							console.log(
-								`✅ ${property.title} - ${formatPrice(priceClean)} - ${
-									coords.latitude && coords.longitude
-										? `${coords.latitude}, ${coords.longitude}`
-										: "No coords"
-								}`
-							);
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
-						}
-					})
-				);
+// If price not found in strong, try broad search in card
+if (!price) {
+const priceMatch = card.textContent.match(/([\d,]+)/);
+if (priceMatch) price = priceMatch[1];
+}
 
-				await new Promise((resolve) => setTimeout(resolve, 200));
-			}
-		},
+// Extract bedrooms
+let bedrooms = null;
+const pElements = Array.from(card.querySelectorAll("p"));
+const bedsP = pElements.find((p) => p.textContent.includes("Bed"));
+if (bedsP) {
+const bedsMatch = bedsP.textContent.match(/(\d+)/);
+if (bedsMatch) {
+bedrooms = parseInt(bedsMatch[1], 10);
+}
+}
 
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
-		},
-	});
+if (price) {
+propertyMap.set(url, {
+url,
+title,
+price,
+bedrooms,
+latitude: null,
+longitude: null,
+});
+}
+} catch (err) {
+console.error(`Error extracting property: ${err.message}`);
+}
+});
 
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+// Check for next page button
+const nextLink = Array.from(document.querySelectorAll("a")).find(
+(a) => a.textContent.trim() === "Next " || a.textContent.trim() === "Next",
+);
+const hasNextPage = !!nextLink;
 
-		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			// Build URL with query params
-			const params = new URLSearchParams(propertyType.params);
-			params.append("page", pg);
-			const url = `${propertyType.urlBase}?${params.toString()}`;
+return { properties: Array.from(propertyMap.values()), hasNextPage };
+}, isRental);
 
-			requests.push({
-				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
-		}
+return result;
+}
 
-		await crawler.addRequests(requests);
-		await crawler.run();
-	}
+async function extractCoordsFromDetailsPage(browserContext, propertyUrl) {
+let detailPage = null;
+const mapRequestUrls = [];
+try {
+console.log(` Extracting coordinates from: ${propertyUrl}`);
 
-	console.log(
-		`\n✅ Completed Howards - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
+return await Promise.race([
+(async () => {
+detailPage = await browserContext.newPage({
+ignoreHTTPSErrors: true,
+});
+
+detailPage.on("request", (req) => {
+const reqUrl = req.url();
+if (
+reqUrl.includes("StaticMapService.GetMapImage") ||
+reqUrl.includes("/maps/vt?pb=") ||
+reqUrl.includes("tiles.stadiamaps.com")
+) {
+mapRequestUrls.push(reqUrl);
+}
+});
+
+await detailPage.goto(propertyUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+await detailPage.waitForTimeout(2000);
+
+// Try fallback: look for embedded map or structured data or TwigReact
+let coords = await detailPage.evaluate(() => {
+// Try to find coordinates in script tags
+const scripts = Array.from(document.querySelectorAll("script"));
+for (const script of scripts) {
+const text = script.textContent;
+
+// Look for "latitude":"52.48469810","longitude":"1.72075380"
+const latMatch = text.match(/"latitude"\s*:\s*"([\d.-]+)"/i);
+const lngMatch = text.match(/"longitude"\s*:\s*"([\d.-]+)"/i);
+if (latMatch && lngMatch) {
+return {
+latitude: parseFloat(latMatch[1]),
+longitude: parseFloat(lngMatch[1]),
+};
+}
+
+// Fallback numeric patterns
+const latNumMatch = text.match(/latitude['":\s]+([0-9.-]+)/i);
+const lngNumMatch = text.match(/longitude['":\s]+([0-9.-]+)/i);
+if (latNumMatch && lngNumMatch) {
+return {
+latitude: parseFloat(latNumMatch[1]),
+longitude: parseFloat(lngNumMatch[1]),
+};
+}
+}
+return null;
+});
+
+if (coords && isUkCoordinate(coords.latitude, coords.longitude)) {
+console.log(` Extracted coords: ${coords.latitude}, ${coords.longitude}`);
+return coords;
+}
+
+// Try to extract coordinates from map network requests
+coords = extractCoordsFromMapRequests(mapRequestUrls);
+if (coords) {
+console.log(` Found coordinates in map requests`);
+console.log(` Extracted coords: ${coords.latitude}, ${coords.longitude}`);
+return coords;
+}
+
+console.log(` No coords extracted`);
+return null;
+})(),
+new Promise((_, reject) =>
+setTimeout(
+() => reject(new Error("Coordinate extraction timeout after 20 seconds")),
+20000,
+),
+),
+]);
+} catch (err) {
+console.error(`Error extracting coordinates: ${err.message}`);
+return null;
+} finally {
+if (detailPage) {
+await detailPage.close().catch(() => {});
+}
+}
+}
+
+function extractCoordsFromMapRequests(requestUrls) {
+if (!Array.isArray(requestUrls) || requestUrls.length === 0) {
+return null;
+}
+
+for (const requestUrl of requestUrls) {
+// Pattern 1: Static map request with pixel center at fixed zoom
+const staticMatch = requestUrl.match(/[?&]1i=(\d+).*?[?&]2i=(\d+).*?[?&]3u=(\d+)/);
+if (staticMatch) {
+const pixelX = parseInt(staticMatch[1], 10);
+const pixelY = parseInt(staticMatch[2], 10);
+const zoom = parseInt(staticMatch[3], 10);
+
+const coords = pixelToLatLng(pixelX, pixelY, zoom);
+if (coords && isUkCoordinate(coords.latitude, coords.longitude)) {
+return coords;
+}
+}
+
+// Pattern 2: Vector tile request with E7 integers
+const vtMatch = requestUrl.match(/!1x(-?\d+)!2x(-?\d+)/);
+if (vtMatch) {
+const latE7 = parseInt(vtMatch[1], 10);
+const lonRaw = parseInt(vtMatch[2], 10);
+const lonE7 = toSigned32(lonRaw);
+
+const latitude = latE7 / 1e7;
+const longitude = lonE7 / 1e7;
+
+if (isUkCoordinate(latitude, longitude)) {
+return { latitude, longitude };
+}
+}
+}
+
+return null;
+}
+
+function pixelToLatLng(pixelX, pixelY, zoom) {
+if (!Number.isFinite(pixelX) || !Number.isFinite(pixelY) || !Number.isFinite(zoom)) {
+return null;
+}
+
+const worldSize = 256 * Math.pow(2, zoom);
+const longitude = (pixelX / worldSize) * 360 - 180;
+const n = Math.PI - (2 * Math.PI * pixelY) / worldSize;
+const latitude = (180 / Math.PI) * Math.atan(Math.sinh(n));
+
+if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+return null;
+}
+
+return { latitude, longitude };
+}
+
+function toSigned32(value) {
+if (!Number.isFinite(value)) return value;
+return value > 2147483647 ? value - 4294967296 : value;
+}
+
+function isUkCoordinate(latitude, longitude) {
+return latitude > 49 && latitude < 61 && longitude > -11 && longitude < 3;
 }
 
 (async () => {
-	try {
-		await scrapeHowards();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
-		process.exit(1);
-	}
+try {
+await scrapeAllTypes();
+await updateRemoveStatus(AGENT_ID);
+console.log("\n All done!");
+process.exit(0);
+} catch (err) {
+console.error(" Fatal error:", err?.message || err);
+process.exit(1);
+}
 })();

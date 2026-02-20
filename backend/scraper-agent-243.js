@@ -107,7 +107,7 @@ async function scrapePropertyDetail(browserContext, property) {
 // REQUEST HANDLER
 // ============================================================================
 
-async function handleListingPage({ page, request }) {
+async function handleListingPage({ page, request, crawler }) {
 	const { pageNum, isRental, label } = request.userData;
 	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
@@ -133,7 +133,7 @@ async function handleListingPage({ page, request }) {
 
 				// Status check
 				const statusText = card.innerText || "";
-				
+
 				// Bedrooms count
 				let bedrooms = null;
 				const specs = card.querySelectorAll(".card-content__spec-list-item");
@@ -210,6 +210,20 @@ async function handleListingPage({ page, request }) {
 
 		await sleep(500);
 	}
+
+	// Pagination: keep incrementing until a page returns no items
+	if (properties.length > 0) {
+		const nextPage = pageNum + 1;
+		const type = isRental ? "lettings" : "sales";
+		const nextUrl = `https://www.dixonsestateagents.co.uk/properties/${type}/status-available/most-recent-first/page-${nextPage}#/`;
+
+		await crawler.addRequests([
+			{
+				url: nextUrl,
+				userData: { pageNum: nextPage, isRental, label: isRental ? "LETTINGS" : "SALES" },
+			},
+		]);
+	}
 }
 
 // ============================================================================
@@ -245,56 +259,29 @@ async function scrapeDixons() {
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
-	// Approx counts: 710 records / 10 per page = 71 pages sales
-	// 170 records / 10 per page = 17 pages lettings
-	const totalSalesPages = 75; 
-	const totalLettingsPages = 20;
-
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [];
+	const initialRequests = [];
 
-	// Build Sales requests
-	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url = `https://www.dixonsestateagents.co.uk/properties/sales/status-available/most-recent-first/page-${pg}#/`;
+	// Sales
+	// initialRequests.push({
+	// 	url: `https://www.dixonsestateagents.co.uk/properties/sales/status-available/most-recent-first/page-${startPage}#/`,
+	// 	userData: { pageNum: startPage, isRental: false, label: "SALES" },
+	// });
 
-		allRequests.push({
-			url,
-			userData: {
-				pageNum: pg,
-				isRental: false,
-				label: `SALES_PAGE_${pg}`,
-			},
+	// Lettings (only if startPage is 1)
+	if (startPage === 1) {
+		initialRequests.push({
+			url: `https://www.dixonsestateagents.co.uk/properties/lettings/status-available/most-recent-first/page-1#/`,
+			userData: { pageNum: 1, isRental: true, label: "LETTINGS" },
 		});
 	}
 
-	// Build Lettings requests
-	if (startPage === 1) {
-		for (let pg = 1; pg <= totalLettingsPages; pg++) {
-			const url = `https://www.dixonsestateagents.co.uk/properties/lettings/status-available/most-recent-first/page-${pg}#/`;
-
-			allRequests.push({
-				url,
-				userData: {
-					pageNum: pg,
-					isRental: true,
-					label: `LETTINGS_PAGE_${pg}`,
-				},
-			});
-		}
-	}
-
-	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
-		return;
-	}
-
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	console.log(` Starting from page ${startPage}...`);
+	await crawler.run(initialRequests);
 
 	console.log(
 		`\n Completed Dixons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,

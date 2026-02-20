@@ -49,7 +49,16 @@ async function runAgentScript(agentId, startPage = null) {
 (async () => {
 	const args = process.argv.slice(2);
 
-	if (args.length === 0) {
+	function printUsage() {
+		const exampleAgents = [
+			11, 4, 13, 14, 15, 90, 112, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 108, 248, 249,
+			245, 246, 247, 243, 250, 235, 236, 237, 238, 239, 240, 12, 8, 241, 242, 244, 113, 125, 32,
+			218,
+		];
+		const exampleLines = exampleAgents
+			.map((id) => `  node combined-scraper.js ${id}                      # Run Agent ${id}`)
+			.join("\n");
+
 		console.log(`
 📖 STANDALONE AGENT RUNNER
 --------------------------
@@ -59,22 +68,13 @@ Usage:
 
 Examples:
   node combined-scraper.js 35 10                    # Run Agent 35 starting from page 10
-	node combined-scraper.js 108                      # Run Agent 108
-	node combined-scraper.js 228                      # Run Agent 228
-  node combined-scraper.js 225                      # Run Agent 225
-	node combined-scraper.js 224                      # Run Agent 224
-	node combined-scraper.js 248                      # Run Agent 248
-	node combined-scraper.js 249                      # Run Agent 249
-	node combined-scraper.js 245                      # Run Agent 245
-	node combined-scraper.js 243                      # Run Agent 243
-	node combined-scraper.js 241                      # Run Agent 241
-	node combined-scraper.js 242                      # Run Agent 242
-	node combined-scraper.js 113                      # Run Agent 113
-	node combined-scraper.js 125                      # Run Agent 125
-	node combined-scraper.js 32                       # Run Agent 32
-	node combined-scraper.js 27                       # Run Agent 27
+${exampleLines}
   node combined-scraper.js 24 25 32 34              # Run Agents 24, 25, 32, and 34 in order
 		`);
+	}
+
+	if (args.length === 0) {
+		printUsage();
 		process.exit(0);
 	}
 

@@ -4,32 +4,38 @@
 // node backend/scraper-agent-230.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 230;
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
-
-let totalScraped = 0;
-let totalSaved = 0;
 
 // Two searches: sales and lettings
 const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.humberts.com/search/page/",
-		// 182 properties / 12 per page = 16 pages (rounded up)
-		totalRecords: 182,
-		recordsPerPage: 12,
-		totalPages: 16,
-		isRental: false,
-		label: "FOR SALE",
-		suffix:
-			"/?country=GB&department=residential-sales&tenure&address_keyword&radius=25&commercial_for_sale_to_rent&property_type&minimum_bedrooms&minimum_price&maximum_price&lat&lng",
-	},
+	// {
+	// 	urlBase: "https://www.humberts.com/search/page/",
+	// 	// 182 properties / 12 per page = 16 pages (rounded up)
+	// 	totalRecords: 182,
+	// 	recordsPerPage: 12,
+	// 	totalPages: 16,
+	// 	isRental: false,
+	// 	label: "FOR SALE",
+	// 	suffix:
+	// 		"/?country=GB&department=residential-sales&tenure&address_keyword&radius=25&commercial_for_sale_to_rent&property_type&minimum_bedrooms&minimum_price&maximum_price&lat&lng",
+	// },
 	{
 		urlBase: "https://www.humberts.com/search/",
 		// 3 pages for lettings
@@ -93,7 +99,7 @@ async function scrapeHumberts() {
 
 								// Extract bedrooms, bathrooms, receptions from .room divs
 								const rooms = Array.from(el.querySelectorAll(".room-count")).map((s) =>
-									s.textContent.trim()
+									s.textContent.trim(),
 								);
 								const bedrooms = rooms[0] || null;
 								const bathrooms = rooms[1] || null;
@@ -122,8 +128,6 @@ async function scrapeHumberts() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let coords = { latitude: null, longitude: null };
-
 						const detailPage = await page.context().newPage();
 						try {
 							await detailPage.goto(property.link, {
@@ -132,64 +136,58 @@ async function scrapeHumberts() {
 							});
 							await detailPage.waitForTimeout(500);
 
-							// Extract latitude and longitude from script tag (JSON format)
-							const scriptCoords = await detailPage.evaluate(() => {
-								const scripts = Array.from(document.querySelectorAll("script"));
-								for (const script of scripts) {
-									const text = script.textContent || "";
-									// Look for GeoCoordinates JSON: "latitude":51.113699,"longitude":-0.015198
-									const latMatch = text.match(/"latitude"\s*:\s*([\-0-9.]+)/i);
-									const lngMatch = text.match(/"longitude"\s*:\s*([\-0-9.]+)/i);
-									if (latMatch && lngMatch) {
-										return {
-											latitude: parseFloat(latMatch[1]),
-											longitude: parseFloat(lngMatch[1]),
-										};
-									}
+							// Get HTML content for coordinate extraction
+							const htmlContent = await detailPage.content();
+
+							try {
+								const priceNum = property.price
+									? parseFloat(property.price.replace(/[^0-9.]/g, ""))
+									: null;
+
+								if (priceNum === null) {
+									log.warn(`No price found: ${property.title}`);
+									return;
 								}
-								return null;
-							});
-							if (scriptCoords && scriptCoords.latitude && scriptCoords.longitude) {
-								coords.latitude = scriptCoords.latitude;
-								coords.longitude = scriptCoords.longitude;
-								console.log(`  📍 Found script coords: ${coords.latitude}, ${coords.longitude}`);
+
+								const result = await updatePriceByPropertyURLOptimized(
+									property.link.trim(),
+									priceNum,
+									property.title,
+									property.bedrooms,
+									AGENT_ID,
+									isRental,
+								);
+
+								if (result.updated) {
+									stats.totalSaved++;
+								}
+
+								if (!result.isExisting && !result.error) {
+									await processPropertyWithCoordinates(
+										property.link,
+										priceNum,
+										property.title,
+										property.bedrooms || null,
+										AGENT_ID,
+										isRental,
+										htmlContent,
+									);
+								}
+
+								const priceDisplay = formatPriceUk(priceNum);
+								console.log(`✅ ${property.title} - ${priceDisplay}`);
+								stats.totalScraped++;
+								if (isRental) stats.savedRentals++;
+								else stats.savedSales++;
+							} catch (dbErr) {
+								console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 							}
 						} catch (err) {
 							// ignore
 						} finally {
 							await detailPage.close();
 						}
-
-						try {
-							const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-							const priceNum = parseFloat(priceClean);
-
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude
-							);
-
-							totalSaved++;
-							totalScraped++;
-
-							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
-							if (coords.latitude && coords.longitude) {
-								console.log(
-									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`
-								);
-							} else {
-								console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
-							}
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
-						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 200));
@@ -216,12 +214,14 @@ async function scrapeHumberts() {
 		}
 
 		await crawler.addRequests(requests);
-		await crawler.run();
 	}
 
+	await crawler.run();
+
 	console.log(
-		`\n✅ Completed Humberts - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Humberts - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 (async () => {

@@ -1,0 +1,9 @@
+{
+	"id": "nPBUVYsLCn3poVB",
+	"json": "{\"id\":\"nPBUVYsLCn3poVB\",\"url\":\"https://www.chestertons.co.uk/properties/sales/status-available?page=15\",\"loadedUrl\":\"https://www.chestertons.co.uk/properties/sales/status-available?page=15\",\"uniqueKey\":\"https://www.chestertons.co.uk/properties/sales/status-available?page=15\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":15,\"isRental\":false,\"label\":\"SALES_PAGE_15\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-02-20T13:23:49.099Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.chestertons.co.uk/properties/sales/status-available?page=15",
+	"url": "https://www.chestertons.co.uk/properties/sales/status-available?page=15"
+}

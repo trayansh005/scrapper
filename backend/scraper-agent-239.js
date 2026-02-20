@@ -4,61 +4,134 @@
 // node backend/scraper-agent-239.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { parsePrice } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 239;
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
-let totalScraped = 0;
-let totalSaved = 0;
+const processedUrls = new Set();
 
-// 124 records for sale, 10 per page => 13 pages
-// 12 records for letting, 10 per page => 2 pages
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(500);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 30000,
+		});
+
+		const htmlContent = await detailPage.content();
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+		);
+
+		stats.totalSaved++;
+		stats.totalScraped++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+	} catch (error) {
+		console.error(` Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// Dynamic pagination - no fixed page count, continues until no properties found
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.hklhome.co.uk/search/",
-	// 	suffix:
-	// 		".html?showstc=off&showsold=off&instruction_type=Sale&ajax_polygon=&minprice=&maxprice=&property_type=",
-	// 	totalRecords: 124,
-	// 	recordsPerPage: 10,
-	// 	totalPages: Math.ceil(124 / 10),
-	// 	isRental: false,
-	// 	label: "FOR SALE",
-	// },
+	{
+		urlBase: "https://www.hklhome.co.uk/search/",
+		suffix:
+			".html?showstc=off&showsold=off&instruction_type=Sale&ajax_polygon=&minprice=&maxprice=&property_type=",
+		isRental: false,
+		label: "FOR SALE",
+		typeIndex: 0,
+	},
 	{
 		urlBase: "https://www.hklhome.co.uk/search/",
 		suffix:
 			".html?showstc=off&showsold=off&instruction_type=Letting&ajax_polygon=&minprice=&maxprice=&property_type=",
-		totalRecords: 12,
-		recordsPerPage: 10,
-		totalPages: Math.ceil(12 / 10),
 		isRental: true,
 		label: "FOR LETTING",
+		typeIndex: 1,
 	},
 ];
+
+const pagePropertyCount = {}; // Track properties found per page per type
 
 async function scrapeHKLHome() {
 	console.log(`\n🚀 Starting HKL Home scraper (Agent ${AGENT_ID})...\n`);
 
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
 	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
+		maxConcurrency: 3,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
 
 		launchContext: {
 			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				browserWSEndpoint,
 			},
 		},
 
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+			const { pageNum, isRental, label, typeIndex } = request.userData;
 
 			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
@@ -114,7 +187,7 @@ async function scrapeHKLHome() {
 								// Extract bedrooms
 								let bedrooms = null;
 								const bedroomIcon = card.querySelector(
-									'img[src*="bed-purple"], img[alt="bedrooms"]'
+									'img[src*="bed-purple"], img[alt="bedrooms"]',
 								);
 								if (bedroomIcon) {
 									// Get the next sibling text node or parent's text
@@ -130,18 +203,34 @@ async function scrapeHKLHome() {
 
 								return { link, title, price, bedrooms };
 							} catch (e) {
-								console.error("Error parsing property card:", e);
 								return null;
 							}
 						})
 						.filter((p) => p !== null);
 				} catch (err) {
-					console.error("Error in page evaluation:", err);
 					return [];
 				}
 			});
 
 			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			pagePropertyCount[`${typeIndex}-${pageNum}`] = properties.length;
+
+			// If properties found, enqueue next page
+			if (properties.length > 0) {
+				const propertyType = PROPERTY_TYPES[typeIndex];
+				const url = `${propertyType.urlBase}${pageNum + 1}${propertyType.suffix}`;
+				await crawler.addRequests([
+					{
+						url,
+						userData: {
+							pageNum: pageNum + 1,
+							isRental,
+							label,
+							typeIndex,
+						},
+					},
+				]);
+			}
 
 			const batchSize = 5;
 			for (let i = 0; i < properties.length; i += batchSize) {
@@ -151,86 +240,50 @@ async function scrapeHKLHome() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let coords = { latitude: null, longitude: null };
-
-						const detailPage = await page.context().newPage();
-						try {
-							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							await detailPage.waitForTimeout(800);
-
-							// Wait for iframe to load
-							await detailPage
-								.waitForSelector('iframe[src*="google.com/maps"]', { timeout: 7000 })
-								.catch(() => null);
-
-							// Extract coordinates from Google Maps iframe
-							const iframeCoords = await detailPage.evaluate(() => {
-								try {
-									const iframe = document.querySelector('iframe[src*="google.com/maps"]');
-									if (!iframe) return null;
-
-									const src = iframe.getAttribute("src");
-									if (!src) return null;
-
-									// Extract lat/lng from URL format: ?q=51.5359802246093750%2C-0.6448362469673157
-									const match = src.match(/[?&]q=([-0-9.]+)%2C([-0-9.]+)/);
-									if (match) {
-										return {
-											latitude: parseFloat(match[1]),
-											longitude: parseFloat(match[2]),
-										};
-									}
-
-									return null;
-								} catch (e) {
-									return null;
-								}
-							});
-
-							if (iframeCoords && iframeCoords.latitude && iframeCoords.longitude) {
-								coords.latitude = iframeCoords.latitude;
-								coords.longitude = iframeCoords.longitude;
-								console.log(`  📍 Found coords: ${coords.latitude}, ${coords.longitude}`);
-							}
-						} catch (err) {
-							console.error(`  ⚠️ Error loading detail page: ${err.message}`);
-						} finally {
-							await detailPage.close();
+						if (processedUrls.has(property.link)) {
+							log.info(` Skipping duplicate: ${property.title}`);
+							return;
 						}
+						processedUrls.add(property.link);
 
 						try {
-							const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-							const priceNum = parseFloat(priceClean);
+							const priceNum = parsePrice(property.price);
 
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
+							if (priceNum === null) {
+								log.warn(` No price found: ${property.title}`);
+								return;
+							}
+
+							const result = await updatePriceByPropertyURLOptimized(
+								property.link.trim(),
+								priceNum,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
 							);
 
-							totalSaved++;
-							totalScraped++;
-
-							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
-							if (coords.latitude && coords.longitude) {
-								console.log(
-									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`
-								);
-							} else {
-								console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
+							if (result.updated) {
+								stats.totalSaved++;
 							}
+
+							if (!result.isExisting && !result.error) {
+								await scrapePropertyDetail(
+									page.context(),
+									{
+										...property,
+										price: priceNum,
+									},
+									isRental,
+								);
+							}
+
+							const priceDisplay = formatPriceUk(priceNum);
+							console.log(`✅ ${property.title} - ${priceDisplay}`);
 						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+							console.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 200));
@@ -243,24 +296,29 @@ async function scrapeHKLHome() {
 	});
 
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		console.log(`🏠 Starting ${propertyType.label}`);
+		const url = `${propertyType.urlBase}1${propertyType.suffix}`;
 
-		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url = `${propertyType.urlBase}${pg}${propertyType.suffix}`;
-			requests.push({
+		const requests = [
+			{
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
-		}
-
+				userData: {
+					pageNum: 1,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+					typeIndex: propertyType.typeIndex,
+				},
+			},
+		];
 		await crawler.addRequests(requests);
-		await crawler.run();
 	}
 
+	await crawler.run();
+
 	console.log(
-		`\n✅ Completed HKL Home scraper - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed HKL Home scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 (async () => {

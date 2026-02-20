@@ -1,17 +1,16 @@
-// Hamptons lettings scraper using Playwright with Crawlee
+﻿// Hamptons scraper using Playwright with Crawlee
 // Agent ID: 108
-//
+// Website: hamptons.co.uk
 // Usage:
 // node backend/scraper-agent-108.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
-	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -22,18 +21,6 @@ const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
 };
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parsePrice(priceText) {
-	return formatPriceUk(priceText);
-}
 
 // ============================================================================
 // BROWSERLESS SETUP
@@ -51,8 +38,6 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
 	const detailPage = await browserContext.newPage();
 
 	try {
@@ -68,11 +53,46 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 30000,
+			timeout: 60000,
 		});
 
-		const htmlContent = await detailPage.content();
+		// Important: Hamptons might need a small wait for Homeflow object to be populated
+		await detailPage.waitForTimeout(2000);
 
+		// Extract coordinates directly from page context for better accuracy
+		const detailData = await detailPage.evaluate(() => {
+			let lat = null;
+			let lng = null;
+
+			// Priority 1: Homeflow object (most accurate)
+			if (typeof Homeflow !== "undefined" && Homeflow.get) {
+				const prop = Homeflow.get("property");
+				if (prop && prop.lat && prop.lng) {
+					lat = prop.lat;
+					lng = prop.lng;
+				}
+			}
+
+			// Priority 2: GA4 property object (sometimes buggy on Hamptons)
+			if ((lat === null || lng === null) && typeof propertyObject !== "undefined") {
+				lat = parseFloat(propertyObject.ga4_property_latitude);
+				lng = parseFloat(propertyObject.ga4_property_longitude);
+
+				// If they are exactly the same and not null, it might be a bug
+				if (lat === lng && lat !== null) {
+					lat = null;
+					lng = null;
+				}
+			}
+
+			return {
+				lat,
+				lng,
+				html: document.documentElement.innerHTML,
+			};
+		});
+
+		// Save property to database
 		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
@@ -80,7 +100,9 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
-			htmlContent,
+			detailData.html,
+			detailData.lat,
+			detailData.lng,
 		);
 
 		stats.totalScraped++;
@@ -96,80 +118,102 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // REQUEST HANDLER
 // ============================================================================
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+async function handleListingPage({ page, request, crawler }) {
+	const { isRental, label, pageNumber } = request.userData;
+	console.log(`\n📍 Loading [${label}] Page ${pageNumber}: ${request.url}`);
 
-	await sleep(1200);
+	try {
+		await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+		await page.waitForTimeout(2000);
 
-	await page.waitForTimeout(2000);
-	await page.waitForSelector("article.property-card", { timeout: 20000 }).catch(() => {
-		console.log(` No property cards found on page ${pageNum}`);
-	});
+		// Wait for property cards
+		await page.waitForSelector("article.property-card", { timeout: 30000 }).catch(() => {
+			console.log(`   ⚠️ No properties found on page ${pageNumber}`);
+		});
 
-	const properties = await page.evaluate(() => {
-		const containers = Array.from(document.querySelectorAll("article.property-card"));
-		const map = new Map();
+		// Extract properties
+		const properties = await page.evaluate(() => {
+			const containers = Array.from(document.querySelectorAll("article.property-card"));
+			const items = [];
 
-		for (const container of containers) {
-			const linkEl = container.querySelector("a.property-card__link");
-			const rawHref = linkEl ? linkEl.getAttribute("href") : null;
-			const link = rawHref ? new URL(rawHref, "https://www.hamptons.co.uk").href : null;
+			for (const container of containers) {
+				const linkEl = container.querySelector("a.property-card__link");
+				const rawHref = linkEl ? linkEl.getAttribute("href") : null;
+				const link = rawHref ? new URL(rawHref, window.location.origin).href : null;
 
-			const propId = linkEl ? linkEl.getAttribute("data-property-id") || null : null;
-			const priceText = container.querySelector(".property-card__price")?.textContent?.trim() || "";
-			const title = container.querySelector(".property-card__title")?.textContent?.trim() || "";
+				const priceText =
+					container.querySelector(".property-card__price")?.textContent?.trim() || "";
+				const title = container.querySelector(".property-card__title")?.textContent?.trim() || "";
+				const statusText = container.textContent || "";
 
-			let bedrooms = null;
-			const bedEl = container.querySelector(".property-card__bedbath .property-card__bedbath-item");
-			if (bedEl) {
-				const bedText = bedEl.textContent?.trim() || "";
-				const m = bedText.match(/(\d+)/);
-				if (m) bedrooms = parseInt(m[1]);
+				let bedrooms = null;
+				const bedEl = container.querySelector(
+					".property-card__bedbath .property-card__bedbath-item",
+				);
+				if (bedEl) {
+					const m = bedEl.textContent.match(/(\d+)/);
+					if (m) bedrooms = parseInt(m[1]);
+				}
+
+				if (link && priceText) {
+					items.push({ link, title, priceText, bedrooms, statusText });
+				}
 			}
+			return items;
+		});
 
-			const key = propId || link;
-			if (!key) continue;
-
-			const statusText = container.textContent || "";
-
-			if (!map.has(key)) {
-				map.set(key, { id: propId, link, title, priceText, bedrooms, statusText });
+		// De-duplicate properties on the same page (Hamptons often repeats featured properties)
+		const uniqueProperties = [];
+		const seenLinks = new Set();
+		for (const p of properties) {
+			if (!seenLinks.has(p.link)) {
+				seenLinks.add(p.link);
+				uniqueProperties.push(p);
 			}
 		}
 
-		return Array.from(map.values());
-	});
-
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
-
-	for (const property of properties) {
-		if (!property.link) continue;
-		if (isSoldProperty(property.statusText || "")) continue;
-
-		const price = parsePrice(property.priceText);
-		if (!price) continue;
-
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
+		console.log(
+			`   ✅ Found ${uniqueProperties.length} unique properties on [${label}] Page ${pageNumber}`,
 		);
 
-		if (result.updated) {
-			stats.totalSaved++;
+		for (const property of uniqueProperties) {
+			if (isSoldProperty(property.statusText || "")) {
+				console.log(`   ⏭️ Skipping sold/let: ${property.title}`);
+				continue;
+			}
+
+			const price = parsePrice(property.priceText);
+			if (!price) {
+				console.log(`   ⚠️ Price not found for: ${property.title}`);
+				continue;
+			}
+
+			const updateResult = await updatePriceByPropertyURLOptimized(
+				property.link,
+				price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			if (updateResult.updated) {
+				stats.totalSaved++;
+			}
+
+			if (!updateResult.isExisting && !updateResult.error) {
+				console.log(`   🆕 New property: ${property.title} - £${price}`);
+				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				await new Promise((r) => setTimeout(r, 2000));
+			} else {
+				// Don't log if it was an existing property to avoid noise
+			}
 		}
 
-		if (!result.isExisting && !result.error) {
-			console.log(` Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-			await sleep(1000);
-		}
-
-		await sleep(800);
+		// Add delay between listing pages to avoid 429
+		await new Promise((r) => setTimeout(r, 3000));
+	} catch (error) {
+		console.error(`❌ Error in handleListingPage: ${error.message}`);
 	}
 }
 
@@ -201,69 +245,46 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeHamptons() {
-	console.log(`\n Starting Hamptons scraper (Agent ${AGENT_ID})...\n`);
-
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-
-	// Config
-	const totalSalesPages = 213;
-	const totalLettingsPages = 91;
+	console.log(` Starting Hamptons Scraper (Agent ${AGENT_ID})...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [];
+	const PROPERTY_TYPES = [
+		{
+			baseUrl: "https://www.hamptons.co.uk/properties/sales/status-available",
+			isRental: false,
+			label: "SALES",
+			totalPages: 213,
+		},
+		{
+			baseUrl: "https://www.hamptons.co.uk/properties/lettings/status-available",
+			isRental: true,
+			label: "RENTALS",
+			totalPages: 91,
+		},
+	];
 
-	// Build Sales requests
-	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
-		const url =
-			p === 1
-				? "https://www.hamptons.co.uk/properties/sales/status-available"
-				: `https://www.hamptons.co.uk/properties/sales/status-available/page-${p}`;
-
-		allRequests.push({
-			url,
-			userData: {
-				pageNum: p,
-				isRental: false,
-				label: `HAMPTONS_SALES_${p}`,
-			},
-		});
-	}
-
-	// Build Lettings requests
-	if (startPage === 1) {
-		for (let p = 1; p <= totalLettingsPages; p++) {
-			const url =
-				p === 1
-					? "https://www.hamptons.co.uk/properties/lettings/status-available"
-					: `https://www.hamptons.co.uk/properties/lettings/status-available/page-${p}`;
-
-			allRequests.push({
+	for (const type of PROPERTY_TYPES) {
+		const requests = [];
+		for (let p = 1; p <= type.totalPages; p++) {
+			const url = p === 1 ? type.baseUrl : `${type.baseUrl}/page-${p}`;
+			requests.push({
 				url,
 				userData: {
-					pageNum: p,
-					isRental: true,
-					label: `HAMPTONS_LETTINGS_${p}`,
+					pageNumber: p,
+					isRental: type.isRental,
+					label: type.label,
 				},
 			});
 		}
+		await crawler.addRequests(requests);
 	}
 
-	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
-		return;
-	}
-
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
 	await crawler.run();
 
 	console.log(
-		`\n Completed Hamptons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`\n Finished Hamptons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 
@@ -275,7 +296,6 @@ async function scrapeHamptons() {
 	try {
 		await scrapeHamptons();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
 		process.exit(0);
 	} catch (err) {
 		console.error(" Fatal error:", err?.message || err);

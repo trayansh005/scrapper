@@ -1,229 +1,303 @@
 // Bairstow Eves scraper using Playwright with Crawlee
 // Agent ID: 13
-//
 // Usage:
-// node backend/scraper-agent-13.js [startPage]
-// Example: node backend/scraper-agent-13.js 20 (starts from page 20)
+// node backend/scraper-agent-13.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
-const { logMemoryUsage } = require("./lib/scraper-utils.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
-// Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 13;
-let totalScraped = 0;
-let totalSaved = 0;
 
-// Configuration for sales and rentals
-const PROPERTY_TYPES = [
-	{
-		urlPath: "properties/sales/status-available/most-recent-first",
-		totalRecords: 2825,
-		recordsPerPage: 50,
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		urlPath: "properties/lettings/status-available/most-recent-first",
-		totalRecords: 634,
-		recordsPerPage: 50,
-		isRental: true,
-		label: "LETTINGS",
-	},
-];
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
 
-async function scrapeBairstowEves() {
-	console.log(`\n🚀 Starting Bairstow Eves scraper (Agent ${AGENT_ID})...\n`);
-	logMemoryUsage("START");
+const processedUrls = new Set();
 
-	// Browserless configuration
-	const browserWSEndpoint =
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatPriceDisplay(price, isRental) {
+	if (!price) return isRental ? "£0 pcm" : "£0";
+	return `£${price}${isRental ? " pcm" : ""}`;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
 		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
 
-	console.log(`🌐 Connecting to browserless at: ${browserWSEndpoint.split("?")[0]}`);
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1, // Process one page at a time
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(700);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		});
+
+		await detailPage.waitForTimeout(1500);
+
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
+	} catch (error) {
+		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+
+	try {
+		await page.waitForSelector(".card", { timeout: 15000 });
+	} catch (e) {
+		console.log(` Listing container not found on page ${pageNum}`);
+	}
+
+	const properties = await page.evaluate(() => {
+		try {
+			const results = [];
+			const seenLinks = new Set();
+
+			const cards = Array.from(document.querySelectorAll(".card"));
+
+			for (const card of cards) {
+				const linkEl = card.querySelector("a.card__link");
+				let href = linkEl?.getAttribute("href");
+				if (!href) continue;
+
+				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
+				if (seenLinks.has(link)) continue;
+				seenLinks.add(link);
+
+				const title = card.querySelector(".card__text-content")?.textContent?.trim() || "Property";
+				const priceRaw = card.querySelector(".card__heading")?.textContent?.trim() || "";
+
+				const bedEl = card.querySelector(".card-content__spec-list-number");
+				const bedText = bedEl ? bedEl.textContent.trim() : "";
+				const statusText = card.innerText || "";
+
+				results.push({ link, title, priceRaw, bedText, statusText });
+			}
+			return results;
+		} catch (e) {
+			return [];
+		}
+	});
+
+	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		if (!property.link) continue;
+
+		if (isSoldProperty(property.statusText || "")) continue;
+
+		if (processedUrls.has(property.link)) continue;
+		processedUrls.add(property.link);
+
+		const price = formatPriceUk(property.priceRaw);
+		let bedrooms = null;
+		const bedMatch = property.bedText.match(/\d+/);
+		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+
+		if (!price) {
+			console.log(` Skipping update (no price found): ${property.link}`);
+			continue;
+		}
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			price,
+			property.title,
+			bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			const detail = await scrapePropertyDetail(page.context(), property);
+
+			await updatePriceByPropertyURL(
+				property.link.trim(),
+				price,
+				property.title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+				detail?.coords?.latitude || null,
+				detail?.coords?.longitude || null,
+			);
+
+			stats.totalSaved++;
+			stats.totalScraped++;
+			if (isRental) stats.savedRentals++;
+			else stats.savedSales++;
+		}
+
+		const categoryLabel = isRental ? "LETTINGS" : "SALES";
+		console.log(
+			` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+				price,
+				isRental,
+			)} - ${property.link}`,
+		);
+
+		await sleep(500);
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
-
-			// Processing listing page
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			// Wait for properties to load
-			await page.waitForTimeout(2000); // Reduced from 3000ms
-			await page.waitForSelector(".card", { timeout: 30000 }).catch(() => {
-				console.log(`⚠️ No properties found on page ${pageNum}`);
-			});
-
-			// Extract all properties from the page
-			const properties = await page.$$eval(".card", (cards) => {
-				const results = [];
-
-				const formatPrice = (raw) => {
-					if (!raw) return null;
-					const digits = raw.replace(/[^0-9]/g, "");
-					if (!digits) return null;
-					return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-				};
-
-				cards.forEach((card) => {
-					try {
-						// Extract link from a.card__link
-						const linkEl = card.querySelector("a.card__link");
-						const link = linkEl ? linkEl.getAttribute("href") : null;
-
-						// Extract title from .card__text-content
-						const titleEl = card.querySelector(".card__text-content");
-						const title = titleEl ? titleEl.textContent.trim() : null;
-
-						// Extract bedrooms from .card-content__spec-list-number (first occurrence)
-						const bedroomsEl = card.querySelector(".card-content__spec-list-number");
-						let bedrooms = null;
-						if (bedroomsEl) {
-							const bedroomsText = bedroomsEl.textContent.trim();
-							const bedroomsMatch = bedroomsText.match(/\d+/);
-							if (bedroomsMatch) {
-								bedrooms = bedroomsMatch[0];
-							}
-						}
-
-						// Extract price from .card__heading
-						const priceEl = card.querySelector(".card__heading");
-						let price = null;
-						if (priceEl) {
-							const priceText = priceEl.textContent.trim();
-							price = formatPrice(priceText);
-						}
-
-						if (link && price && title) {
-							results.push({
-								link: link.startsWith("http") ? link : `https://www.bairstoweves.co.uk${link}`,
-								title: title,
-								price,
-								bedrooms,
-							});
-						}
-					} catch (err) {
-						// Skip this card if error
-					}
-				});
-
-				return results;
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			// Process each property one by one
-			for (let i = 0; i < properties.length; i++) {
-				const property = properties[i];
-
-				// Navigate to detail page directly
-				try {
-					await page.goto(property.link, { waitUntil: "domcontentloaded", timeout: 30000 });
-					await page.waitForTimeout(1000);
-
-					// Extract coordinates using helper function
-					const htmlContent = await page.content();
-					const coords = await extractCoordinatesFromHTML(htmlContent);
-
-					await updatePriceByPropertyURL(
-						property.link,
-						property.price,
-						property.title,
-						property.bedrooms,
-						AGENT_ID,
-						isRental,
-						coords.latitude,
-						coords.longitude,
-					);
-
-					totalSaved++;
-					totalScraped++;
-
-					if (coords.latitude && coords.longitude) {
-						console.log(
-							`✅ ${property.title} - £${property.price} - ${coords.latitude}, ${coords.longitude}`,
-						);
-					} else {
-						console.log(`✅ ${property.title} - £${property.price} - No coords`);
-					}
-				} catch (error) {
-					console.error(`❌ Error processing ${property.link}: ${error.message}`);
-				}
-
-				// Delay between properties
-				await new Promise((resolve) => setTimeout(resolve, 500));
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			console.error(` Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Get starting page from command line argument (default to 1)
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeBairstowEves() {
+	console.log(`\n Starting Bairstow Eves scraper (Agent ${AGENT_ID})...\n`);
+
 	const args = process.argv.slice(2);
-	const startPageArg = args.length > 0 ? parseInt(args[0]) : 1;
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
-	// Process property types one by one
-	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
-		console.log(
-			`🏠 Processing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)\n`,
-		);
+	const PROPERTY_TYPES = [
+		{
+			urlPath: "properties/sales/status-available/most-recent-first",
+			totalRecords: 2825,
+			recordsPerPage: 50,
+			isRental: false,
+			label: "SALES",
+		},
+		{
+			urlPath: "properties/lettings/status-available/most-recent-first",
+			totalRecords: 634,
+			recordsPerPage: 50,
+			isRental: true,
+			label: "LETTINGS",
+		},
+	];
 
-		// Add all listing pages to the queue (starting from specified page)
-		const listingRequests = [];
-		const startPage =
-			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages ? startPageArg : 1;
-		for (let page = startPage; page <= totalPages; page++) {
-			listingRequests.push({
-				url: `https://www.bairstoweves.co.uk/${propertyType.urlPath}/page-${page}#/`,
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const allRequests = [];
+
+	for (const type of PROPERTY_TYPES) {
+		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+		const effectiveStartPage = Math.max(1, startPage);
+
+		for (let pg = effectiveStartPage; pg <= totalPages; pg++) {
+			allRequests.push({
+				url: `https://www.bairstoweves.co.uk/${type.urlPath}/page-${pg}/#/`,
 				userData: {
-					pageNum: page,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
+					pageNum: pg,
+					isRental: type.isRental,
+					label: `${type.label}_PAGE_${pg}`,
 				},
 			});
 		}
-
-		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
-
-		await crawler.addRequests(listingRequests);
-		await crawler.run();
-		logMemoryUsage(`After ${propertyType.label}`);
 	}
 
+	if (allRequests.length === 0) {
+		console.log(" No pages to scrape with current arguments.");
+		return;
+	}
+
+	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.addRequests(allRequests);
+	await crawler.run();
+
 	console.log(
-		`\n✅ Completed Bairstow Eves - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
+		`\n Completed Bairstow Eves - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	logMemoryUsage("END");
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
-// Main execution
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
 (async () => {
 	try {
 		await scrapeBairstowEves();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		console.log("\n All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		console.error(" Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

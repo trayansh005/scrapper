@@ -145,23 +145,29 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		});
 
 		const htmlContent = await detailPage.content();
-		
+
 		const coords = await detailPage.evaluate(() => {
 			try {
-				// Search for map wrapper with geo attribute
-				const geoEl = document.querySelector("#mapWrap[geo]") || document.querySelector("[geo]");
+				const geoEl = document.querySelector("#mapWrap[geo]");
 				if (!geoEl) return null;
 
-				const geoAttr = geoEl.getAttribute("geo");
+				let geoAttr = geoEl.getAttribute("geo");
 				if (!geoAttr) return null;
 
-				// Attribute often contains JSON-encoded coordinates
-				const geoData = JSON.parse(geoAttr);
+				// Decode common HTML entities so JSON.parse works reliably.
+				geoAttr = geoAttr
+					.replace(/&quot;/g, '"')
+					.replace(/&amp;quot;/g, '"')
+					.replace(/&amp;/g, "&");
 
-				if (geoData && (geoData.lat || geoData.latitude) && (geoData.lon || geoData.longitude)) {
-					return { 
-						lat: parseFloat(geoData.lat || geoData.latitude), 
-						lon: parseFloat(geoData.lon || geoData.longitude) 
+				const geoData = JSON.parse(geoAttr);
+				const latValue = geoData?.lat ?? geoData?.latitude;
+				const lonValue = geoData?.lon ?? geoData?.lng ?? geoData?.longitude;
+
+				if (latValue != null && lonValue != null) {
+					return {
+						lat: parseFloat(latValue),
+						lon: parseFloat(lonValue),
 					};
 				}
 			} catch (e) {}
@@ -177,7 +183,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			isRental,
 			htmlContent,
 			coords ? coords.lat : null,
-			coords ? coords.lon : null
+			coords ? coords.lon : null,
 		);
 
 		stats.totalScraped++;
@@ -263,9 +269,9 @@ async function scrapeNestseekers() {
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-	
-	const totalSalesPages = 15; 
-	const totalRentalPages = 10; 
+
+	const totalSalesPages = 15;
+	const totalRentalPages = 10;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
@@ -275,7 +281,10 @@ async function scrapeNestseekers() {
 	// Sales
 	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
 		allRequests.push({
-			url: p === 1 ? "https://www.nestseekers.com/Sales/united-kingdom/" : `https://www.nestseekers.com/Sales/united-kingdom/?page=${p}`,
+			url:
+				p === 1
+					? "https://www.nestseekers.com/Sales/united-kingdom/"
+					: `https://www.nestseekers.com/Sales/united-kingdom/?page=${p}`,
 			userData: { pageNum: p, isRental: false, label: "SALES" },
 		});
 	}
@@ -284,7 +293,10 @@ async function scrapeNestseekers() {
 	if (startPage === 1) {
 		for (let p = 1; p <= totalRentalPages; p++) {
 			allRequests.push({
-				url: p === 1 ? "https://www.nestseekers.com/Rentals/united-kingdom/" : `https://www.nestseekers.com/Rentals/united-kingdom/?page=${p}`,
+				url:
+					p === 1
+						? "https://www.nestseekers.com/Rentals/united-kingdom/"
+						: `https://www.nestseekers.com/Rentals/united-kingdom/?page=${p}`,
 				userData: { pageNum: p, isRental: true, label: "RENTALS" },
 			});
 		}

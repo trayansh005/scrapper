@@ -1,443 +1,305 @@
 // Sequence Home scraper using Playwright with Crawlee
 // Agent ID: 15
-//
 // Usage:
-// node backend/scraper-agent-15.js [startPage]
-// Example: node backend/scraper-agent-15.js 10 (starts from page 10)
+// node backend/scraper-agent-15.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
-const { logMemoryUsage } = require("./lib/scraper-utils.js");
-const {
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
-} = require("./lib/db-helpers.js");
-const { EventEmitter } = require("events");
 
-// Increase max listeners to prevent memory leak warnings
-EventEmitter.defaultMaxListeners = 100;
-
-// Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 15;
-let totalScraped = 0;
-let totalSaved = 0;
 
-// Small helper utilities to avoid rate-limiting
-const userAgents = [
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
-	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-];
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+const processedUrls = new Set();
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 function sleep(ms) {
-	return new Promise((res) => setTimeout(res, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function randBetween(min, max) {
-	return Math.floor(Math.random() * (max - min + 1)) + min;
+function formatPriceDisplay(price, isRental) {
+	if (!price) return isRental ? "£0 pcm" : "£0";
+	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
 }
 
-function normalizeBedrooms(value) {
-	if (!value) return null;
-	const match = String(value).match(/\d+/);
-	return match ? match[0] : null;
-}
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
 
-// Start page
-const START_PAGE = 1;
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(700);
 
-// Configuration for Sequence Home
-const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.sequencehome.co.uk/properties/sales",
-		isRental: false,
-		label: "SALES",
-		totalRecords: 16362,
-		recordsPerPage: 10,
-	},
-	{
-		urlBase: "https://www.sequencehome.co.uk/properties/lettings",
-		isRental: true,
-		label: "LETTINGS",
-		totalRecords: 1907,
-		recordsPerPage: 10,
-	},
-];
+	const detailPage = await browserContext.newPage();
 
-async function scrapeSequenceHome() {
-	console.log(`\n🚀 Starting Sequence Home scraper (Agent ${AGENT_ID})...\n`);
-	logMemoryUsage("START");
-
-	// Create a unified Playwright crawler that handles both listing and detail pages
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 120,
-
-		launchContext: {
-			launchOptions: {
-				headless: true,
-			},
-		},
-
-		preNavigationHooks: [
-			async ({ page }) => {
-				await page.route("**/*", (route) => {
-					const resourceType = route.request().resourceType();
-					if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-						route.abort();
-					} else {
-						route.continue();
-					}
-				});
-			},
-		],
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label, property, isDetailPage } = request.userData || {};
-
-			const scrapeDetailPage = async (browserContext, prop) => {
-				await sleep(1000);
-				const detailPage = await browserContext.newPage();
-				try {
-					try {
-						const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-						await detailPage.setUserAgent(ua);
-						await detailPage.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-					} catch (e) {}
-
-					await sleep(randBetween(800, 1800));
-					const resp = await detailPage.goto(prop.link, {
-						waitUntil: "domcontentloaded",
-						timeout: 30000,
-					});
-
-					if (resp?.status?.() === 403) {
-						console.warn(`⚠️ 403 on ${prop.link} — backing off`);
-						await sleep(45000);
-						throw new Error("403");
-					}
-
-					if (resp?.status?.() === 429) {
-						console.warn(`⚠️ 429 on ${prop.link} — backing off`);
-						await sleep(60000);
-						throw new Error("429");
-					}
-
-					await detailPage.waitForTimeout(1000);
-					const htmlContent = await detailPage.content();
-
-					await processPropertyWithCoordinates(
-						prop.link,
-						prop.price,
-						prop.title,
-						prop.bedrooms || null,
-						AGENT_ID,
-						prop.isRental,
-						htmlContent,
-					);
-
-					totalScraped++;
-					totalSaved++;
-
-					const coords = await extractCoordinatesFromHTML(htmlContent);
-					const coordsStr =
-						coords.latitude && coords.longitude
-							? `${coords.latitude}, ${coords.longitude}`
-							: "No coords";
-					console.log(`✅ ${prop.title} - ${formatPrice(prop.price)} - ${coordsStr}`);
-				} finally {
-					await detailPage.close();
-				}
-			};
-
-			// Handle detail pages
-			if (isDetailPage) {
-				// Add 1 second delay between each detail page visit
-				await sleep(1000);
-
-				try {
-					const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-					await page.setUserAgent(ua);
-					await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-				} catch (e) {}
-
-				await sleep(randBetween(800, 1800));
-				const resp = await page.goto(request.url, {
-					waitUntil: "domcontentloaded",
-					timeout: 30000,
-				});
-
-				if (resp?.status?.() === 403) {
-					console.warn(`⚠️ 403 on ${request.url} — backing off`);
-					await sleep(45000);
-					throw new Error("403");
-				}
-
-				if (resp?.status?.() === 429) {
-					console.warn(`⚠️ 429 on ${request.url} — backing off`);
-					await sleep(60000);
-					throw new Error("429");
-				}
-
-				await page.waitForTimeout(1000);
-
-				// Extract coordinates using helper function
-				const htmlContent = await page.content();
-				const coords = await extractCoordinatesFromHTML(htmlContent);
-
-				// Use helper to process property with coordinates
-				await processPropertyWithCoordinates(
-					property.link,
-					property.price,
-					property.title,
-					property.bedrooms || null,
-					AGENT_ID,
-					property.isRental,
-					htmlContent,
-				);
-
-				totalScraped++;
-				totalSaved++;
-
-				const coordsStr =
-					coords.latitude && coords.longitude
-						? `${coords.latitude}, ${coords.longitude}`
-						: "No coords";
-				console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
-				return;
-			}
-
-			// Handle listing pages
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			try {
-				const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-				await page.setUserAgent(ua);
-				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-			} catch (e) {}
-
-			await sleep(randBetween(500, 1200));
-			const resp = await page.goto(request.url, {
-				waitUntil: "domcontentloaded",
-				timeout: 30000,
-			});
-
-			if (resp?.status?.() === 403) {
-				console.warn(`⚠️ 403 on ${request.url} — backing off`);
-				await sleep(45000);
-				throw new Error("403");
-			}
-
-			if (resp?.status?.() === 429) {
-				console.warn(`⚠️ 429 on ${request.url} — backing off`);
-				await sleep(60000);
-				throw new Error("429");
-			}
-
-			// Wait for property cards to load
-			await page.waitForTimeout(2000);
-
-			// Wait for the specific page container (page 1 often lacks data-page-no)
-			const containerSelector = `div[data-page-no="${pageNum}"]`;
-			if (pageNum === 1) {
-				try {
-					await page.waitForSelector(".property.list_block[data-property-id]", { timeout: 15000 });
-				} catch (e) {
-					console.log(`⚠️ No property cards found on page ${pageNum}`);
-					return;
-				}
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
 			} else {
-				try {
-					await page.waitForSelector(containerSelector, { timeout: 15000 });
-				} catch (e) {
-					console.log(`⚠️ Container ${containerSelector} not found on page ${pageNum}`);
-					// Fallback to generic selector check just in case, but warn
-					try {
-						await page.waitForSelector(".property.list_block[data-property-id]", {
-							timeout: 5000,
-						});
-						console.log(
-							`⚠️ Found properties but not in expected container. Proceeding with caution.`,
-						);
-					} catch (e2) {
-						console.log(`⚠️ No property cards found on page ${pageNum}`);
-						return;
-					}
-				}
+				route.continue();
 			}
+		});
 
-			// Extract properties using Playwright
-			const htmlContent = await page.content();
-			const $ = cheerio.load(htmlContent);
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		});
 
-			const properties = [];
+		await detailPage.waitForTimeout(1500);
 
-			// Scope to the specific page container to avoid duplicates
-			const containerSelector2 = `div[data-page-no="${pageNum}"]`;
-			let rootSelector = containerSelector2;
-			if ($(containerSelector2).length === 0) {
-				// Fallback to document if no specific container
-				rootSelector = "";
-			}
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
 
-			const selector = rootSelector
-				? `${rootSelector} .property.list_block[data-property-id]`
-				: ".property.list_block[data-property-id]";
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
+	} catch (error) {
+		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
+}
 
-			$(selector).each((index, element) => {
-				try {
-					const $card = $(element);
-					const linkEl = $card.find("a.property-list-link").first();
-					let href = linkEl.attr("href");
-					if (!href) return;
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
 
-					const link = href.startsWith("http") ? href : "https://www.sequencehome.co.uk" + href;
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
-					const title = $card.find(".address")?.text()?.trim() || "";
-					const priceText = $card.find(".price-value")?.text()?.trim() || "";
-					const cardText = $card.text() || "";
+	try {
+		await page.waitForSelector(".property-item-card, .property-card, .listing-item", {
+			timeout: 15000,
+		});
+	} catch (e) {
+		console.log(` Listing container not found on page ${pageNum}`);
+	}
 
-					if (isSoldProperty(cardText) || isSoldProperty(priceText)) return;
-
-					// Parse price
-					const priceMatch = priceText.match(/[0-9][0-9,\.\s]*/);
-					const priceClean = priceMatch ? priceMatch[0].replace(/[^0-9]/g, "") : "";
-					const price = priceClean ? parseInt(priceClean) : null;
-
-					let bedrooms = null;
-					const roomsEl = $card.find(".rooms");
-					if (roomsEl.length) {
-						bedrooms = roomsEl.text().trim();
-						if (!bedrooms && roomsEl.attr("title")) {
-							bedrooms = roomsEl.attr("title");
-						}
-					}
-					bedrooms = normalizeBedrooms(bedrooms);
-
-					if (link && title && price) {
-						properties.push({
-							link,
-							title,
-							price,
-							bedrooms,
-						});
-					}
-				} catch (e) {
-					// Skip this card
-				}
-			});
-
-			// Deduplicate properties based on link
-			const uniqueProperties = [];
+	const properties = await page.evaluate(() => {
+		try {
+			const results = [];
 			const seenLinks = new Set();
-			for (const p of properties) {
-				if (!seenLinks.has(p.link)) {
-					seenLinks.add(p.link);
-					uniqueProperties.push(p);
-				}
+
+			const cards = Array.from(
+				document.querySelectorAll(".property-item-card, .property-card, .listing-item"),
+			);
+
+			for (const card of cards) {
+				const linkEl = card.querySelector("a[href*='/properties/']");
+				let href = linkEl?.getAttribute("href");
+				if (!href) continue;
+
+				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
+				if (seenLinks.has(link)) continue;
+				seenLinks.add(link);
+
+				const title = card.querySelector(".property-title, h3")?.textContent?.trim() || "Property";
+				const priceRaw = card.querySelector(".property-price, .price")?.textContent?.trim() || "";
+				const bedText = card.querySelector(".property-beds, .beds")?.textContent?.trim() || "";
+				const statusText = card.innerText || "";
+
+				results.push({ link, title, priceRaw, bedText, statusText });
 			}
-
-			console.log(`🔗 Found ${uniqueProperties.length} properties on page ${pageNum}`);
-
-			// Process properties sequentially - update prices and scrape details for new ones
-			for (const p of uniqueProperties) {
-				// First check if property exists using optimized method
-				const result = await updatePriceByPropertyURLOptimized(
-					p.link,
-					p.price,
-					p.title,
-					p.bedrooms,
-					AGENT_ID,
-					isRental,
-				);
-
-				// If it's a new property, scrape detail page immediately
-				if (!result.isExisting && !result.error) {
-					console.log(`🆕 Scraping detail for new property: ${p.title}`);
-					await scrapeDetailPage(page.context(), { ...p, isRental });
-				}
-			}
-		},
-
-		failedRequestHandler({ request }) {
-			const { isDetailPage } = request.userData || {};
-			if (isDetailPage) {
-				console.error(`❌ Failed detail page: ${request.url}`);
-			} else {
-				console.error(`❌ Failed listing page: ${request.url}`);
-			}
-		},
+			return results;
+		} catch (e) {
+			return [];
+		}
 	});
 
-	// Get starting page from command line argument (default to START_PAGE)
+	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		if (!property.link) continue;
+
+		if (isSoldProperty(property.statusText || "")) continue;
+
+		if (processedUrls.has(property.link)) continue;
+		processedUrls.add(property.link);
+
+		const price = formatPriceUk(property.priceRaw);
+		let bedrooms = null;
+		const bedMatch = property.bedText.match(/\d+/);
+		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+
+		if (!price) {
+			console.log(` Skipping update (no price found): ${property.link}`);
+			continue;
+		}
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			price,
+			property.title,
+			bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			const detail = await scrapePropertyDetail(page.context(), property);
+
+			await updatePriceByPropertyURL(
+				property.link.trim(),
+				price,
+				property.title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+				detail?.coords?.latitude || null,
+				detail?.coords?.longitude || null,
+			);
+
+			stats.totalSaved++;
+			stats.totalScraped++;
+			if (isRental) stats.savedRentals++;
+			else stats.savedSales++;
+		}
+
+		const categoryLabel = isRental ? "LETTINGS" : "SALES";
+		console.log(
+			` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+				price,
+				isRental,
+			)} - ${property.link}`,
+		);
+
+		await sleep(500);
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			console.error(` Failed listing page: ${request.url}`);
+		},
+	});
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeSequenceHome() {
+	console.log(`\n Starting Sequence Home scraper (Agent ${AGENT_ID})...\n`);
+
 	const args = process.argv.slice(2);
-	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
-	// Process pages per property type
-	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages =
-			propertyType.totalRecords && propertyType.recordsPerPage
-				? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
-				: 1;
-		console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
-		const startPage =
-			!isNaN(startPageArg) && startPageArg > 0 && startPageArg <= totalPages
-				? startPageArg
-				: Math.max(1, START_PAGE);
+	const PROPERTY_TYPES = [
+		{
+			urlBase: "https://www.sequencehome.co.uk/properties/sales",
+			isRental: false,
+			label: "SALES",
+			totalRecords: 16362,
+			recordsPerPage: 10,
+		},
+		{
+			urlBase: "https://www.sequencehome.co.uk/properties/lettings",
+			isRental: true,
+			label: "LETTINGS",
+			totalRecords: 1907,
+			recordsPerPage: 10,
+		},
+	];
 
-		console.log(`📋 Starting from page ${startPage} to ${totalPages}`);
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
-		// Queue all pages for this property type
-		const requests = [];
-		for (let page = startPage; page <= totalPages; page++) {
-			// Sequence Home uses /page-N/ format
-			const url = page === 1 ? `${propertyType.urlBase}` : `${propertyType.urlBase}/page-${page}/`;
-			const uniqueKey = `${propertyType.label}_page_${page}`;
+	const crawler = createCrawler(browserWSEndpoint);
 
-			requests.push({
-				url,
-				uniqueKey,
+	const allRequests = [];
+
+	for (const type of PROPERTY_TYPES) {
+		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+		const effectiveStartPage = Math.max(1, startPage);
+
+		for (let pg = effectiveStartPage; pg <= totalPages; pg++) {
+			allRequests.push({
+				url: `${type.urlBase}?page=${pg}`,
 				userData: {
-					pageNum: page,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-					isDetailPage: false,
+					pageNum: pg,
+					isRental: type.isRental,
+					label: `${type.label}_PAGE_${pg}`,
 				},
 			});
 		}
-
-		// Add all pages and run - they'll process sequentially due to maxConcurrency: 1
-		// Detail pages are added during listing processing and handled immediately
-		await crawler.addRequests(requests);
-		await crawler.run();
-
-		logMemoryUsage(`After ${propertyType.label}`);
 	}
 
+	if (allRequests.length === 0) {
+		console.log(" No pages to scrape with current arguments.");
+		return;
+	}
+
+	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.addRequests(allRequests);
+	await crawler.run();
+
 	console.log(
-		`\n✅ Completed Sequence Home - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
+		`\n Completed Sequence Home - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	logMemoryUsage("END");
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
 
 (async () => {
 	try {
 		await scrapeSequenceHome();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		console.log("\n All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		console.error(" Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

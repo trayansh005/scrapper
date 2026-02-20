@@ -1,280 +1,303 @@
-const { CheerioCrawler, PlaywrightCrawler } = require("crawlee");
+// Marsh & Parsons scraper using Playwright with Crawlee
+// Agent ID: 4
+// Usage:
+// node backend/scraper-agent-4.js
+
+const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { chromium } = require("playwright-extra");
-const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
-chromium.use(StealthPlugin());
+log.setLevel(log.LEVELS.ERROR);
 
-const AGENT_ID = 4; // Marsh & Parsons
+const AGENT_ID = 4;
 
-const PROPERTY_TYPES = [
-	{
-		name: "Sales",
-		baseUrl:
-			"https://www.marshandparsons.co.uk/properties-for-sale/london/?filters=exclude_sold%2Cexclude_under_offer",
-		isRent: false,
-		totalPages: 30,
-	},
-];
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
 
-// Memory monitoring
-function logMemoryUsage(label) {
-	const used = process.memoryUsage();
-	console.log(
-		`[${label}] Memory: ${Math.round(used.heapUsed / 1024 / 1024)}MB / ${Math.round(
-			used.heapTotal / 1024 / 1024
-		)}MB`
+const processedUrls = new Set();
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatPriceDisplay(price, isRental) {
+	if (!price) return isRental ? "£0 pcm" : "£0";
+	return `£${price}${isRental ? " pcm" : ""}`;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
 	);
 }
 
-// Shared detail page processor
-async function processDetailPages(properties, playwrightCrawler, log) {
-	const detailUrls = properties.map((property) => ({
-		url: property.url,
-		userData: {
-			label: "DETAIL",
-			...property,
-		},
-	}));
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
 
-	await playwrightCrawler.addRequests(detailUrls);
-	await playwrightCrawler.run();
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(700);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		});
+
+		await detailPage.waitForTimeout(1500);
+
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
+	} catch (error) {
+		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
 }
 
-async function scrapeMarshParsons() {
-	console.log(`Starting Marsh & Parsons Scraper (Agent ${AGENT_ID})...`);
-	logMemoryUsage("START");
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
 
-	// ============================================
-	// PLAYWRIGHT CRAWLER - Persistent (reused for all detail pages)
-	// ============================================
-	const playwrightCrawler = new PlaywrightCrawler({
-		launchContext: {
-			launcher: chromium,
-			launchOptions: {
-				headless: true,
-				args: [
-					"--disable-dev-shm-usage",
-					"--disable-accelerated-2d-canvas",
-					"--no-first-run",
-					"--no-zygote",
-					"--disable-gpu",
-					"--disable-software-rasterizer",
-					"--disable-extensions",
-					"--disable-background-networking",
-					"--disable-background-timer-throttling",
-					"--disable-backgrounding-occluded-windows",
-					"--disable-breakpad",
-					"--disable-component-extensions-with-background-pages",
-					"--disable-features=TranslateUI,BlinkGenPropertyTrees",
-					"--disable-ipc-flooding-protection",
-					"--disable-renderer-backgrounding",
-					"--enable-features=NetworkService,NetworkServiceInProcess",
-					"--force-color-profile=srgb",
-					"--hide-scrollbars",
-					"--metrics-recording-only",
-					"--mute-audio",
-				],
-			},
-		},
-		maxConcurrency: 2, // Increased from 1 for faster processing
-		minConcurrency: 1,
-		requestHandlerTimeoutSecs: 45,
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
-		preNavigationHooks: [
-			async ({ page }) => {
-				await page.route("**/*", (route) => {
-					const resourceType = route.request().resourceType();
-					const url = route.request().url();
-
-					if (["image", "media", "font", "stylesheet"].includes(resourceType)) {
-						return route.abort();
-					}
-
-					if (
-						url.includes("google-analytics") ||
-						url.includes("googletagmanager") ||
-						url.includes("facebook") ||
-						url.includes("analytics") ||
-						url.includes("doubleclick") ||
-						url.includes("tracking")
-					) {
-						return route.abort();
-					}
-
-					route.continue();
-				});
-
-				await page.setExtraHTTPHeaders({
-					"User-Agent":
-						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					"Accept-Language": "en-GB,en;q=0.9",
-					Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-				});
-			},
-		],
-
-		async requestHandler({ page, request, log }) {
-			const { title, location, priceRaw, bedrooms, isRent } = request.userData;
-
-			log.info(`Processing detail: ${request.url}`);
-
-			let priceClean = priceRaw.replace(/[£,]/g, "");
-			if (isRent && priceClean.includes("p/w")) {
-				priceClean = priceClean.replace("p/w", "").trim();
-			}
-			const price = parseFloat(priceClean);
-
-			try {
-				await page.goto(request.url, {
-					waitUntil: "domcontentloaded",
-					timeout: 45000,
-				});
-
-				const html = await page.content();
-
-				let latitude = null;
-				let longitude = null;
-
-				const mapsMatch = html.match(/ll=([\d.-]+),([\d.-]+)/);
-				const scriptMatch = html.match(/lat:\s*([\d.-]+),\s*lng:\s*([\d.-]+)/);
-				const jsonMatch = html.match(/"latitude":\s*([\d.-]+),\s*"longitude":\s*([\d.-]+)/);
-
-				if (mapsMatch) {
-					latitude = parseFloat(mapsMatch[1]);
-					longitude = parseFloat(mapsMatch[2]);
-				} else if (scriptMatch) {
-					latitude = parseFloat(scriptMatch[1]);
-					longitude = parseFloat(scriptMatch[2]);
-				} else if (jsonMatch) {
-					latitude = parseFloat(jsonMatch[1]);
-					longitude = parseFloat(jsonMatch[2]);
-				}
-
-				const fullTitle = `${title}, ${location}`;
-
-				await updatePriceByPropertyURL(
-					request.url,
-					price,
-					fullTitle,
-					bedrooms,
-					AGENT_ID,
-					isRent,
-					latitude,
-					longitude
-				);
-
-				log.info(`✓ ${fullTitle} (£${price})`);
-			} catch (error) {
-				log.error(`✗ Failed ${request.url}: ${error.message}`);
-			}
-
-			// Reduced delay for faster processing
-			await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 500) + 200));
-		},
-
-		failedRequestHandler: async ({ request, log }) => {
-			log.error(`Detail page failed: ${request.url}`);
-		},
-	});
-
-	// ============================================
-	// PROCESS PAGE BY PAGE
-	// ============================================
-	for (const type of PROPERTY_TYPES) {
-		console.log(`\n📦 Processing ${type.name}...`);
-
-		for (let pageNum = 1; pageNum <= type.totalPages; pageNum++) {
-			const listingUrl = `${type.baseUrl}&page=${pageNum}`;
-			console.log(`\n📋 Page ${pageNum}/${type.totalPages}: ${listingUrl}`);
-
-			try {
-				// Step 1: Fetch listing page with CheerioCrawler
-				const cheerioCrawler = new CheerioCrawler({
-					maxConcurrency: 1,
-					requestHandlerTimeoutSecs: 30,
-
-					async requestHandler({ $, request, log }) {
-						log.info(`Scraping listing: ${request.url}`);
-
-						const properties = [];
-						$("div.my-4.shadow-md.rounded-xl").each((_, card) => {
-							const $card = $(card);
-							const linkElement = $card.find('a[href*="/property/"]');
-							const titleElement = $card.find("h3");
-							const locationElement = $card.find("p");
-
-							const textContent = $card.text();
-							const priceMatch = textContent.match(/£[0-9,]+(p\/w)?/);
-							const priceRaw = priceMatch ? priceMatch[0] : null;
-
-							const bedImg = $card.find('img[alt="bed"]');
-							let bedrooms = null;
-							if (bedImg.length > 0) {
-								const bedroomText = bedImg.parent().text().trim();
-								bedrooms = parseInt(bedroomText) || null;
-							}
-
-							const url = linkElement.attr("href");
-							if (url && priceRaw) {
-								properties.push({
-									url: url.startsWith("http") ? url : `https://www.marshandparsons.co.uk${url}`,
-									title: titleElement.text().trim(),
-									location: locationElement.text().trim(),
-									priceRaw,
-									bedrooms,
-									isRent: type.isRent,
-								});
-							}
-						});
-
-						log.info(`Found ${properties.length} properties`);
-
-						// Step 2: Immediately process detail pages
-						if (properties.length > 0) {
-							console.log(`  🎭 Processing ${properties.length} detail pages...`);
-							await processDetailPages(properties, playwrightCrawler, log);
-						}
-					},
-
-					failedRequestHandler: async ({ request, log }) => {
-						log.error(`Listing page failed: ${request.url}`);
-					},
-				});
-
-				// Run Cheerio crawler for this single listing page
-				await cheerioCrawler.run([
-					{
-						url: listingUrl,
-						userData: {
-							label: "LISTING",
-							isRent: type.isRent,
-						},
-					},
-				]);
-
-				logMemoryUsage(`After page ${pageNum}`);
-
-				// Small delay between listing pages
-				await new Promise((resolve) => setTimeout(resolve, 500));
-			} catch (error) {
-				console.error(`Error on page ${pageNum}: ${error.message}`);
-			}
-		}
+	try {
+		await page.waitForSelector("a[href*='/property/'] h3", { timeout: 15000 });
+	} catch (e) {
+		console.log(` Listing container not found on page ${pageNum}`);
 	}
 
-	console.log("\n✅ Scraping completed.");
-	await updateRemoveStatus(AGENT_ID);
-	logMemoryUsage("END");
+	const properties = await page.evaluate(() => {
+		try {
+			const results = [];
+			const seenLinks = new Set();
+
+			// Find all property links - they contain h3 and property info
+			const propertyLinks = Array.from(document.querySelectorAll("a[href*='/property/']")).filter(
+				(link) => {
+					return link.querySelector("h3") !== null; // Ensure it has a title (h3)
+				},
+			);
+
+			for (const linkEl of propertyLinks) {
+				let href = linkEl.getAttribute("href");
+				if (!href) continue;
+
+				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
+				if (seenLinks.has(link)) continue;
+				seenLinks.add(link);
+
+				// Extract title from h3
+				const title = linkEl.querySelector("h3")?.textContent?.trim() || "Property";
+
+				// Extract price - it's in a generic with £ symbol
+				let priceRaw = "";
+				const allText = linkEl.innerText;
+				const priceMatch = allText.match(/£[\d,]+(?:,\d{3})*/);
+				if (priceMatch) {
+					priceRaw = priceMatch[0];
+				}
+
+				// Extract bedrooms - text after bed icon
+				let bedText = "";
+				const bedImg = linkEl.querySelector("img[src*='bed']");
+				if (bedImg && bedImg.parentElement) {
+					bedText = bedImg.parentElement.textContent?.trim() || "";
+				}
+
+				const statusText = linkEl.innerText || "";
+
+				results.push({ link, title, priceRaw, bedText, statusText });
+			}
+			return results;
+		} catch (e) {
+			return [];
+		}
+	});
+
+	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		if (!property.link) continue;
+
+		if (isSoldProperty(property.statusText || "")) continue;
+
+		if (processedUrls.has(property.link)) continue;
+		processedUrls.add(property.link);
+
+		const price = formatPriceUk(property.priceRaw);
+		let bedrooms = null;
+		const bedMatch = property.bedText.match(/\d+/);
+		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+
+		if (!price) {
+			console.log(` Skipping update (no price found): ${property.link}`);
+			continue;
+		}
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			price,
+			property.title,
+			bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			const detail = await scrapePropertyDetail(page.context(), property);
+
+			await updatePriceByPropertyURL(
+				property.link.trim(),
+				price,
+				property.title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+				detail?.coords?.latitude || null,
+				detail?.coords?.longitude || null,
+			);
+
+			stats.totalSaved++;
+			stats.totalScraped++;
+			if (isRental) stats.savedRentals++;
+			else stats.savedSales++;
+		}
+
+		const categoryLabel = isRental ? "LETTINGS" : "SALES";
+		console.log(
+			` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+				price,
+				isRental,
+			)} - ${property.link}`,
+		);
+
+		await sleep(500);
+	}
 }
 
-// Run scraper
-scrapeMarshParsons()
-	.then(() => {
-		console.log("✅ All done!");
-		process.exit(0);
-	})
-	.catch((err) => {
-		console.error("❌ Scraper error:", err);
-		process.exit(1);
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			console.error(` Failed listing page: ${request.url}`);
+		},
 	});
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
+async function scrapeMarshParsons() {
+	console.log(`\n Starting Marsh & Parsons scraper (Agent ${AGENT_ID})...\n`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+
+	const totalSalesPages = 30; // Based on original script
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const allRequests = [];
+
+	// Build Sales requests
+	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
+		const url = `https://www.marshandparsons.co.uk/properties-for-sale/london/?filters=exclude_sold%2Cexclude_under_offer&page=${pg}`;
+
+		allRequests.push({
+			url,
+			userData: {
+				pageNum: pg,
+				isRental: false,
+				label: `SALES_PAGE_${pg}`,
+			},
+		});
+	}
+
+	if (allRequests.length === 0) {
+		console.log(" No pages to scrape with current arguments.");
+		return;
+	}
+
+	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.addRequests(allRequests);
+	await crawler.run();
+
+	console.log(
+		`\n Completed Marsh & Parsons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+}
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
+(async () => {
+	try {
+		await scrapeMarshParsons();
+		await updateRemoveStatus(AGENT_ID);
+		console.log("\n All done!");
+		process.exit(0);
+	} catch (err) {
+		console.error(" Fatal error:", err?.message || err);
+		process.exit(1);
+	}
+})();

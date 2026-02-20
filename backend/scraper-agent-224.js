@@ -1,18 +1,25 @@
-﻿const { PlaywrightCrawler, sleep } = require("crawlee");
-const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db");
-const {
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
-} = require("./lib/db-helpers");
-const { parsePrice, isSoldProperty } = require("./lib/property-helpers");
+﻿// Mistoria scraper using Playwright with Crawlee
+// Agent ID: 224
+// Website: mistoriaestateagents.co.uk
+// Usage:
+// node backend/scraper-agent-224.js
+
+const { PlaywrightCrawler, log } = require("crawlee");
+const { updateRemoveStatus, updatePriceByPropertyURL } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
+
+// Reduce verbosity
+log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 224;
-const stats = { totalScraped: 0, totalSaved: 0 };
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
 
-/**
- * Get the Browserless WebSocket endpoint
- */
 function getBrowserlessEndpoint() {
 	return (
 		process.env.BROWSERLESS_WS_ENDPOINT ||
@@ -20,171 +27,31 @@ function getBrowserlessEndpoint() {
 	);
 }
 
-/**
- * Scrape individual property details
- */
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	const page = await browserContext.newPage();
-	try {
-		console.log(`    Detail: ${property.link}`);
-		await page.goto(property.link, { waitUntil: "domcontentloaded", timeout: 60000 });
+// Configuration for sales and lettings
+const PROPERTY_TYPES = [
+	{
+		baseUrl: "https://mistoriaestateagents.co.uk/property-search/page/",
+		params:
+			"/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms",
+		totalPages: 10,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		baseUrl: "https://mistoriaestateagents.co.uk/property-search/page/",
+		params:
+			"/?address_keyword=&department=residential-lettings&availability=&minimum_bedrooms=&maximum_bedrooms=",
+		totalPages: 15,
+		isRental: true,
+		label: "RENTALS",
+	},
+];
 
-		// Use page.evaluate for robust extraction directly from the browser
-		const coords = await page.evaluate(() => {
-			let lat = null,
-				lng = null;
-
-			// 1. Try JSON-LD
-			const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-			for (const script of scripts) {
-				try {
-					const json = JSON.parse(script.innerText);
-					const items = json["@graph"] || (Array.isArray(json) ? json : [json]);
-
-					for (const item of items) {
-						if (item.geo && item.geo.latitude != null) {
-							lat = item.geo.latitude;
-							lng = item.geo.longitude;
-							break;
-						}
-						if (item.latitude != null && item.longitude != null) {
-							lat = item.latitude;
-							lng = item.longitude;
-							break;
-						}
-					}
-				} catch (e) {}
-				if (lat && lng) break;
-			}
-
-			// 2. Fallback: Google Maps LatLng
-			if (!lat || !lng) {
-				const scripts = Array.from(document.querySelectorAll("script"));
-				for (const script of scripts) {
-					const content = script.innerText;
-					const gmapsMatch = content.match(
-						/new\s+google\.maps\.LatLng\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/i,
-					);
-					if (gmapsMatch) {
-						lat = gmapsMatch[1];
-						lng = gmapsMatch[2];
-						break;
-					}
-					const coordMatch = content.match(
-						/lat\s*[:=]\s*["']?([\d.-]+)["']?\s*,\s*lng\s*[:=]\s*["']?([\d.-]+)["']?/i,
-					);
-					if (coordMatch) {
-						lat = coordMatch[1];
-						lng = coordMatch[2];
-						break;
-					}
-				}
-			}
-
-			return { lat, lng };
-		});
-
-		let { lat, lng } = coords;
-
-		if (lat && lng) {
-			console.log(`    📍 Coordinates found: ${lat}, ${lng}`);
-		} else {
-			console.log(`    ⚠️ No coordinates found for: ${property.link}`);
-		}
-
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-			null, // html not needed since we passed manual coords
-			lat,
-			lng,
-		);
-
-		stats.totalSaved++;
-	} catch (err) {
-		console.error(`    Detail Error (${property.link}):`, err.message);
-	} finally {
-		await page.close();
-	}
-}
-
-/**
- * Handle listing pages
- */
-async function handleListingPage({ request, page, log }) {
-	const { pageNum, isRental } = request.userData;
-	log.info(`Processing ${request.userData.label} page ${pageNum}`);
-
-	try {
-		await page.waitForSelector("li.type-property", { timeout: 20000 });
-	} catch (e) {
-		log.warning(`No properties found on ${request.url}`);
-		return;
-	}
-
-	const content = await page.content();
-	const $ = cheerio.load(content);
-	const $items = $("li.type-property");
-
-	log.info(`Found ${$items.length} properties`);
-
-	for (let i = 0; i < $items.length; i++) {
-		const $item = $($items[i]);
-
-		const statusText = $item.find(".flag, div.price, h3").text() || "";
-		if (isSoldProperty(statusText)) continue;
-
-		const link = $item.find("h3 a").attr("href");
-		const title = $item.find("h3 a").text().trim();
-
-		// Extract price, ensuring we remove the "Tenancy Info" popup text often found in rentals
-		const $priceContainer = $item.find("div.price").clone();
-		$priceContainer.find("span.lettings-fees, div.propertyhive_lettings_fees_popup").remove();
-		const priceRaw = $priceContainer.text().trim();
-		const price = parsePrice(priceRaw);
-
-		const bedroomsMatch = $item.find(".room-bedrooms").text().match(/\d+/);
-		const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
-
-		if (!link || !price) continue;
-
-		stats.totalScraped++;
-
-		const result = await updatePriceByPropertyURLOptimized(
-			link,
-			price,
-			title,
-			bedrooms,
-			AGENT_ID,
-			isRental,
-		);
-
-		if (!result.isExisting || result.updated) {
-			await scrapePropertyDetail(page.context(), { link, price, title, bedrooms }, isRental);
-			await sleep(500);
-		}
-	}
-}
-
-// MAIN SCRAPER LOGIC
-// ============================================================================
-
-async function run() {
-	console.log(` Starting Mistoria Refactored (Agent ${AGENT_ID})...`);
-
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-
-	const crawler = new PlaywrightCrawler({
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 360,
+		requestHandlerTimeoutSecs: 300,
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -194,45 +61,219 @@ async function run() {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed request: ${request.url}`);
+			log.error(`Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	const initialRequests = [];
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
 
-	// Build Sales requests (approx 5-10 pages)
-	for (let pg = Math.max(1, startPage); pg <= 10; pg++) {
-		const url = `https://mistoriaestateagents.co.uk/property-search/page/${pg}/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms`;
-		initialRequests.push({
-			url,
-			userData: { pageNum: pg, isRental: false, label: "SALES" },
+	console.log(` ${label} - Page ${pageNum} - ${request.url}`);
+
+	try {
+		await page.waitForTimeout(2000);
+		await page.waitForSelector("li.type-property", { timeout: 20000 }).catch(() => {
+			console.log(` No listing container found on page ${pageNum}`);
 		});
-	}
 
-	// Build Lettings requests (approx 10-15 pages)
-	if (startPage === 1) {
-		for (let pg = 1; pg <= 15; pg++) {
-			const url = `https://mistoriaestateagents.co.uk/property-search/page/${pg}/?address_keyword=&department=residential-lettings&availability=&minimum_bedrooms=&maximum_bedrooms=`;
-			initialRequests.push({
-				url,
-				userData: { pageNum: pg, isRental: true, label: "RENTALS" },
+		// Extract properties
+		const properties = await page.evaluate((isRental) => {
+			try {
+				const cards = Array.from(document.querySelectorAll("li.type-property"));
+				return cards
+					.map((card) => {
+						const statusText = card.innerText || "";
+						// Simple check for sold/let within evaluation
+						if (
+							statusText.toLowerCase().includes("sold") ||
+							statusText.toLowerCase().includes("let stc") ||
+							statusText.toLowerCase().includes("let agreed")
+						) {
+							// We'll filter properly outside using the library helper if needed,
+							// but evaluating here saves roundtrips.
+						}
+
+						const linkEl = card.querySelector("h3 a");
+						const link = linkEl ? linkEl.href : null;
+						const title = linkEl ? linkEl.innerText.trim() : "";
+
+						const priceEl = card.querySelector("div.price");
+						let priceRaw = priceEl ? priceEl.innerText.trim() : "";
+
+						// Remove tenancy info if present
+						const tenancyInfo = card.querySelector("span.lettings-fees");
+						if (tenancyInfo) {
+							priceRaw = priceRaw.replace(tenancyInfo.innerText, "").trim();
+						}
+
+						const bedEl = card.querySelector(".room-bedrooms");
+						const bedroomsMatch = bedEl ? bedEl.innerText.match(/\d+/) : null;
+						const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
+
+						return { link, title, priceRaw, bedrooms };
+					})
+					.filter((p) => p.link);
+			} catch (e) {
+				return [];
+			}
+		}, isRental);
+
+		console.log(` Found ${properties.length} properties on page ${pageNum}`);
+		stats.totalScraped += properties.length;
+
+		const batchSize = 2;
+		for (let i = 0; i < properties.length; i += batchSize) {
+			const batch = properties.slice(i, i + batchSize);
+
+			await Promise.all(
+				batch.map(async (property) => {
+					if (!property.link) return;
+
+					// Filter sold properties
+					if (isSoldProperty(property.title) || isSoldProperty(property.priceRaw)) {
+						return;
+					}
+
+					const priceNum = property.priceRaw
+						? parseFloat(property.priceRaw.replace(/[^0-9.]/g, ""))
+						: null;
+					if (priceNum === null) return;
+
+					let coords = { latitude: null, longitude: null };
+
+					const detailPage = await page.context().newPage();
+					try {
+						await detailPage.goto(property.link, { waitUntil: "domcontentloaded", timeout: 40000 });
+						await detailPage.waitForTimeout(1000);
+
+						const detailCoords = await detailPage.evaluate(() => {
+							let lat = null,
+								lng = null;
+							const scripts = Array.from(
+								document.querySelectorAll('script[type="application/ld+json"]'),
+							);
+							for (const script of scripts) {
+								try {
+									const json = JSON.parse(script.innerText);
+									const items = json["@graph"] || (Array.isArray(json) ? json : [json]);
+									for (const item of items) {
+										if (item.geo && item.geo.latitude != null) {
+											lat = item.geo.latitude;
+											lng = item.geo.longitude;
+											break;
+										}
+									}
+								} catch (e) {}
+								if (lat) break;
+							}
+							if (!lat) {
+								const allScripts = Array.from(document.querySelectorAll("script"));
+								for (const script of allScripts) {
+									const content = script.innerText;
+									const gmapsMatch = content.match(
+										/new\s+google\.maps\.LatLng\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/i,
+									);
+									if (gmapsMatch) {
+										lat = gmapsMatch[1];
+										lng = gmapsMatch[2];
+										break;
+									}
+								}
+							}
+							return { lat, lng };
+						});
+
+						if (detailCoords.lat) {
+							coords.latitude = detailCoords.lat;
+							coords.longitude = detailCoords.lng;
+						}
+					} catch (err) {
+					} finally {
+						await detailPage.close();
+					}
+
+					try {
+						const updateResult = await updatePriceByPropertyURLOptimized(
+							property.link.trim(),
+							priceNum,
+							property.title,
+							property.bedrooms,
+							AGENT_ID,
+							isRental,
+						);
+
+						let persisted = !!updateResult.updated;
+
+						if (!updateResult.isExisting) {
+							await updatePriceByPropertyURL(
+								property.link.trim(),
+								formatPriceUk(priceNum),
+								property.title,
+								property.bedrooms,
+								AGENT_ID,
+								isRental,
+								coords.latitude,
+								coords.longitude,
+							);
+							persisted = true;
+						}
+
+						if (persisted) {
+							stats.totalSaved++;
+							if (isRental) stats.savedRentals++;
+							else stats.savedSales++;
+						}
+
+						console.log(` ${property.title} - ${formatPriceUk(priceNum)}`);
+					} catch (dbErr) {
+						console.error(` DB error: ${dbErr.message}`);
+					}
+				}),
+			);
+			await page.waitForTimeout(500);
+		}
+	} catch (error) {
+		console.error(` Error in ${label} page ${pageNum}: ${error.message}`);
+	}
+}
+
+async function scrapeMistoria() {
+	console.log(`\n Starting Mistoria scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	for (const propertyType of PROPERTY_TYPES) {
+		console.log(`\n Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+
+		const crawler = createCrawler(browserWSEndpoint);
+		const requests = [];
+		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
+			requests.push({
+				url: `${propertyType.baseUrl}${pg}${propertyType.params}`,
+				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
 			});
 		}
+
+		await crawler.addRequests(requests);
+		await crawler.run();
 	}
 
-	await crawler.run(initialRequests);
-	await updateRemoveStatus(AGENT_ID);
-
-	console.log(`\n Completed Agent ${AGENT_ID}`);
-	console.log(`Total Scraped: ${stats.totalScraped}`);
-	console.log(`Total Saved: ${stats.totalSaved}`);
+	console.log(`\n Scraping complete!`);
+	console.log(`Total scraped: ${stats.totalScraped}`);
+	console.log(`Total saved: ${stats.totalSaved}`);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, RENTALS: ${stats.savedRentals}\n`);
 }
 
-if (require.main === module) {
-	run().catch((err) => {
-		console.error(` Fatal Error:`, err.message);
+(async () => {
+	try {
+		await scrapeMistoria();
+		await updateRemoveStatus(AGENT_ID);
+		console.log("\n All done!");
+		process.exit(0);
+	} catch (err) {
+		console.error(" Fatal error:", err?.message || err);
 		process.exit(1);
-	});
-}
-
-module.exports = { run };
+	}
+})();

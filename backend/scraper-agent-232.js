@@ -4,32 +4,38 @@
 // node backend/scraper-agent-232.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 232;
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
-
-let totalScraped = 0;
-let totalSaved = 0;
 
 // Two searches:
 // - For Sale: 408 properties, 18 per page => 23 pages
 // - To Let: 28 properties, 18 per page => 2 pages
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://richardjames.uk/search-results/page", // append /{page}/?keyword&status%5B0%5D=for-sale
-	// 	totalRecords: 408,
-	// 	recordsPerPage: 18,
-	// 	totalPages: 23,
-	// 	isRental: false,
-	// 	label: "FOR SALE",
-	// 	suffix: "/?keyword&status%5B0%5D=for-sale",
-	// },
+	{
+		urlBase: "https://richardjames.uk/search-results/page", // append /{page}/?keyword&status%5B0%5D=for-sale
+		totalRecords: 408,
+		recordsPerPage: 18,
+		totalPages: 23,
+		isRental: false,
+		label: "FOR SALE",
+		suffix: "/?keyword&status%5B0%5D=for-sale",
+	},
 	{
 		urlBase: "https://richardjames.uk/search-results/page", // append /{page}/?keyword&status[0]=to-let&...
 		totalRecords: 28,
@@ -76,8 +82,8 @@ async function scrapeRichardJames() {
 				try {
 					const items = Array.from(
 						document.querySelectorAll(
-							".item-listing-wrap, .item-listing-wrap-v6, .item-listing-wrap-v6.card"
-						)
+							".item-listing-wrap, .item-listing-wrap-v6, .item-listing-wrap-v6.card",
+						),
 					);
 
 					return items
@@ -130,8 +136,6 @@ async function scrapeRichardJames() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let coords = { latitude: null, longitude: null };
-
 						const detailPage = await page.context().newPage();
 						try {
 							await detailPage.goto(property.link, {
@@ -140,110 +144,70 @@ async function scrapeRichardJames() {
 							});
 							await detailPage.waitForTimeout(500);
 
-							// Extract relevant script content: search for any script containing coordinates
-							const scriptText = await detailPage.evaluate(() => {
-								// Priority order: houzez map, yoast schema, then any script with coords
-								const houzez = document.getElementById("houzez-single-property-map-js-extra");
-								if (houzez && houzez.textContent) return houzez.textContent;
+							const htmlContent = await detailPage.content();
 
-								const yoast = document.querySelector("script.yoast-schema-graph");
-								if (yoast && yoast.textContent) return yoast.textContent;
+							try {
+								const priceNum = property.price
+									? parseFloat(property.price.replace(/[^0-9.]/g, ""))
+									: null;
 
-								// Search any script containing lat/lng or GeoCoordinates
-								const scripts = Array.from(document.querySelectorAll("script"));
-								for (const s of scripts) {
-									const t = s.textContent || "";
-									if (
-										t.includes('"lat"') ||
-										t.includes('"latitude"') ||
-										t.includes("GeoCoordinates")
-									) {
-										return t;
-									}
+								if (priceNum === null) {
+									log.warn(`No price found: ${property.title}`);
+									return;
 								}
-								return null;
-							});
 
-							if (scriptText) {
-								// Try multiple coordinate extraction patterns
-								let found = false;
+								// Extract coordinates from HTML
+								const coords = await extractCoordinatesFromHTML(htmlContent);
 
-								// Pattern 1: Houzez lat/lng "lat":"51.555667","lng":"-1.798813"
-								let m = scriptText.match(
-									/"lat"\s*:\s*"?([\-0-9.]+)"?\s*,\s*"lng"\s*:\s*"?([\-0-9.]+)"?/
+								const result = await updatePriceByPropertyURLOptimized(
+									property.link.trim(),
+									priceNum,
+									property.title,
+									property.bedrooms,
+									AGENT_ID,
+									isRental,
 								);
-								if (m) {
-									coords = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-									found = true;
+
+								if (result.updated) {
+									stats.totalSaved++;
 								}
 
-								// Pattern 2: Yoast GeoCoordinates
-								if (!found) {
-									m = scriptText.match(
-										/"@type"\s*:\s*"GeoCoordinates"[\s\S]*?"latitude"\s*:\s*"?([\-0-9.]+)"?[\s\S]*?"longitude"\s*:\s*"?([\-0-9.]+)"?/
+								if (!result.isExisting && !result.error) {
+									await processPropertyWithCoordinates(
+										property.link,
+										priceNum,
+										property.title,
+										property.bedrooms || null,
+										AGENT_ID,
+										isRental,
+										htmlContent,
+										coords.latitude,
+										coords.longitude,
 									);
-									if (m) {
-										coords = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-										found = true;
-									}
-								}
-
-								// Pattern 3: Alternative lat/longitude (with colon) "latitude":"51.5337446"
-								if (!found) {
-									m = scriptText.match(
-										/"latitude"\s*:\s*"?([\-0-9.]+)"?[\s\S]*?"longitude"\s*:\s*"?([\-0-9.]+)"?/
+								} else if (result.isExisting && (coords.latitude || coords.longitude)) {
+									const priceDisplay = formatPriceUk(priceNum);
+									console.log(
+										`✅ ${property.title} - ${priceDisplay}${
+											coords.latitude ? ` - (${coords.latitude}, ${coords.longitude})` : ""
+										}`,
 									);
-									if (m) {
-										coords = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-										found = true;
-									}
+								} else {
+									const priceDisplay = formatPriceUk(priceNum);
+									console.log(`✅ ${property.title} - ${priceDisplay}`);
 								}
 
-								// Pattern 4: Simple fallback for any lat,lng pattern (no quotes)
-								if (!found) {
-									m = scriptText.match(/lat[^\d]+([\-0-9.]+)[\s\S]{1,50}lng[^\d]+([\-0-9.]+)/i);
-									if (m) {
-										coords = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-										found = true;
-									}
-								}
+								stats.totalScraped++;
+								if (isRental) stats.savedRentals++;
+								else stats.savedSales++;
+							} catch (dbErr) {
+								console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 							}
 						} catch (err) {
 							// ignore
 						} finally {
 							await detailPage.close();
 						}
-
-						try {
-							const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-							const priceNum = parseFloat(priceClean);
-
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude
-							);
-
-							totalSaved++;
-							totalScraped++;
-
-							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
-							if (coords.latitude && coords.longitude) {
-								console.log(
-									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`
-								);
-							} else {
-								console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
-							}
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
-						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 200));
@@ -269,12 +233,14 @@ async function scrapeRichardJames() {
 		}
 
 		await crawler.addRequests(requests);
-		await crawler.run();
 	}
 
+	await crawler.run();
+
 	console.log(
-		`\n✅ Completed RichardJames - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed RichardJames - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 (async () => {

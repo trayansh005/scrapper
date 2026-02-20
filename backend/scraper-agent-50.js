@@ -272,21 +272,21 @@ async function scrapeFoxtons() {
 	const allRequests = [];
 
 	// Build Sales requests
-	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
-		const url =
-			p === 1
-				? "https://www.foxtons.co.uk/properties-for-sale/south-east-england?order_by=price_desc&radius=5&available_for_auction=0&sold=0"
-				: `https://www.foxtons.co.uk/properties-for-sale/south-east-england?order_by=price_desc&radius=5&available_for_auction=0&sold=0&page=${p}`;
+	// for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
+	// 	const url =
+	// 		p === 1
+	// 			? "https://www.foxtons.co.uk/properties-for-sale/south-east-england?order_by=price_desc&radius=5&available_for_auction=0&sold=0"
+	// 			: `https://www.foxtons.co.uk/properties-for-sale/south-east-england?order_by=price_desc&radius=5&available_for_auction=0&sold=0&page=${p}`;
 
-		allRequests.push({
-			url,
-			userData: {
-				pageNum: p,
-				isRental: false,
-				label: `SALES_PAGE_${p}`,
-			},
-		});
-	}
+	// 	allRequests.push({
+	// 		url,
+	// 		userData: {
+	// 			pageNum: p,
+	// 			isRental: false,
+	// 			label: `SALES_PAGE_${p}`,
+	// 		},
+	// 	});
+	// }
 
 	// Build Rentals requests
 	if (startPage === 1) {

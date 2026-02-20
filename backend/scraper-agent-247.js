@@ -10,18 +10,36 @@
 // node backend/scraper-agent-247.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 247;
-let totalScraped = 0;
-let totalSaved = 0;
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
 
 function formatPrice(num, isRental) {
 	if (!num || isNaN(num)) return isRental ? "£0 pcm" : "£0";
 	return "£" + Number(num).toLocaleString("en-GB") + (isRental ? " pcm" : "");
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
 }
 
 // Configuration for Darlows Wales
@@ -44,7 +62,6 @@ async function scrapeDarlows() {
 		maxConcurrency: 5,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
 			launchOptions: {
 				headless: true,
@@ -121,6 +138,8 @@ async function scrapeDarlows() {
 								timeout: 90000,
 							});
 
+							const html = await detailPage.content();
+
 							// Darlows has onclick attributes for coordinates (no JSON-LD like Beresfords)
 							const detailData = await detailPage.evaluate(() => {
 								try {
@@ -132,51 +151,65 @@ async function scrapeDarlows() {
 										lng: null,
 									};
 
-									// 1. Extract address from h1
-									// Format: "X Bedroom ... ● Address ● £Price"
-									// Skip cookie banner h1, find the property h1
-									const h1s = Array.from(document.querySelectorAll("h1"));
-									const propertyH1 = h1s.find(
-										(h) =>
-											h.textContent.includes("●") ||
-											(!h.textContent.toLowerCase().includes("cookie") &&
-												h.textContent.includes("Bedroom"))
-									);
-									if (propertyH1) {
-										const text = propertyH1.textContent || "";
-										const parts = text.split("●");
+									// 1. Extract price from p.price element
+									const priceEl = document.querySelector("p.price");
+									if (priceEl) {
+										const priceText = priceEl.textContent || "";
+										const priceMatch = priceText.match(/£([0-9,]+)/);
+										if (priceMatch) {
+											data.price = priceMatch[0];
+										}
+									}
+
+									// 2. Extract address from p.meta element (after the middle dot)
+									const metaEl = document.querySelector("p.meta");
+									if (metaEl) {
+										const metaText = metaEl.textContent || "";
+										// Format: "5 Bedrooms ● Astoria Close, Cardiff"
+										const parts = metaText.split("●");
 										if (parts.length >= 2) {
-											// "X Bedrooms ● Address ● Price" format
 											data.address = parts[1].trim();
 										}
 									}
 
-									// 2. Extract price from h1 or page text
-									// Darlows prices appear in various places, so search the whole visible text
-									const pageText = document.body.innerText;
-									const priceMatch = pageText.match(/£([0-9,]+)/);
-									if (priceMatch) {
-										data.price = priceMatch[0];
+									// Fallback: try h1 or property heading
+									if (!data.address) {
+										const headingEl = document.querySelector("h3.property-heading a");
+										if (headingEl) {
+											data.address = headingEl.textContent.trim();
+										}
 									}
 
 									// 3. Extract bedrooms from page text (more robust)
-									// Look for "X Bedrooms" pattern anywhere on the page
-									const bedMatch = pageText.match(/(\d+)\s*Bed(?:room)?s?(?:\s|●|:|$)/i);
-									if (bedMatch) {
-										data.bedrooms = bedMatch[1];
+									// Look for "X Bedrooms" pattern in meta tag first, then fallback to page text
+									if (metaEl) {
+										const metaText = metaEl.textContent || "";
+										const bedMatch = metaText.match(/(\d+)\s+Bedroom/i);
+										if (bedMatch) {
+											data.bedrooms = bedMatch[1];
+										}
+									}
+
+									// Fallback: search in page text
+									if (!data.bedrooms) {
+										const pageText = document.body.innerText;
+										let bedMatch = pageText.match(/\b(\d+)\s+Bedroom(?:s)?\b/i);
+										if (bedMatch) {
+											data.bedrooms = bedMatch[1];
+										}
 									}
 
 									// 4. Coordinate extraction - PRIMARY: onclick attributes
 									// Format: onclick="openStreetView(this.id, lat, lng, '')"
 									const onclickEls = Array.from(
-										document.querySelectorAll("[onclick*='openStreetView']")
+										document.querySelectorAll("[onclick*='openStreetView']"),
 									);
 									for (const el of onclickEls) {
 										const onclick = el.getAttribute("onclick");
 										if (onclick) {
 											// Match: openStreetView(someId, 51.565594, -3.22999, '')
 											const coordMatch = onclick.match(
-												/openStreetView\([^,]*,\s*([-0-9.]+),\s*([-0-9.]+)/
+												/openStreetView\([^,]*,\s*([-0-9.]+),\s*([-0-9.]+)/,
 											);
 											if (coordMatch) {
 												const lat = parseFloat(coordMatch[1]);
@@ -193,7 +226,7 @@ async function scrapeDarlows() {
 									// 5. FALLBACK: Look for coordinates in "Find similar properties" link
 									if (!data.lat) {
 										const similarLink = document.querySelector(
-											"a[href*='Latitude='], a[href*='latitude=']"
+											"a[href*='Latitude='], a[href*='latitude=']",
 										);
 										if (similarLink) {
 											const href = similarLink.getAttribute("href");
@@ -224,16 +257,34 @@ async function scrapeDarlows() {
 								const bedrooms = detailData.bedrooms || null;
 								const address = detailData.address || property.title || "Property";
 
-								await updatePriceByPropertyURL(
+								const result = await updatePriceByPropertyURLOptimized(
 									property.link.trim(),
 									priceClean || null,
 									address,
 									bedrooms,
 									AGENT_ID,
 									isRental,
-									detailData.lat,
-									detailData.lng
 								);
+
+								if (result.updated) {
+									stats.totalSaved++;
+								}
+
+								if (!result.isExisting && !result.error) {
+									await processPropertyWithCoordinates(
+										property.link.trim(),
+										priceClean || null,
+										address,
+										bedrooms,
+										AGENT_ID,
+										isRental,
+										html,
+										detailData.lat,
+										detailData.lng,
+									);
+									stats.totalSaved++;
+									stats.totalScraped++;
+								}
 
 								console.log(
 									`✅ ${address.substring(0, 50)} - ${formatPrice(priceClean, isRental)} - Beds: ${
@@ -242,17 +293,15 @@ async function scrapeDarlows() {
 										detailData.lat
 											? `${detailData.lat.toFixed(4)}, ${detailData.lng.toFixed(4)}`
 											: "N/A"
-									}`
+									}`,
 								);
-								totalSaved++;
-								totalScraped++;
 							}
 						} catch (err) {
 							console.log(`⚠️ Error processing ${property.link}: ${err.message}`);
 						} finally {
 							await detailPage.close();
 						}
-					})
+					}),
 				);
 
 				// Pause between batches to avoid server strain
@@ -284,7 +333,7 @@ async function scrapeDarlows() {
 	await crawler.run();
 
 	console.log(
-		`\n✅ Completed Darlows - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Darlows - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 

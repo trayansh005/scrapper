@@ -7,26 +7,34 @@ const { PlaywrightCrawler, log } = require("crawlee");
 const { firefox } = require("playwright");
 const { launchOptions } = require("camoufox-js");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 235;
-let totalScraped = 0;
-let totalSaved = 0;
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
 const processedUrls = new Set();
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
-};
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Sales and lettings
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.fulfords.co.uk/properties/sales/status-available/most-recent-first/",
-	// 	totalPages: 53,
-	// 	isRental: false,
-	// 	label: "FOR SALE",
-	// },
+	{
+		urlBase: "https://www.fulfords.co.uk/properties/sales/status-available/most-recent-first/",
+		totalPages: 53,
+		isRental: false,
+		label: "FOR SALE",
+	},
 	{
 		urlBase: "https://www.fulfords.co.uk/properties/lettings/status-available/most-recent-first/",
 		totalPages: 10,
@@ -93,7 +101,7 @@ async function scrapeFulford() {
 									const card = a.closest(".card");
 									if (card) {
 										const specItems = Array.from(
-											card.querySelectorAll(".card-content__spec-list li")
+											card.querySelectorAll(".card-content__spec-list li"),
 										);
 										specItems.forEach((li) => {
 											// Bedroom icon has class 'icon-bedroom' on the svg
@@ -149,7 +157,7 @@ async function scrapeFulford() {
 							const scriptCoords = await detailPage.evaluate(() => {
 								// 1) Look for data attributes on map container
 								const mapEl = document.querySelector(
-									"[data-lat][data-lng], [data-latitude][data-longitude]"
+									"[data-lat][data-lng], [data-latitude][data-longitude]",
 								);
 								if (mapEl) {
 									const lat = mapEl.getAttribute("data-lat") || mapEl.getAttribute("data-latitude");
@@ -160,10 +168,10 @@ async function scrapeFulford() {
 
 								// 2) Common meta tags
 								const metaLat = document.querySelector(
-									'meta[property="place:location:latitude"], meta[name="latitude"]'
+									'meta[property="place:location:latitude"], meta[name="latitude"]',
 								);
 								const metaLng = document.querySelector(
-									'meta[property="place:location:longitude"], meta[name="longitude"]'
+									'meta[property="place:location:longitude"], meta[name="longitude"]',
 								);
 								if (metaLat && metaLng) {
 									return {
@@ -189,7 +197,7 @@ async function scrapeFulford() {
 
 									// JSON-like object containing lat/lng keys
 									const mJson = text.match(
-										/\{[^{}]*\b(lat|latitude)\b[^{}]*\b(lng|longitude)\b[^{}]*\}/
+										/\{[^{}]*\b(lat|latitude)\b[^{}]*\b(lng|longitude)\b[^{}]*\}/,
 									);
 									if (mJson) {
 										try {
@@ -224,37 +232,55 @@ async function scrapeFulford() {
 						try {
 							const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
 							const priceNum = parseFloat(priceClean);
+							const priceFormatted = formatPriceUk(priceClean);
 
-							await updatePriceByPropertyURL(
+							const result = await updatePriceByPropertyURLOptimized(
 								property.link,
-								priceClean,
+								priceFormatted,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
 							);
 
-							totalSaved++;
-							totalScraped++;
+							if (result.updated) {
+								stats.totalSaved++;
+							}
 
-							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
+							if (!result.isExisting && !result.error) {
+								await updatePriceByPropertyURL(
+									property.link,
+									priceFormatted,
+									property.title,
+									property.bedrooms,
+									AGENT_ID,
+									isRental,
+									coords.latitude,
+									coords.longitude,
+								);
+
+								stats.totalSaved++;
+								stats.totalScraped++;
+								if (isRental) stats.savedRentals++;
+								else stats.savedSales++;
+							}
+
+							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPriceUk(priceNum);
 							if (coords.latitude && coords.longitude) {
 								console.log(
-									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`
+									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`,
 								);
 							} else {
 								console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
 							}
 						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+							log.warn(`DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) =>
-					setTimeout(resolve, Math.floor(Math.random() * 1000) + 1000)
+					setTimeout(resolve, Math.floor(Math.random() * 1000) + 1000),
 				);
 			}
 		},
@@ -285,8 +311,9 @@ async function scrapeFulford() {
 	}
 
 	console.log(
-		`\n✅ Completed Fulford scraper - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Fulford scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 (async () => {

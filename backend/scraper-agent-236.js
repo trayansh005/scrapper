@@ -4,18 +4,45 @@
 // node backend/scraper-agent-236.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 236;
 
-const formatPrice = (num) => {
-	return "£" + num.toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
-let totalScraped = 0;
-let totalSaved = 0;
+const processedUrls = new Set();
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
+	);
+}
 
 const PROPERTY_TYPES = [
 	// {
@@ -42,6 +69,9 @@ const PROPERTY_TYPES = [
 async function scrapeAvocado() {
 	console.log(`\n🚀 Starting Avocado scraper (Agent ${AGENT_ID})...\n`);
 
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
@@ -49,8 +79,7 @@ async function scrapeAvocado() {
 
 		launchContext: {
 			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				browserWSEndpoint,
 			},
 		},
 
@@ -106,19 +135,21 @@ async function scrapeAvocado() {
 									} else {
 										// Fallback: take the first .number inside the card detail (usually bedrooms)
 										const nums = Array.from(
-											card.querySelectorAll(".card-content__detail .number, .number")
+											card.querySelectorAll(".card-content__detail .number, .number"),
 										);
 										if (nums.length) bedrooms = nums[0].textContent.trim();
 									}
 								} else {
 									// If there's no bed icon, still try to find a .number that appears near bedroom text
 									const nums = Array.from(
-										card.querySelectorAll(".card-content__detail .number, .number")
+										card.querySelectorAll(".card-content__detail .number, .number"),
 									);
 									if (nums.length) bedrooms = nums[0].textContent.trim();
 								}
 
-								return { link, title, price, bedrooms };
+								const statusText = card.innerText || "";
+
+								return { link, title, price, bedrooms, statusText };
 							} catch (e) {
 								return null;
 							}
@@ -139,95 +170,55 @@ async function scrapeAvocado() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let coords = { latitude: null, longitude: null };
-
-						const detailPage = await page.context().newPage();
-						try {
-							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							await detailPage.waitForTimeout(500);
-
-							// Wait for maps iframe to appear (some pages render it after JS runs)
-							await detailPage
-								.waitForSelector(
-									'.mapsEmbed iframe, iframe[src*="maps.google.com/maps"], iframe[src*="google.com/maps"]',
-									{ timeout: 5000 }
-								)
-								.catch(() => null);
-
-							// Look for iframe with Google Maps embed and parse q=lat,lng
-							const iframeCoords = await detailPage.evaluate(() => {
-								try {
-									const ifr = document.querySelector(
-										'iframe[src*="maps.google.com/maps"], iframe[src*="google.com/maps"]'
-									);
-									if (!ifr) return null;
-									const src = ifr.getAttribute("src") || "";
-									const m = src.match(/[?&]q=([0-9.-]+),([0-9.-]+)/);
-									if (m) return { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-
-									// fallback: look for 'q=lat%2Clng' encoded
-									const m2 = src.match(/[?&]q=([0-9.%,-]+)/);
-									if (m2) {
-										try {
-											const decoded = decodeURIComponent(m2[1]);
-											const parts = decoded.split(",");
-											if (parts.length >= 2)
-												return { latitude: parseFloat(parts[0]), longitude: parseFloat(parts[1]) };
-										} catch (e) {
-											// ignore
-										}
-									}
-
-									return null;
-								} catch (e) {
-									return null;
-								}
-							});
-
-							if (iframeCoords && iframeCoords.latitude && iframeCoords.longitude) {
-								coords.latitude = iframeCoords.latitude;
-								coords.longitude = iframeCoords.longitude;
-								console.log(`  📍 Found coords: ${coords.latitude}, ${coords.longitude}`);
-							}
-						} catch (err) {
-							// ignore detail failures
-						} finally {
-							await detailPage.close();
+						if (isSoldProperty(property.statusText || "")) {
+							log.info(` Skipping sold property: ${property.title}`);
+							return;
 						}
 
-						try {
-							const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-							const priceNum = parseFloat(priceClean);
+						if (processedUrls.has(property.link)) {
+							log.info(` Skipping duplicate: ${property.title}`);
+							return;
+						}
+						processedUrls.add(property.link);
 
-							await updatePriceByPropertyURL(
+						try {
+							const priceNum = parsePrice(property.price);
+
+							if (priceNum === null) {
+								log.warn(` No price found: ${property.title}`);
+								return;
+							}
+
+							const result = await updatePriceByPropertyURLOptimized(
 								property.link,
-								priceClean,
+								priceNum,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
 							);
 
-							totalSaved++;
-							totalScraped++;
-
-							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPrice(priceNum);
-							if (coords.latitude && coords.longitude) {
-								console.log(
-									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`
-								);
-							} else {
-								console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
+							if (result.updated) {
+								stats.totalSaved++;
 							}
+
+							if (!result.isExisting && !result.error) {
+								await scrapePropertyDetail(
+									page.context(),
+									{
+										...property,
+										price: priceNum,
+									},
+									isRental,
+								);
+							}
+
+							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPriceUk(priceNum);
+							console.log(`✅ ${property.title} - ${priceDisplay}`);
 						} catch (dbErr) {
 							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 200));
@@ -256,8 +247,56 @@ async function scrapeAvocado() {
 	}
 
 	console.log(
-		`\n✅ Completed Avocado scraper - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Avocado scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(500);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 30000,
+		});
+
+		const htmlContent = await detailPage.content();
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+		);
+
+		stats.totalSaved++;
+		stats.totalScraped++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+	} catch (error) {
+		console.error(` Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
 }
 
 (async () => {

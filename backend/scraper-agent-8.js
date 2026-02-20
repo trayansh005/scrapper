@@ -1,225 +1,250 @@
-// Jackie Quinn scraper using Puppeteer with Crawlee
+// Jackie Quinn scraper using Playwright with Crawlee
 // Agent ID: 8
-// 
-// Usage: 
+// Usage:
 // node backend/scraper-agent-8.js
 
-const { PuppeteerCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL } = require("./db.js");
+const { PlaywrightCrawler, log } = require("crawlee");
+const cheerio = require("cheerio");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, extractBedroomsFromHTML } = require("./lib/property-helpers.js");
 
-// Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 8;
-let totalScraped = 0;
-let totalSaved = 0;
 
-// Extract coordinates from Google Maps link
-function extractCoordinatesFromHTML(html) {
-    // Look for pattern: @latitude,longitude,zoom in Google Maps URLs
-    const atMatch = html.match(/@([0-9.-]+),([0-9.-]+),\d+z/);
-    if (atMatch) {
-        return {
-            latitude: parseFloat(atMatch[1]),
-            longitude: parseFloat(atMatch[2])
-        };
-    }
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
 
-    // Fallback to ll= pattern
-    const llMatch = html.match(/ll=([0-9.-]+),([0-9.-]+)/);
-    if (llMatch) {
-        return {
-            latitude: parseFloat(llMatch[1]),
-            longitude: parseFloat(llMatch[2])
-        };
-    }
+const processedUrls = new Set();
 
-    return { latitude: null, longitude: null };
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+function formatPriceDisplay(price, isRental) {
+	if (!price) return isRental ? "£0 pcm" : "£0";
+	return `£${price}${isRental ? " pcm" : ""}`;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
+
+		// Trigger map click if needed, or wait for content
+		await detailPage
+			.evaluate(() => {
+				const mapLink = document.querySelector('a[href*="mapcontainer"]');
+				if (mapLink) mapLink.click();
+			})
+			.catch(() => {});
+
+		await detailPage.waitForTimeout(2000); // Wait for potential map load/transition
+
+		const htmlContent = await detailPage.content();
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent,
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+	} catch (error) {
+		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// PARSING LOGIC (Listing Page)
+// ============================================================================
+
+function parseListingPage(htmlContent) {
+	const $ = cheerio.load(htmlContent);
+	const results = [];
+
+	$(".propertyBox").each((_, el) => {
+		const $item = $(el);
+
+		const $linkEl = $item.find("h2.searchProName a");
+		const rawHref = $linkEl.attr("href");
+		if (!rawHref) return;
+
+		const link = rawHref.startsWith("http") ? rawHref : `https://www.jackiequinn.co.uk${rawHref}`;
+		const title = $linkEl.text().trim();
+
+		const priceText = $item.find("h3 div").text().trim();
+		if (isSoldProperty(priceText)) return;
+
+		const price = formatPriceUk(priceText);
+		if (!price) return;
+
+		const description = $item.find(".featuredDescriptions").text().trim();
+		const allText = $item.text();
+
+		// Use centralized helper for bedroom extraction
+		const bedrooms = extractBedroomsFromHTML(allText);
+
+		results.push({ link, title, price, bedrooms });
+	});
+
+	return results;
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental } = request.userData;
+	console.log(`📋 Page ${pageNum}/13 - ${request.url}`);
+
+	await page.waitForTimeout(2000);
+	await page.waitForSelector(".propertyBox", { timeout: 30000 }).catch(() => {});
+
+	const htmlContent = await page.content();
+	const properties = parseListingPage(htmlContent);
+
+	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+
+	for (const property of properties) {
+		if (!property.link) continue;
+		if (processedUrls.has(property.link)) continue;
+		processedUrls.add(property.link);
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		if (result.updated) {
+			stats.totalSaved++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			await scrapePropertyDetail(page.context(), property, isRental);
+		}
+
+		console.log(
+			`✅ ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+				property.price,
+				isRental,
+			)} - ${property.link}`,
+		);
+
+		await sleep(500);
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			console.error(`❌ Failed listing page: ${request.url}`);
+		},
+	});
+}
+
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
 async function scrapeJackieQuinn() {
-    console.log(`\n🚀 Starting Jackie Quinn scraper (Agent ${AGENT_ID})...\n`);
+	console.log(`\n🚀 Starting Jackie Quinn scraper (Agent ${AGENT_ID})...\n`);
 
-    const crawler = new PuppeteerCrawler({
-        maxConcurrency: 1, // Process sequentially
-        maxRequestRetries: 2,
-        requestHandlerTimeoutSecs: 300,
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
 
-        launchContext: {
-            launchOptions: {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                ],
-            },
-        },
+	const requests = [];
+	for (let pageNum = 1; pageNum <= 11; pageNum++) {
+		requests.push({
+			url: `https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=${pageNum}`,
+			userData: { pageNum, isRental: false },
+		});
+	}
 
-        async requestHandler({ page, request }) {
-            const { pageNum, isDetailPage, propertyData } = request.userData;
+	await crawler.addRequests(requests);
+	await crawler.run();
 
-            if (isDetailPage) {
-                // Processing detail page to get coordinates
-                try {
-                    // Wait for the map link to be available
-                    await page.waitForSelector('a[href*="mapcontainer"]', { timeout: 10000 }).catch(() => {
-                        console.log(`⚠️ No map link found for ${propertyData.title}`);
-                    });
-
-                    // Click the map link to load coordinates
-                    const mapLinkClicked = await page.evaluate(() => {
-                        const mapLink = document.querySelector('a[href*="mapcontainer"]');
-                        if (mapLink) {
-                            mapLink.click();
-                            return true;
-                        }
-                        return false;
-                    });
-
-                    let coords = { latitude: null, longitude: null };
-
-                    if (mapLinkClicked) {
-                        // Wait a bit for the map to load
-                        await page.waitForTimeout(1500);
-
-                        // Extract coordinates from the loaded content
-                        const htmlContent = await page.content();
-                        coords = extractCoordinatesFromHTML(htmlContent);
-                    }
-
-                    await updatePriceByPropertyURL(
-                        propertyData.link,
-                        propertyData.price,
-                        propertyData.title,
-                        propertyData.bedrooms,
-                        AGENT_ID,
-                        false,
-                        coords.latitude,
-                        coords.longitude
-                    );
-
-                    totalSaved++;
-                    totalScraped++;
-
-                    if (coords.latitude && coords.longitude) {
-                        console.log(`✅ ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`);
-                    } else {
-                        console.log(`✅ ${propertyData.title} - £${propertyData.price} - No coords`);
-                    }
-                } catch (error) {
-                    console.error(`❌ Error saving property: ${error.message}`);
-                }
-            } else {
-                // Processing listing page
-                console.log(`📋 Page ${pageNum}/11 - ${request.url}`);
-
-                await page.waitForSelector('.propertyBox', { timeout: 30000 }).catch(() => {
-                    console.log(`⚠️ No properties found on page ${pageNum}`);
-                });
-
-                // Extract all properties from the page
-                const properties = await page.$$eval('.propertyBox', (listings) => {
-                    const items = [];
-
-                    listings.forEach((listing) => {
-                        try {
-                            const linkEl = listing.querySelector('h2.searchProName a');
-                            const link = linkEl ? linkEl.getAttribute('href') : null;
-
-                            const titleEl = listing.querySelector('h2.searchProName a');
-                            const title = titleEl ? titleEl.textContent.trim() : null;
-
-                            const priceEl = listing.querySelector('h3 div');
-                            const priceText = priceEl ? priceEl.textContent.trim() : '';
-
-                            // Skip if "Sold Subject To Contract"
-                            if (priceText.includes('Sold Subject To Contract')) {
-                                return;
-                            }
-
-                            const priceMatch = priceText.match(/£([\d,]+)/);
-                            const price = priceMatch ? priceMatch[1].replace(/,/g, '') : null;
-
-                            const descEl = listing.querySelector('.featuredDescriptions');
-                            const description = descEl ? descEl.textContent.trim() : '';
-                            const bedroomMatch = description.match(/(\d+)\s+BEDROOM/i);
-                            const bedrooms = bedroomMatch ? bedroomMatch[1] : null;
-
-                            if (link && title && price) {
-                                items.push({
-                                    link: link.startsWith('http') ? link : 'https://www.jackiequinn.co.uk' + link,
-                                    title,
-                                    price,
-                                    bedrooms
-                                });
-                            }
-                        } catch (err) {
-                            // Silent error
-                        }
-                    });
-
-                    return items;
-                });
-
-                console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-                // Add detail page requests to the queue
-                const detailRequests = properties.map(property => ({
-                    url: property.link,
-                    userData: {
-                        isDetailPage: true,
-                        propertyData: property
-                    }
-                }));
-
-                await crawler.addRequests(detailRequests);
-            }
-        },
-
-        failedRequestHandler({ request }) {
-            console.error(`❌ Failed: ${request.url}`);
-        },
-    });
-
-    // Add all listing page URLs
-    const requests = [];
-    for (let pageNum = 1; pageNum <= 11; pageNum++) {
-        requests.push({
-            url: `https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=${pageNum}`,
-            userData: { pageNum, isDetailPage: false }
-        });
-    }
-
-    await crawler.addRequests(requests);
-    await crawler.run();
-
-    console.log(`\n✅ Completed Jackie Quinn - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
+	console.log(
+		`\n✅ Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	);
 }
 
-// Local implementation of updateRemoveStatus
-async function updateRemoveStatus(agent_id) {
-    try {
-        const remove_status = 1;
-        await promisePool.query(
-            `UPDATE property_for_sale SET remove_status = ? WHERE agent_id = ? AND updated_at < NOW() - INTERVAL 1 DAY`,
-            [remove_status, agent_id]
-        );
-        console.log(`🧹 Removed old properties for agent ${agent_id}`);
-    } catch (error) {
-        console.error("Error updating remove status:", error.message);
-    }
-}
-
-// Main execution
 (async () => {
-    try {
-        await scrapeJackieQuinn();
-        await updateRemoveStatus(AGENT_ID);
-        console.log("\n✅ All done!");
-        process.exit(0);
-    } catch (err) {
-        console.error("❌ Fatal error:", err?.message || err);
-        process.exit(1);
-    }
+	try {
+		await scrapeJackieQuinn();
+		await updateRemoveStatus(AGENT_ID);
+		console.log("\n✅ All done!");
+		process.exit(0);
+	} catch (err) {
+		console.error("❌ Fatal error:", err?.message || err);
+		process.exit(1);
+	}
 })();

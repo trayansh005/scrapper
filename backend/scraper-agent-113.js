@@ -63,7 +63,7 @@ function parsePropertyCard($, element) {
 
 		const h3 = $li.find("h3");
 		const h4 = $li.find("h4");
-		
+
 		if (!h3.length || !h4.length) return null;
 
 		const title = h3.text().trim();
@@ -142,7 +142,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		});
 
 		const htmlContent = await detailPage.content();
-		
+
 		const coords = await detailPage.evaluate(() => {
 			try {
 				// Check meta tags first
@@ -172,7 +172,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			isRental,
 			htmlContent,
 			coords ? coords.lat : null,
-			coords ? coords.lon : null
+			coords ? coords.lon : null,
 		);
 
 		stats.totalScraped++;
@@ -235,11 +235,11 @@ async function handleListingPage({ page, request, crawler }) {
 
 	// Dynamic Pagination
 	const nextButton = page.getByRole("button", { name: "Next" });
-	if (await nextButton.isVisible() && !await nextButton.isDisabled()) {
+	if ((await nextButton.isVisible()) && !(await nextButton.isDisabled())) {
 		const currentUrl = new URL(request.url);
 		let nextP = pageNum + 1;
 		currentUrl.searchParams.set("page", nextP.toString());
-		
+
 		// Optional: Check total pages to avoid infinite loop if button stays visible
 		const paginationInfo = await page.evaluate(() => {
 			const el = document.querySelector('nav[aria-label="Pagination"] + div');
@@ -254,10 +254,12 @@ async function handleListingPage({ page, request, crawler }) {
 		const totalPages = Math.ceil(totalResults / 12); // Carter Jonas uses 12 per page
 
 		if (nextP <= totalPages) {
-			await crawler.addRequests([{
-				url: currentUrl.toString(),
-				userData: { pageNum: nextP, isRental, label }
-			}]);
+			await crawler.addRequests([
+				{
+					url: currentUrl.toString(),
+					userData: { pageNum: nextP, isRental, label },
+				},
+			]);
 		}
 	}
 }
@@ -305,7 +307,7 @@ async function scrapeCarterJonas() {
 		{
 			url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=false&sortOrder=HighestPriceFirst&page=${startPage}`,
 			userData: { pageNum: startPage, isRental: true, label: "RENTALS" },
-		}
+		},
 	];
 
 	await crawler.addRequests(allRequests);

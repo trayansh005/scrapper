@@ -1,49 +1,36 @@
 ﻿// Belvoir scraper using Playwright with Crawlee
 // Agent ID: 107
-//
+// Website: belvoir.co.uk
 // Usage:
 // node backend/scraper-agent-107.js
 
-const { PlaywrightCrawler, log } = require("crawlee");
-const { updateRemoveStatus } = require("./db.js");
+const { PlaywrightCrawler, log } = require('crawlee');
+const { updateRemoveStatus } = require('./db.js');
 const {
-	formatPriceUk,
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
-} = require("./lib/db-helpers.js");
-const { isSoldProperty } = require("./lib/property-helpers.js");
+  updatePriceByPropertyURLOptimized,
+  processPropertyWithCoordinates
+} = require('./lib/db-helpers.js');
+const { isSoldProperty, parsePrice } = require('./lib/property-helpers.js');
+
+const AGENT_ID = 107;
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
-const AGENT_ID = 107;
-
 const stats = {
-	totalScraped: 0,
-	totalSaved: 0,
+  totalScraped: 0,
+  totalSaved: 0
 };
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parsePrice(priceText) {
-	return formatPriceUk(priceText);
-}
 
 // ============================================================================
 // BROWSERLESS SETUP
 // ============================================================================
 
 function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
+  return (
+    process.env.BROWSERLESS_WS_ENDPOINT ||
+    `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+  );
 }
 
 // ============================================================================
@@ -51,47 +38,50 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
+  const detailPage = await browserContext.newPage();
+  
+  try {
+    // Block unnecessary resources
+    await detailPage.route('**/*', (route) => {
+      const resourceType = route.request().resourceType();
+      if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+        route.abort();
+      } else {
+        route.continue();
+      }
+    });
 
-	const detailPage = await browserContext.newPage();
+    await detailPage.goto(property.link, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
+    });
 
-	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+    // Wait for the property content to load
+    await detailPage.waitForSelector('.property--card', { timeout: 30000 }).catch(() => {
+        // Detail page might have a different structure
+    });
 
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 30000,
-		});
+    const html = await detailPage.content();
+    
+    // Save property to database
+    // Belvoir detail pages are simple, coordinates usually extracted from HTML by processPropertyWithCoordinates
+    await processPropertyWithCoordinates(
+      property.link,
+      property.price,
+      property.title,
+      property.bedrooms || null,
+      AGENT_ID,
+      isRental,
+      html
+    );
 
-		// Get HTML content and extract coordinates
-		const htmlContent = await detailPage.content();
-
-		// Save property to database
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			htmlContent,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
-	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
-	} finally {
-		await detailPage.close();
-	}
+    stats.totalScraped++;
+    stats.totalSaved++;
+  } catch (error) {
+    console.error(` Error scraping detail page ${property.link}:`, error.message);
+  } finally {
+    await detailPage.close();
+  }
 }
 
 // ============================================================================
@@ -99,80 +89,99 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+  const { isRental, label, pageNumber } = request.userData;
+  console.log(`\n Loading [${label}] Page ${pageNumber}: ${request.url}`);
 
-	// Wait for results to load
-	await page.waitForTimeout(2000);
-	await page.waitForSelector(".tease-property", { timeout: 30000 }).catch(() => {
-		console.log(` No properties found on page ${pageNum}`);
-	});
+  try {
+    // Navigate and wait for content
+    await page.goto(request.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForTimeout(2000); // Small wait for dynamic content
 
-	// Extract all properties from the page
-	const properties = await page.$$eval(".tease-property", (elements) => {
-		return elements
-			.map((element) => {
-				try {
-					const linkEl = element.querySelector(".text-link");
-					let link = linkEl ? linkEl.getAttribute("href") : null;
-					if (link && !link.startsWith("http")) {
-						link = "https://www.belvoir.co.uk" + link;
-					}
+    // Extract properties
+    const properties = await page.evaluate(() => {
+      const containers = Array.from(document.querySelectorAll('.property--card'));
+      const items = [];
 
-					const addr1 = element.querySelector(".addr1")?.textContent || "";
-					const addr2 = element.querySelector(".addr2")?.textContent || "";
-					const title = [addr1, addr2]
-						.map((t) => t.replace(/\s+/g, " ").trim())
-						.filter(Boolean)
-						.join(", ");
+      for (const container of containers) {
+        const linkEl = container.querySelector('a');
+        const link = linkEl ? linkEl.href : null;
+        
+        const titleEl = container.querySelector('.property--card-title');
+        const title = titleEl ? titleEl.innerText.trim() : '';
+        
+        const priceEl = container.querySelector('.property--card-price');
+        const priceText = priceEl ? priceEl.innerText.trim() : '';
+        
+        const statusEl = container.querySelector('.property--card-status');
+        const statusText = statusEl ? statusEl.innerText.trim() : '';
+        
+        let bedrooms = null;
+        // Search for bedrooms in title or features
+        const bedMatch = title.match(/(\d+)\s*bedrooms?/i);
+        if (bedMatch) {
+          bedrooms = parseInt(bedMatch[1]);
+        }
 
-					const bedroomsText =
-						element.querySelector(".bedroom-icon")?.nextElementSibling?.textContent?.trim() || "";
-					const bedroomsMatch = bedroomsText.match(/\d+/);
-					const bedrooms = bedroomsMatch ? bedroomsMatch[0] : null;
+        if (link && priceText) {
+          items.push({ link, title, priceText, bedrooms, statusText });
+        }
+      }
+      return items;
+    });
 
-					const priceText = element.querySelector(".amount")?.textContent?.trim() || "";
+    // De-duplicate properties on the same page
+    const uniqueProperties = [];
+    const seenLinks = new Set();
+    for (const p of properties) {
+      if (!seenLinks.has(p.link)) {
+        seenLinks.add(p.link);
+        uniqueProperties.push(p);
+      }
+    }
 
-					const statusText = element.textContent || "";
+    console.log(`    Found ${uniqueProperties.length} unique properties on [${label}] Page ${pageNumber}`);
 
-					if (link && title && priceText) {
-						return { link, title, priceText, bedrooms, statusText };
-					}
-					return null;
-				} catch (err) {
-					return null;
-				}
-			})
-			.filter(Boolean);
-	});
+    for (const property of uniqueProperties) {
+      if (isSoldProperty(property.statusText || '')) {
+        console.log(`    Skipping sold/let: ${property.title}`);
+        continue;
+      }
 
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+      const price = parsePrice(property.priceText);
+      if (!price) {
+        console.log(`    Price not found for: ${property.title}`);
+        continue;
+      }
 
-	// Process each property
-	for (const property of properties) {
-		if (isSoldProperty(property.statusText || "")) continue;
+      const updateResult = await updatePriceByPropertyURLOptimized(
+        property.link,
+        price,
+        property.title,
+        property.bedrooms,
+        AGENT_ID,
+        isRental
+      );
 
-		const price = parsePrice(property.priceText);
-		if (!price) continue;
+      if (updateResult.updated) {
+        stats.totalSaved++;
+      }
 
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-		);
-
-		if (result.updated) {
-			stats.totalSaved++;
-		}
-
-		if (!result.isExisting && !result.error) {
-			console.log(` Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-		}
-	}
+      if (!updateResult.isExisting && !updateResult.error) {
+        console.log(`    New property: ${property.title} - £${price}`);
+        await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+        // Delay between detail requests
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        // No noise for existing properties
+      }
+    }
+    // Delay between listing pages
+    await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+  } catch (error) {
+    console.error(` Error in handleListingPage: ${error.message}`);
+  }
 }
 
 // ============================================================================
@@ -180,21 +189,22 @@ async function handleListingPage({ page, request, crawler }) {
 // ============================================================================
 
 function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-			},
-		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
-		},
-	});
+  return new PlaywrightCrawler({
+    maxConcurrency: 1, // Be polite
+    maxRequestRetries: 2,
+    requestHandlerTimeoutSecs: 300,
+    launchContext: {
+      launcher: undefined,
+      launchOptions: {
+        browserWSEndpoint,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      }
+    },
+    requestHandler: handleListingPage,
+    failedRequestHandler({ request }) {
+      console.error(` Failed listing page: ${request.url}`);
+    }
+  });
 }
 
 // ============================================================================
@@ -202,60 +212,46 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeBelvoir() {
-	console.log(`\n Starting Belvoir scraper (Agent ${AGENT_ID})...\n`);
+  console.log(` Starting Belvoir Scraper (Agent ${AGENT_ID})...`);
+  
+  const browserWSEndpoint = getBrowserlessEndpoint();
+  const crawler = createCrawler(browserWSEndpoint);
 
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+  // Belvoir now uses specific URLs for "In United Kingdom" which support pagination via /page/N/
+  const PROPERTY_TYPES = [
+    {
+      baseUrl: "https://www.belvoir.co.uk/properties/for-sale/in-united-kingdom/",
+      isRental: false,
+      label: "SALES",
+      totalPages: 37
+    },
+    {
+      baseUrl: "https://www.belvoir.co.uk/properties/to-rent/in-united-kingdom/",
+      isRental: true,
+      label: "RENTALS",
+      totalPages: 24
+    }
+  ];
 
-	// Config
-	const totalSalesPages = 334; // 3672 / 11
-	const totalRentalsPages = 118; // 1300 / 11
+  for (const type of PROPERTY_TYPES) {
+    const requests = [];
+    for (let p = 1; p <= type.totalPages; p++) {
+      const url = p === 1 ? type.baseUrl : `${type.baseUrl}page/${p}/`;
+      requests.push({
+        url,
+        userData: {
+          pageNumber: p,
+          isRental: type.isRental,
+          label: type.label
+        }
+      });
+    }
+    await crawler.addRequests(requests);
+  }
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+  await crawler.run();
 
-	const crawler = createCrawler(browserWSEndpoint);
-
-	const allRequests = [];
-
-	// Build Sales requests
-	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
-		allRequests.push({
-			url: `https://www.belvoir.co.uk/properties/for-sale/?per_page=11&pg=${p}`,
-			userData: {
-				pageNum: p,
-				isRental: false,
-				label: `SALES_PAGE_${p}`,
-			},
-		});
-	}
-
-	// Build Rentals requests
-	if (startPage === 1) {
-		for (let p = 1; p <= totalRentalsPages; p++) {
-			allRequests.push({
-				url: `https://www.belvoir.co.uk/properties/for-rent/?per_page=11&pg=${p}`,
-				userData: {
-					pageNum: p,
-					isRental: true,
-					label: `RENTALS_PAGE_${p}`,
-				},
-			});
-		}
-	}
-
-	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
-		return;
-	}
-
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
-
-	console.log(
-		`\n Completed Belvoir - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
+  console.log(`\n Finished Belvoir - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`);
 }
 
 // ============================================================================
@@ -263,13 +259,12 @@ async function scrapeBelvoir() {
 // ============================================================================
 
 (async () => {
-	try {
-		await scrapeBelvoir();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
-		process.exit(1);
-	}
+  try {
+    await scrapeBelvoir();
+    await updateRemoveStatus(AGENT_ID);
+    process.exit(0);
+  } catch (err) {
+    console.error(' Fatal error:', err?.message || err);
+    process.exit(1);
+  }
 })();
