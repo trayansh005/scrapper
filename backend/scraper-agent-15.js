@@ -69,7 +69,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			timeout: 90000,
 		});
 
-		await detailPage.waitForTimeout(1500);
+		await detailPage.waitForTimeout(3000);
 
 		const htmlContent = await detailPage.content();
 		const coords = await extractCoordinatesFromHTML(htmlContent);
@@ -96,22 +96,30 @@ async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData;
 	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
-	try {
-		await page.waitForSelector(".property-item-card, .property-card, .listing-item", {
-			timeout: 15000,
-		});
-	} catch (e) {
-		console.log(` Listing container not found on page ${pageNum}`);
+	const finalUrl = page.url();
+	if (!finalUrl.includes(`page=${pageNum}`)) {
+		console.log(`Warning: Expected page ${pageNum} but landed on ${finalUrl}`);
 	}
 
-	const properties = await page.evaluate(() => {
+	try {
+		await page.waitForLoadState("networkidle");
+		await page.waitForTimeout(4000);
+	} catch (e) {
+		console.log(`Listing container not found on page ${pageNum}`);
+	}
+
+	const properties = await page.evaluate((rentalMode) => {
 		try {
 			const results = [];
 			const seenLinks = new Set();
 
+			// const cards = Array.from(
+			// 	document.querySelectorAll(".property-item-card, .property-card, .listing-item"),
+			// );
+
 			const cards = Array.from(
-				document.querySelectorAll(".property-item-card, .property-card, .listing-item"),
-			);
+				document.querySelectorAll("#search-results-container a[href*='/properties/']")
+			).map(a => a.closest("div"));
 
 			for (const card of cards) {
 				const linkEl = card.querySelector("a[href*='/properties/']");
@@ -119,11 +127,26 @@ async function handleListingPage({ page, request }) {
 				if (!href) continue;
 
 				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
+				const expectedPathPart = rentalMode ? "/lettings/" : "/sales/";
+				if (!link.includes(expectedPathPart)) continue;
+
 				if (seenLinks.has(link)) continue;
 				seenLinks.add(link);
 
 				const title = card.querySelector(".property-title, h3")?.textContent?.trim() || "Property";
-				const priceRaw = card.querySelector(".property-price, .price")?.textContent?.trim() || "";
+				// const priceRaw = card.querySelector(".property-price, .price")?.textContent?.trim() || "";
+
+				let priceRaw = "";
+
+				const allTextElements = Array.from(card.querySelectorAll("*"));
+
+				for (const el of allTextElements) {
+					const text = el.textContent?.trim();
+					if (text && text.includes("£")) {
+						priceRaw = text;
+						break;
+					}
+				}
 				const bedText = card.querySelector(".property-beds, .beds")?.textContent?.trim() || "";
 				const statusText = card.innerText || "";
 
@@ -133,7 +156,7 @@ async function handleListingPage({ page, request }) {
 		} catch (e) {
 			return [];
 		}
-	});
+	}, isRental);
 
 	console.log(` Found ${properties.length} properties on page ${pageNum}`);
 
@@ -196,7 +219,7 @@ async function handleListingPage({ page, request }) {
 			)} - ${property.link}`,
 		);
 
-		await sleep(500);
+		await sleep(800);
 	}
 }
 
