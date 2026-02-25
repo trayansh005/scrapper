@@ -1,18 +1,19 @@
-# 1. Playwright image
 FROM mcr.microsoft.com/playwright:v1.56.1-jammy
 
-# 2. Install tmux
-RUN apt-get update && apt-get install -y tmux && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+ && apt-get install -y tmux \
+ && rm -rf /var/lib/apt/lists/*
 
-# 3. Working directory
 WORKDIR /app
 
-# 4. Dependencies
 COPY package*.json ./
-RUN npm install
 
-# 5. App code
+ENV NODE_ENV=production
+RUN npm ci --omit=dev && npm cache clean --force
+
 COPY . .
 
-# 6. Keep container alive (important)
+# install only chromium if that's what you use
+RUN npx playwright install chromium
+
 CMD ["sleep", "infinity"]
