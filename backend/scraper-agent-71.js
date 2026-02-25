@@ -5,7 +5,9 @@
 // node backend/scraper-agent-71.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { promisePool, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -50,51 +52,45 @@ async function scrapeHawesAndCo() {
 			const { isDetailPage, propertyData, pageNum, isRental, label } = request.userData;
 
 			if (isDetailPage) {
-				// Processing detail page to get coordinates
 				try {
-					await page.waitForTimeout(1000);
+					await page.waitForLoadState("networkidle");
 
-					let coords = { latitude: null, longitude: null };
+					const htmlContent = await page.content();
 
-					// Extract coordinates from HTML comments
-					try {
-						const htmlContent = await page.content();
-						// Look for: <!--property-latitude:"51.123456"-->
-						const latMatch = htmlContent.match(/<!--property-latitude:"([^"]+)"-->/);
-						const lngMatch = htmlContent.match(/<!--property-longitude:"([^"]+)"-->/);
+					// Extract coordinates using common helper
+					const coords = extractCoordinatesFromHTML(htmlContent);
 
-						if (latMatch && lngMatch) {
-							coords.latitude = parseFloat(latMatch[1]);
-							coords.longitude = parseFloat(lngMatch[1]);
-						}
-					} catch (err) {
-						// Coordinates not found
-					}
+					// Detect sold property
+					const sold = isSoldProperty(htmlContent);
 
-					await updatePriceByPropertyURL(
-						propertyData.link,
-						propertyData.price,
-						propertyData.title,
-						propertyData.bedrooms,
-						AGENT_ID,
+					console.log("Detail URL:", propertyData.link);
+					console.log("Extracted coords:", coords);
+					console.log("Is Sold:", sold);
+
+					await updatePriceByPropertyURLOptimized({
+						link: propertyData.link,
+						price: propertyData.price,
+						title: propertyData.title,
+						bedrooms: propertyData.bedrooms,
+						agentId: AGENT_ID,
 						isRental,
-						coords.latitude,
-						coords.longitude
-					);
+						latitude: coords?.latitude || null,
+						longitude: coords?.longitude || null,
+						isSold: sold,
+					});
 
 					totalSaved++;
 					totalScraped++;
 
-					if (coords.latitude && coords.longitude) {
-						console.log(
-							`✅ ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`
-						);
-					} else {
-						console.log(`✅ ${propertyData.title} - £${propertyData.price} - No coords`);
-					}
+					console.log(
+						`✅ Saved: ${propertyData.title} | £${propertyData.price} | ${coords?.latitude || "No Lat"}, ${coords?.longitude || "No Lng"}`
+					);
+
 				} catch (error) {
 					console.error(`❌ Error saving property: ${error.message}`);
 				}
+
+				return;
 			} else {
 				// Processing listing page
 				console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
@@ -128,7 +124,8 @@ async function scrapeHawesAndCo() {
 								const priceText = priceEl.textContent.trim();
 								const priceMatch = priceText.match(/£([\d,]+)/);
 								if (priceMatch) {
-									price = priceMatch[1].replace(/,/g, "");
+									const priceText = priceEl.textContent.trim();
+									price = formatPriceUk(priceText);
 								}
 							}
 

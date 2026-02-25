@@ -5,6 +5,8 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
@@ -13,31 +15,68 @@ const AGENT_ID = 46;
 let totalScraped = 0;
 let totalSaved = 0;
 
-function formatPrice(num) {
-	if (!num || isNaN(num)) return "£0";
-	return "£" + Number(num).toLocaleString("en-GB");
-}
 
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.connells.co.uk/properties/sales",
-		totalPages: 409,
+		totalPages: 408,
 		recordsPerPage: 18,
 		isRental: false,
 		label: "SALES",
 	},
-	{
-		urlBase: "https://www.connells.co.uk/properties/lettings",
-		totalPages: 45,
-		recordsPerPage: 18,
-		isRental: true,
-		label: "LETTINGS",
-	},
+	// {
+	// 	urlBase: "https://www.connells.co.uk/properties/lettings",
+	// 	totalPages: 40,
+	// 	recordsPerPage: 18,
+	// 	isRental: true,
+	// 	label: "LETTINGS",
+	// },
 ];
 
 async function scrapeConnells() {
 	console.log(`\n🚀 Starting Connells scraper (Agent ${AGENT_ID})...\n`);
+
+
+	async function scrapePropertyDetail(browserContext, property) {
+		await new Promise((r) => setTimeout(r, 700)); // prevent rate limit
+
+		const detailPage = await browserContext.newPage();
+
+		try {
+			// Block heavy resources
+			await detailPage.route("**/*", (route) => {
+				const type = route.request().resourceType();
+				if (["image", "stylesheet", "font", "media"].includes(type)) {
+					route.abort();
+				} else {
+					route.continue();
+				}
+			});
+
+			await detailPage.goto(property.link, {
+				waitUntil: "domcontentloaded",
+				timeout: 90000,
+			});
+
+			await detailPage.waitForTimeout(1200);
+
+			const html = await detailPage.content();
+			const coords = await extractCoordinatesFromHTML(html);
+
+			return {
+				coords: {
+					latitude: coords?.latitude || null,
+					longitude: coords?.longitude || null,
+				},
+			};
+		} catch (err) {
+			console.error(`⚠️ Detail scrape failed: ${property.link}`);
+			return null;
+		} finally {
+			await detailPage.close();
+		}
+	}
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -96,61 +135,50 @@ async function scrapeConnells() {
 						// Ensure absolute URL
 						if (!property.link) return;
 
-						let coords = { latitude: null, longitude: null };
+						if (!property.link) return;
 
-						// Visit detail page to extract coordinates from HTML comments
-						const detailPage = await page.context().newPage();
-						try {
-							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							await detailPage.waitForTimeout(500);
+						// Skip sold properties
+						if (isSoldProperty(property.summary || "")) return;
 
-							// Extract coordinates from HTML comments
-							coords = await detailPage.evaluate(() => {
-								try {
-									const content = document.documentElement.outerHTML;
-
-									// Extract latitude from comment: <!--property-latitude:"51.2791"-->
-									const latMatch = content.match(/<!--property-latitude:"([0-9.-]+)"-->/);
-									const lngMatch = content.match(/<!--property-longitude:"([0-9.-]+)"-->/);
-
-									return {
-										latitude: latMatch ? parseFloat(latMatch[1]) : null,
-										longitude: lngMatch ? parseFloat(lngMatch[1]) : null,
-									};
-								} catch (e) {
-									return { latitude: null, longitude: null };
-								}
-							});
-						} catch (err) {
-							console.error(`⚠️ Failed to extract details for ${property.link}: ${err.message}`);
-						} finally {
-							await detailPage.close();
-						}
-
-						// Format price: keep only numeric and commas
-						const priceClean = (property.price || "").replace(/[^0-9.]/g, "").trim();
+						// Format UK price with commas
+						const price = formatPriceUk(property.price);
+						if (!price) return;
 
 						try {
-							await updatePriceByPropertyURL(
-								property.link.trim(),
-								priceClean,
-								property.title || "",
-								property.bedrooms || null,
+							const result = await updatePriceByPropertyURLOptimized(
+								property.link,
+								price,
+								property.title,
+								property.bedrooms,
 								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude
+								isRental
 							);
 
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${property.link}`);
+							// If price updated only
+							if (result.updated) {
+								totalSaved++;
+							}
 
-							totalSaved++;
-							totalScraped++;
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
+							// If property is new → scrape detail page for lat/long
+							if (!result.isExisting && !result.error) {
+								const detail = await scrapePropertyDetail(page.context(), property);
+
+								await updatePriceByPropertyURL(
+									property.link.trim(),
+									price,
+									property.title,
+									property.bedrooms,
+									AGENT_ID,
+									isRental,
+									detail?.coords?.latitude || null,
+									detail?.coords?.longitude || null
+								);
+
+								totalSaved++;
+								totalScraped++;
+							}
+						} catch (err) {
+							console.error(`❌ DB error for ${property.link}: ${err.message}`);
 						}
 					})
 				);
@@ -170,7 +198,7 @@ async function scrapeConnells() {
 		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
 		const requests = [];
-		for (let pg = 58; pg <= propertyType.totalPages; pg++) {
+		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
 			// Construct page URL: page-2, page-3, etc. (page 1 is base URL)
 			const url = pg === 1 ? `${propertyType.urlBase}` : `${propertyType.urlBase}/page-${pg}`;
 			requests.push({
