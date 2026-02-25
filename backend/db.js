@@ -17,6 +17,7 @@ console.log("Database pool created and ready for connections");
 const promisePool = pool.promise();
 
 const { formatPriceUk } = require("./lib/property-helpers.js");
+const DB_VERBOSE_LOGS = process.env.DB_VERBOSE_LOGS === "1";
 
 // Mark all properties for an agent as removed before a fresh scrape run
 async function markAllPropertiesRemovedForAgent(agent_id) {
@@ -83,13 +84,15 @@ async function updatePriceByPropertyURL(
 				);
 
 				if (result.affectedRows > 0) {
-					console.log(
-						`✅ Updated: ${linkTrimmed.substring(
-							0,
-							50,
-						)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
-					);
-				} else {
+					if (DB_VERBOSE_LOGS) {
+						console.log(
+							`✅ Updated: ${linkTrimmed.substring(
+								0,
+								50,
+							)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
+						);
+					}
+				} else if (DB_VERBOSE_LOGS) {
 					console.log(`⚠️ No update: ${linkTrimmed.substring(0, 50)}...`);
 				}
 			} else {
@@ -112,12 +115,14 @@ async function updatePriceByPropertyURL(
 					currentTime,
 				]);
 
-				console.log(
-					`✅ Created: ${linkTrimmed.substring(
-						0,
-						50,
-					)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
-				);
+				if (DB_VERBOSE_LOGS) {
+					console.log(
+						`✅ Created: ${linkTrimmed.substring(
+							0,
+							50,
+						)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
+					);
+				}
 			}
 		}
 	} catch (error) {

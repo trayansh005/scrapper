@@ -36,6 +36,16 @@ function formatPriceDisplay(price, isRental) {
 	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
+}
+
 // ============================================================================
 // BROWSERLESS SETUP
 // ============================================================================
@@ -57,21 +67,14 @@ async function scrapePropertyDetail(browserContext, property) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
 			timeout: 90000,
 		});
 
-		await detailPage.waitForTimeout(1500);
+		await detailPage.waitForTimeout(800);
 
 		const htmlContent = await detailPage.content();
 		const coords = await extractCoordinatesFromHTML(htmlContent);
@@ -83,7 +86,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			},
 		};
 	} catch (error) {
-		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 		return null;
 	} finally {
 		await detailPage.close();
@@ -95,8 +98,8 @@ async function scrapePropertyDetail(browserContext, property) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	logger.page(pageNum, label, request.url);
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
 		await page.waitForSelector("a[href*='/property/'] h3", { timeout: 15000 });
@@ -152,7 +155,7 @@ async function handleListingPage({ page, request }) {
 		}
 	});
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	for (const property of properties) {
 		if (!property.link) continue;
@@ -168,7 +171,7 @@ async function handleListingPage({ page, request }) {
 		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
 
 		if (!price) {
-			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`);
+			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
 			continue;
 		}
 
@@ -181,8 +184,11 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
+		let propertyAction = "SEEN";
+
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
 		if (!result.isExisting && !result.error) {
@@ -203,6 +209,9 @@ async function handleListingPage({ page, request }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+			propertyAction = "CREATED";
+		} else if (result.error) {
+			propertyAction = "ERROR";
 		}
 
 		logger.property(
@@ -212,6 +221,8 @@ async function handleListingPage({ page, request }) {
 			formatPriceDisplay(price, isRental),
 			property.link,
 			isRental,
+			totalPages,
+			propertyAction,
 		);
 
 		await sleep(500);
@@ -226,7 +237,13 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -269,6 +286,7 @@ async function scrapeMarshParsons() {
 			url,
 			userData: {
 				pageNum: pg,
+				totalPages: totalSalesPages,
 				isRental: false,
 				label: `SALES_PAGE_${pg}`,
 			},

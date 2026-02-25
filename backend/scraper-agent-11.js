@@ -7,10 +7,12 @@ const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 11;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -34,6 +36,16 @@ function formatPriceDisplay(price, isRental) {
 	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
+}
+
 // ============================================================================
 // BROWSERLESS SETUP
 // ============================================================================
@@ -55,21 +67,14 @@ async function scrapePropertyDetail(browserContext, property) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
 			timeout: 90000,
 		});
 
-		await detailPage.waitForTimeout(1500);
+		await detailPage.waitForTimeout(800);
 
 		const detailData = await detailPage.evaluate(() => {
 			try {
@@ -190,7 +195,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			},
 		};
 	} catch (error) {
-		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 		return null;
 	} finally {
 		await detailPage.close();
@@ -202,13 +207,13 @@ async function scrapePropertyDetail(browserContext, property) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
 		await page.waitForSelector("a", { timeout: 15000 });
 	} catch (e) {
-		console.log(` Page load issue on page ${pageNum}`);
+		logger.error("Page load issue", e, pageNum, label);
 	}
 
 	const properties = await page.evaluate(() => {
@@ -302,7 +307,7 @@ async function handleListingPage({ page, request }) {
 		}
 	});
 
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	for (const property of properties) {
 		if (!property.link) continue;
@@ -310,14 +315,19 @@ async function handleListingPage({ page, request }) {
 		if (isSoldProperty(property.statusText || "")) continue;
 
 		if (processedUrls.has(property.link)) {
-			console.log(` Skipping duplicate URL: ${property.link.substring(0, 60)}...`);
+			logger.page(
+				pageNum,
+				label,
+				`Skipping duplicate URL: ${property.link.substring(0, 60)}...`,
+				totalPages,
+			);
 			continue;
 		}
 		processedUrls.add(property.link);
 
 		const detail = await scrapePropertyDetail(page.context(), property);
 		if (!detail || !detail.price) {
-			console.log(` Skipping update (no price found): ${property.link}`);
+			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
 			continue;
 		}
 
@@ -330,8 +340,11 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
+		let propertyAction = "SEEN";
+
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
 		if (!result.isExisting && !result.error) {
@@ -350,19 +363,25 @@ async function handleListingPage({ page, request }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+			propertyAction = "CREATED";
 		} else if (result.isExisting && result.updated) {
 			// If it's existing but updated (price change)
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+		} else if (result.error) {
+			propertyAction = "ERROR";
 		}
 
-		const categoryLabel = isRental ? "LETTINGS" : "SALES";
-		console.log(
-			` [${categoryLabel}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
-				detail.price,
-				isRental,
-			)} - ${property.link}`,
+		logger.property(
+			pageNum,
+			label,
+			detail.title.substring(0, 40),
+			formatPriceDisplay(detail.price, isRental),
+			property.link,
+			isRental,
+			totalPages,
+			propertyAction,
 		);
 
 		await sleep(500);
@@ -376,11 +395,11 @@ async function handleListingPage({ page, request }) {
 
 	// Simple check: if we found properties on this page, try next
 	if (properties.length >= 10 && pageNum < 50) {
-		console.log(` Queuing next page: ${nextPageNum}`);
+		logger.page(pageNum, label, `Queuing next page: ${nextPageNum}`, totalPages);
 		await crawler.addRequests([
 			{
 				url: nextPageUrl,
-				userData: { pageNum: nextPageNum, isRental, label },
+				userData: { pageNum: nextPageNum, totalPages: 50, isRental, label },
 			},
 		]);
 	}
@@ -396,7 +415,13 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -406,7 +431,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -416,27 +441,26 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeVHHomes() {
-	console.log(`\n Starting VHHomes scraper (Agent ${AGENT_ID})...\n`);
+	logger.step("Starting VHHomes scraper...");
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	// Scrape sales
-	console.log(`\n\n SALES\n`);
+	logger.step("SALES");
 	crawler = createCrawler(browserWSEndpoint);
 	try {
-		await crawler.addRequests([
+		await crawler.run([
 			{
 				url: `https://vhhomes.co.uk/search?type=buy&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=${startPage}`,
-				userData: { pageNum: startPage, isRental: false, label: "SALES" },
+				userData: { pageNum: startPage, totalPages: 50, isRental: false, label: "SALES" },
 			},
 		]);
-		await crawler.run();
 	} catch (error) {
-		console.error(`Error during sales scraping: ${error.message}`);
+		logger.error("Error during sales scraping", error);
 	} finally {
 		await crawler.teardown();
 	}
@@ -445,33 +469,26 @@ async function scrapeVHHomes() {
 	processedUrls.clear();
 
 	// Scrape rentals
-	console.log(`\n\n LETTINGS\n`);
+	logger.step("LETTINGS");
 	crawler = createCrawler(browserWSEndpoint);
 	try {
-		await crawler.addRequests([
+		await crawler.run([
 			{
 				url: `https://vhhomes.co.uk/search?type=rent&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=${startPage}`,
-				userData: { pageNum: startPage, isRental: true, label: "LETTINGS" },
+				userData: { pageNum: startPage, totalPages: 50, isRental: true, label: "LETTINGS" },
 			},
 		]);
-		await crawler.run();
 	} catch (error) {
-		console.error(`Error during rentals scraping: ${error.message}`);
+		logger.error("Error during rentals scraping", error);
 	} finally {
 		await crawler.teardown();
 	}
 
 	// Print summary
-	console.log(`\n
-========================================
- AGENT ${AGENT_ID} SUMMARY
-========================================
-Total scraped: ${stats.totalScraped}
-Total updated: ${stats.totalSaved}
-New sales: ${stats.savedSales}
-New rentals: ${stats.savedRentals}
-========================================\n`);
+	logger.step(
+		`Summary - Total scraped: ${stats.totalScraped}, Total updated: ${stats.totalSaved}, New sales: ${stats.savedSales}, New rentals: ${stats.savedRentals}`,
+	);
 }
 
 // Run the scraper
-scrapeVHHomes().catch(console.error);
+scrapeVHHomes().catch((error) => logger.error("Unhandled scraper error", error));

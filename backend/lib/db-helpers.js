@@ -1,6 +1,7 @@
 // Database helper functions for property updates
 const { promisePool, updatePriceByPropertyURL } = require("../db.js");
 const { formatPriceUk } = require("./property-helpers.js");
+const DB_VERBOSE_LOGS = process.env.DB_VERBOSE_LOGS === "1";
 
 /**
  * Optimized update function - only updates price for existing properties
@@ -47,7 +48,7 @@ async function updatePriceByPropertyURLOptimized(
 					[formattedPrice, linkTrimmed, agent_id],
 				);
 
-				if (currentPrice !== formattedPrice) {
+				if (currentPrice !== formattedPrice && DB_VERBOSE_LOGS) {
 					console.log(
 						`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Old: £${currentPrice} -> New: £${formattedPrice}`,
 					);
@@ -120,11 +121,13 @@ async function processPropertyWithCoordinates(
 			longitude,
 		);
 
-		console.log(
-			`✅ New property: ${title} (£${formatPriceUk(price)}) - Coords: ${latitude}, ${longitude}${
-				finalBedrooms ? `, Beds: ${finalBedrooms}` : ""
-			}`,
-		);
+		if (DB_VERBOSE_LOGS) {
+			console.log(
+				`✅ New property: ${title} (£${formatPriceUk(price)}) - Coords: ${latitude}, ${longitude}${
+					finalBedrooms ? `, Beds: ${finalBedrooms}` : ""
+				}`,
+			);
+		}
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);
 		// Don't throw - just log the error
