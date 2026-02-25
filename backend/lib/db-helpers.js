@@ -42,7 +42,7 @@ async function updatePriceByPropertyURLOptimized(
 				// UPDATE existing property - always update updated_at, but only log if price changed
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
-                    SET price = ?, updated_at = NOW()
+                    SET price = ?, remove_status = 0, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
 					[formattedPrice, linkTrimmed, agent_id],
 				);

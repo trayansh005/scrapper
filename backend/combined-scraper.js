@@ -23,10 +23,17 @@ async function runAgentScript(agentId, startPage = null) {
 		if (startPage) console.log(`📄 Starting from Page: ${startPage}`);
 		console.log(`================================================================\n`);
 
+		const crawlerStorageDir = path.join(__dirname, "storage", `agent-${agentId}`);
+		fs.mkdirSync(crawlerStorageDir, { recursive: true });
+
 		const args = startPage ? [startPage.toString()] : [];
 		const child = spawn("node", [scriptPath, ...args], {
 			stdio: "inherit",
 			cwd: __dirname,
+			env: {
+				...process.env,
+				CRAWLEE_STORAGE_DIR: crawlerStorageDir,
+			},
 		});
 
 		child.on("close", (code) => {

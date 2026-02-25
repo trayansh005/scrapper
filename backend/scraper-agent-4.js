@@ -4,13 +4,15 @@
 // node backend/scraper-agent-4.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, markAllPropertiesRemovedForAgent } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 4;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -94,12 +96,12 @@ async function scrapePropertyDetail(browserContext, property) {
 
 async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+	logger.page(pageNum, label, request.url);
 
 	try {
 		await page.waitForSelector("a[href*='/property/'] h3", { timeout: 15000 });
 	} catch (e) {
-		console.log(` Listing container not found on page ${pageNum}`);
+		logger.error("Listing container not found", e, pageNum, label);
 	}
 
 	const properties = await page.evaluate(() => {
@@ -150,7 +152,7 @@ async function handleListingPage({ page, request }) {
 		}
 	});
 
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	for (const property of properties) {
 		if (!property.link) continue;
@@ -166,7 +168,7 @@ async function handleListingPage({ page, request }) {
 		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
 
 		if (!price) {
-			console.log(` Skipping update (no price found): ${property.link}`);
+			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`);
 			continue;
 		}
 
@@ -203,12 +205,13 @@ async function handleListingPage({ page, request }) {
 			else stats.savedSales++;
 		}
 
-		const categoryLabel = isRental ? "LETTINGS" : "SALES";
-		console.log(
-			` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-				price,
-				isRental,
-			)} - ${property.link}`,
+		logger.property(
+			pageNum,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(price, isRental),
+			property.link,
+			isRental,
 		);
 
 		await sleep(500);
@@ -233,7 +236,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -243,7 +246,8 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeMarshParsons() {
-	console.log(`\n Starting Marsh & Parsons scraper (Agent ${AGENT_ID})...\n`);
+	logger.step("Starting Marsh & Parsons scraper...");
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -251,7 +255,7 @@ async function scrapeMarshParsons() {
 	const totalSalesPages = 30; // Based on original script
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
@@ -272,18 +276,17 @@ async function scrapeMarshParsons() {
 	}
 
 	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
+		logger.step("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-	console.log(
-		`\n Completed Marsh & Parsons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Marsh & Parsons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 // ============================================================================
@@ -293,11 +296,10 @@ async function scrapeMarshParsons() {
 (async () => {
 	try {
 		await scrapeMarshParsons();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

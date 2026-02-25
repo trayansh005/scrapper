@@ -18,6 +18,35 @@ const promisePool = pool.promise();
 
 const { formatPriceUk } = require("./lib/property-helpers.js");
 
+// Mark all properties for an agent as removed before a fresh scrape run
+async function markAllPropertiesRemovedForAgent(agent_id) {
+	try {
+		const [saleResult] = await promisePool.query(
+			`UPDATE property_for_sale
+             SET remove_status = 1
+             WHERE agent_id = ?`,
+			[agent_id],
+		);
+
+		const [rentResult] = await promisePool.query(
+			`UPDATE property_for_rent
+             SET remove_status = 1
+             WHERE agent_id = ?`,
+			[agent_id],
+		);
+
+		const markedCount = (saleResult?.affectedRows || 0) + (rentResult?.affectedRows || 0);
+		console.log(
+			`🚩 Marked all properties as removed for agent ${agent_id} (sale: ${
+				saleResult?.affectedRows || 0
+			}, rent: ${rentResult?.affectedRows || 0}, total: ${markedCount})`,
+		);
+	} catch (error) {
+		console.error("Error marking properties removed for agent:", error.message);
+		throw error;
+	}
+}
+
 // Update or insert property by URL (check then update, else create)
 async function updatePriceByPropertyURL(
 	link,
@@ -48,7 +77,7 @@ async function updatePriceByPropertyURL(
 				// UPDATE existing property for THIS agent
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
-                    SET price = ?, latitude = ?, longitude = ?, updated_at = NOW()
+                    SET price = ?, latitude = ?, longitude = ?, remove_status = 0, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
 					[price, latitude, longitude, linkTrimmed, agent_id],
 				);
@@ -131,6 +160,11 @@ async function updateRemoveStatus(agent_id) {
 	}
 }
 
-module.exports = { promisePool, updatePriceByPropertyURL, updateRemoveStatus };
+module.exports = {
+	promisePool,
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+};
 // Deprecated: backward compatibility if code uses pool.promise() directly
 module.exports.promise = () => promisePool;
