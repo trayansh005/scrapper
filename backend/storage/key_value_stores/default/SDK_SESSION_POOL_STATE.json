@@ -1,6 +1,6 @@
 {
-  "usableSessionsCount": 66,
-  "retiredSessionsCount": 25,
+  "usableSessionsCount": 78,
+  "retiredSessionsCount": 37,
   "sessions": [
     {
       "id": "session_Pu8vPGdeex",
@@ -1121,12 +1121,12 @@
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/sales/property-for-sale",
             "hostOnly": true,
             "creation": "2026-02-26T11:47:51.977Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "CraftSessionId",
@@ -1138,7 +1138,7 @@
             "httpOnly": true,
             "hostOnly": true,
             "creation": "2026-02-26T11:47:51.977Z",
-            "lastAccessed": "2026-02-26T12:11:55.504Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "CRAFT_CSRF_TOKEN",
@@ -1150,17 +1150,17 @@
             "httpOnly": true,
             "hostOnly": true,
             "creation": "2026-02-26T11:47:51.977Z",
-            "lastAccessed": "2026-02-26T12:11:55.504Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "OptanonConsent",
-            "value": "isGpcEnabled=0&datestamp=Thu+Feb+26+2026+17%3A41%3A32+GMT%2B0530+(India+Standard+Time)&version=202403.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=dd291fb4-8a8e-49a3-801a-6e59c9fe5b0b&interactionCount=0&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0%2CC0003%3A0&AwaitingReconsent=false",
-            "expires": "2027-02-26T12:11:32.000Z",
+            "value": "isGpcEnabled=0&datestamp=Thu+Feb+26+2026+17%3A46%3A44+GMT%2B0530+(India+Standard+Time)&version=202403.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=dd291fb4-8a8e-49a3-801a-6e59c9fe5b0b&interactionCount=0&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0%2CC0003%3A0&AwaitingReconsent=false",
+            "expires": "2027-02-26T12:16:44.000Z",
             "domain": "fineandcountry.co.uk",
             "path": "/",
             "hostOnly": false,
             "creation": "2026-02-26T11:47:51.977Z",
-            "lastAccessed": "2026-02-26T12:11:55.504Z"
+            "lastAccessed": "2026-02-26T12:17:05.405Z"
           },
           {
             "key": "googtrans",
@@ -1170,258 +1170,368 @@
             "path": "/",
             "hostOnly": true,
             "creation": "2026-02-26T11:47:51.977Z",
-            "lastAccessed": "2026-02-26T12:11:55.504Z"
+            "lastAccessed": "2026-02-26T12:17:05.403Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/christchurch-estate-agents/property-sale/2-bedroom-flat-for-sale-in-bh23-dorset-christchurch-church-street-castle-manor",
             "hostOnly": true,
             "creation": "2026-02-26T11:59:49.849Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/canterbury-estate-agents/property-sale/2-bedroom-apartment-for-sale-in-kent-ct10-3lt-broadstairs-fitzroy-avenue",
             "hostOnly": true,
             "creation": "2026-02-26T12:00:17.075Z",
-            "lastAccessed": "2026-02-26T12:11:53.782Z"
+            "lastAccessed": "2026-02-26T12:17:05.399Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/rossendale-north-manchester-estate-agents/property-sale/3-bedroom-end-of-terrace-house-for-sale-in-rossendale-rawtenstall-haslingden-old-road",
             "hostOnly": true,
             "creation": "2026-02-26T12:00:50.575Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/mid-and-south-essex-estate-agents/property-sale/2-bedroom-apartment-for-sale-in-chelmsford-cm3-danbury-danbury-palace-drive",
             "hostOnly": true,
             "creation": "2026-02-26T12:01:16.566Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/bishops-stortford-estate-agents/property-sale/4-bedroom-detached-house-for-sale-in-cb11-essex-saffron-walden-clavering-wicken-road",
             "hostOnly": true,
             "creation": "2026-02-26T12:01:45.346Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/huddersfield-estate-agents/property-sale/4-bedroom-town-house-for-sale-in-hd6-schoolyard-gardens-plot-4",
             "hostOnly": true,
             "creation": "2026-02-26T12:02:14.105Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/mid-wales-estate-agents/property-sale/3-bedroom-semi-detached-house-for-sale-in-powys-llandinam",
             "hostOnly": true,
             "creation": "2026-02-26T12:02:39.870Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/ware-hertford-and-welwyn-estate-agents/property-sale/4-bedroom-land-for-sale-in-cb11-4qt-with-planning-for-a-4-bedroom-home-land-adjacent-to-hill-house",
             "hostOnly": true,
             "creation": "2026-02-26T12:03:06.434Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/west-wales-estate-agents/property-sale/4-bedroom-semi-detached-house-for-sale-in-sy23-aberystwyth-crosswood-trawscoed-coach-house-east-wing",
             "hostOnly": true,
             "creation": "2026-02-26T12:03:36.201Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/huddersfield-estate-agents/property-sale/4-bedroom-town-house-for-sale-in-hd6-schoolyard-gardens-plot-2",
             "hostOnly": true,
             "creation": "2026-02-26T12:04:04.223Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/manchester-estate-agents/property-sale/3-bedroom-apartment-for-sale-in-manchester-m3-1le-dutton-street-waterhouse-gardens",
             "hostOnly": true,
             "creation": "2026-02-26T12:04:36.476Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
           },
           {
             "key": "_fbp",
             "value": "fb.2.1772107545136.56932127784578170",
-            "expires": "2026-05-27T12:05:45.000Z",
+            "expires": "2026-05-27T12:16:18.000Z",
             "domain": "fineandcountry.co.uk",
             "path": "/",
             "hostOnly": false,
             "creation": "2026-02-26T12:06:05.589Z",
-            "lastAccessed": "2026-02-26T12:11:55.504Z"
+            "lastAccessed": "2026-02-26T12:17:05.404Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/south-derbyshire-ashbourne-and-matlock-estate-agents/property-sale/3-bedroom-penthouse-for-sale-in-derbyshire-de1-2jy-derby-trinity-walk",
             "hostOnly": true,
             "creation": "2026-02-26T12:06:36.234Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/west-wales-estate-agents/property-sale/4-bedroom-detached-house-for-sale-in-sa38-newcastle-emlyn-llandyfriog-maeseithyn",
             "hostOnly": true,
             "creation": "2026-02-26T12:07:03.910Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/nottingham-estate-agents/property-sale/2-bedroom-detached-bungalow-for-sale-in-ng2-west-bridgford-walcote-drive",
             "hostOnly": true,
             "creation": "2026-02-26T12:07:29.742Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.399Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/st-albans-estate-agents/property-sale/2-bedroom-apartment-for-sale-in-al1-scholars-court-newsom-place-hatfield-road-hatfield-road",
             "hostOnly": true,
             "creation": "2026-02-26T12:07:55.123Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/fakenham-estate-agents/property-sale/4-bedroom-town-house-for-sale-in-wisbech-the-crescent",
             "hostOnly": true,
             "creation": "2026-02-26T12:08:21.271Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/olney-newport-pagnell-estate-agents/property-sale/2-bedroom-detached-bungalow-for-sale-in-newport-pagnell-sherington-village-close",
             "hostOnly": true,
             "creation": "2026-02-26T12:08:47.017Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/huddersfield-estate-agents/property-sale/plot-for-sale-in-hd2-2bg-west-yorkshire-huddersfield-edgerton-birkby-lodge-road",
             "hostOnly": true,
             "creation": "2026-02-26T12:09:13.565Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/west-wales-estate-agents/property-sale/4-bedroom-detached-house-for-sale-in-sa32-carmarthen-nantgaredig-pontynyswen-chapel-house",
             "hostOnly": true,
             "creation": "2026-02-26T12:09:40.941Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/rossendale-north-manchester-estate-agents/property-sale/3-bedroom-semi-detached-house-for-sale-in-rossendale-rawtenstall-newchurch-road",
             "hostOnly": true,
             "creation": "2026-02-26T12:10:08.044Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
-          },
-          {
-            "key": "DO-LB",
-            "value": "\"ChAxMC4xMzEuMjUxLjU1OjgwEJGEpRw=\"",
-            "expires": "2026-02-26T12:14:46.320Z",
-            "domain": "www.fineandcountry.co.uk",
-            "path": "/",
-            "httpOnly": true,
-            "hostOnly": true,
-            "creation": "2026-02-26T12:10:08.045Z",
-            "lastAccessed": "2026-02-26T12:11:55.504Z"
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/brigg-estate-agents/property-sale/6-bedroom-detached-house-for-sale-in-kelfield-north-street",
             "hostOnly": true,
             "creation": "2026-02-26T12:10:34.880Z",
-            "lastAccessed": "2026-02-26T12:11:53.783Z"
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/sheffield-estate-agents/property-sale/4-bedroom-barn-conversion-for-sale-in-s36-3zd-sheffield-bolsterstone-castle-croft-lane",
             "hostOnly": true,
             "creation": "2026-02-26T12:11:04.089Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
           },
           {
             "key": "googtrans",
             "value": "%2Fauto%2Fen",
-            "expires": "2026-02-26T13:01:53.781Z",
+            "expires": "2026-02-26T13:07:05.397Z",
             "domain": "www.fineandcountry.co.uk",
             "path": "/canterbury-estate-agents/property-sale/2-bedroom-apartment-for-sale-in-kent-ct10-3ef-broadstairs-convent-road-the-fairways",
             "hostOnly": true,
             "creation": "2026-02-26T12:11:53.781Z",
-            "lastAccessed": "2026-02-26T12:11:53.781Z"
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/scotland-estate-agents/property-sale/3-bedroom-detached-bungalow-for-sale-in-dg5-dalbeattie-colvend-quarrybank",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:12:19.337Z",
+            "lastAccessed": "2026-02-26T12:17:05.399Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/west-wales-estate-agents/property-sale/3-bedroom-detached-house-for-sale-in-sa32-nantgaredig-station-road",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:12:45.336Z",
+            "lastAccessed": "2026-02-26T12:17:05.399Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/south-norfolk-and-north-suffolk-estate-agents/property-sale/3-bedroom-end-of-terrace-house-for-sale-in-east-harling",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:13:11.363Z",
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/newport-estate-agents/property-sale/9-bedroom-property-for-sale-in-tredegar-rhymney-rhymney-bridge",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:13:36.267Z",
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/brecon-estate-agents/property-sale/3-bedroom-flat-for-sale-in-brecon-penoyre",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:14:01.524Z",
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/redbourn-and-edlesborough-estate-agents/property-sale/2-bedroom-semi-detached-house-for-sale-in-al3-markyate-cavendish-road",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:14:26.884Z",
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/ribble-valley-estate-agents/property-sale/2-bedroom-terraced-house-for-sale-in-waddington-clitheroe-road",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:14:53.323Z",
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/south-norfolk-and-north-suffolk-estate-agents/property-sale/3-bedroom-detached-house-for-sale-in-stowmarket-mendlesham",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:15:20.501Z",
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
+          },
+          {
+            "key": "DO-LB",
+            "value": "\"ChAxMC4xMzEuMjUxLjk1OjgwEMiGpRw=\"",
+            "expires": "2026-02-26T12:19:57.735Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-02-26T12:15:20.503Z",
+            "lastAccessed": "2026-02-26T12:17:05.405Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/huddersfield-estate-agents/property-sale/3-bedroom-semi-detached-house-for-sale-in-hd8-denby-dale-barnsley-road-the-willows-plot-23",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:15:46.550Z",
+            "lastAccessed": "2026-02-26T12:17:05.397Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/west-wales-estate-agents/property-sale/3-bedroom-maisonette-for-sale-in-sa62-haverfordwest-llanunwas-ramsey-view",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:16:38.412Z",
+            "lastAccessed": "2026-02-26T12:17:05.398Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:07:05.397Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/norwich-estate-agents/property-sale/3-bedroom-terraced-house-for-sale-in-norwich-cross-lane",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:17:05.402Z",
+            "lastAccessed": "2026-02-26T12:17:05.402Z"
           }
         ]
       },
@@ -1430,9 +1540,9 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-02-26T12:37:14.532Z",
       "createdAt": "2026-02-26T11:47:14.532Z",
-      "usageCount": 38,
+      "usageCount": 51,
       "maxUsageCount": 50,
-      "errorScore": 0
+      "errorScore": 3
     },
     {
       "id": "session_HsaHDD40sI",
@@ -2190,6 +2300,642 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-02-26T13:01:55.424Z",
       "createdAt": "2026-02-26T12:11:55.424Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_WIKcTgU55K",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:02:21.019Z",
+      "createdAt": "2026-02-26T12:12:21.019Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_JvpYASZPHy",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:02:46.149Z",
+      "createdAt": "2026-02-26T12:12:46.149Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_QV3LFeL2UG",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:03:12.106Z",
+      "createdAt": "2026-02-26T12:13:12.106Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Qw3dCFahlS",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:03:37.009Z",
+      "createdAt": "2026-02-26T12:13:37.009Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_9OgTEnp8WE",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:04:02.349Z",
+      "createdAt": "2026-02-26T12:14:02.349Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_zXedTWPXUR",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:04:27.695Z",
+      "createdAt": "2026-02-26T12:14:27.695Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_vr84LkAaPH",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:04:54.486Z",
+      "createdAt": "2026-02-26T12:14:54.486Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_MdZ0QfnfaM",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:05:22.386Z",
+      "createdAt": "2026-02-26T12:15:22.386Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_sy8s5bozeN",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:05:47.131Z",
+      "createdAt": "2026-02-26T12:15:47.131Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_01cLo0Xc0X",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:06:13.541Z",
+      "createdAt": "2026-02-26T12:16:13.541Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_leQyKf0fKR",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:06:40.281Z",
+      "createdAt": "2026-02-26T12:16:40.281Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_6ucdqs0cuq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:07:07.172Z",
+      "createdAt": "2026-02-26T12:17:07.172Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ctEsxdJb7q",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "CraftSessionId",
+            "value": "od2r0gmm6c5ikh87svfridv2bu",
+            "expires": "2026-02-26T13:07:36.844Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-02-26T12:17:36.844Z",
+            "lastAccessed": "2026-02-26T12:21:55.865Z"
+          },
+          {
+            "key": "CRAFT_CSRF_TOKEN",
+            "value": "a848a20bdbd476ea84184cde6fb6c9e9e55f0aa6112735626505fa703b37fe20a%3A2%3A%7Bi%3A0%3Bs%3A16%3A%22CRAFT_CSRF_TOKEN%22%3Bi%3A1%3Bs%3A40%3A%22jJ3E0Vb_9VdY0_S256xPTsn4MdZwkvuckTbVlRe_%22%3B%7D",
+            "expires": "2026-02-26T13:07:36.844Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-02-26T12:17:36.844Z",
+            "lastAccessed": "2026-02-26T12:21:55.865Z"
+          },
+          {
+            "key": "DO-LB",
+            "value": "\"ChAxMC4xMzEuMjUxLjU1OjgwEM+HpRw=\"",
+            "expires": "2026-02-26T12:22:11.892Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-02-26T12:17:36.844Z",
+            "lastAccessed": "2026-02-26T12:21:55.865Z"
+          },
+          {
+            "key": "OptanonConsent",
+            "value": "isGpcEnabled=0&datestamp=Thu+Feb+26+2026+17%3A51%3A33+GMT%2B0530+(India+Standard+Time)&version=202403.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=e5c5756a-db7e-48e9-86db-05393039f14f&interactionCount=0&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0%2CC0003%3A0&AwaitingReconsent=false",
+            "expires": "2027-02-26T12:21:33.000Z",
+            "domain": "fineandcountry.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-26T12:17:36.844Z",
+            "lastAccessed": "2026-02-26T12:21:55.865Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/isle-of-wight-estate-agents/property-sale/3-bedroom-cottage-for-sale-in-po31-isle-of-wight-northwood",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:18:03.540Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/brigg-estate-agents/property-sale/6-bedroom-semi-detached-house-for-sale-in-scotter-high-street",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:18:30.737Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "/auto/en",
+            "expires": "2026-02-26T13:08:30.737Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:18:30.737Z",
+            "lastAccessed": "2026-02-26T12:21:55.865Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/colchester-estate-agents/property-sale/3-bedroom-terraced-house-for-sale-in-sudbury-gainsborough-street",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:18:56.624Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/fakenham-estate-agents/property-sale/2-bedroom-cottage-for-sale-in-fakenham-stibbard",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:19:22.970Z",
+            "lastAccessed": "2026-02-26T12:21:54.916Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/south-norfolk-and-north-suffolk-estate-agents/property-sale/2-bedroom-terraced-house-for-sale-in-ufford-lower-street",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:19:48.553Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.914Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/central-lincolnshire-grantham-estate-agents/property-sale/4-bedroom-detached-house-for-sale-in-pe20-lincolnshire-boston-fosdyke-puttock-gate",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:20:14.159Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/newbury-estate-agents/property-sale/2-bedroom-flat-for-sale-in-rg14-newbury-racecourse-kingman-way",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:20:40.073Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/loughborough-estate-agents/property-sale/2-bedroom-semi-detached-house-for-sale-in-le12-woodhouse-eaves-maplewell-road",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:21:04.651Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/beccles-waveney-estate-agents/property-sale/3-bedroom-detached-bungalow-for-sale-in-blundeston-flixton-marsh-lane",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:21:29.391Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-02-26T13:11:54.915Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/west-wales-estate-agents/property-sale/4-bedroom-bungalow-for-sale-in-sy23-aberystwyth-cnwch-coch-y-wawr",
+            "hostOnly": true,
+            "creation": "2026-02-26T12:21:54.915Z",
+            "lastAccessed": "2026-02-26T12:21:54.915Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:07:07.177Z",
+      "createdAt": "2026-02-26T12:17:07.177Z",
+      "usageCount": 11,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_jEE2olbA2n",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:07:38.387Z",
+      "createdAt": "2026-02-26T12:17:38.387Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_homp0LtoCk",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:08:05.794Z",
+      "createdAt": "2026-02-26T12:18:05.794Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_bfnG3XarPI",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:08:31.558Z",
+      "createdAt": "2026-02-26T12:18:31.558Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_qduhAJBGSi",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:08:57.487Z",
+      "createdAt": "2026-02-26T12:18:57.487Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_OvZWxdmGUc",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:09:23.794Z",
+      "createdAt": "2026-02-26T12:19:23.794Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_363O0B9eDc",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:09:50.278Z",
+      "createdAt": "2026-02-26T12:19:50.278Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_VCsA8H9YxA",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:10:14.911Z",
+      "createdAt": "2026-02-26T12:20:14.911Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_MlxpyCtbd7",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:10:40.832Z",
+      "createdAt": "2026-02-26T12:20:40.832Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_9LJeDP05Zf",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:11:05.454Z",
+      "createdAt": "2026-02-26T12:21:05.454Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_cAGOYUoSMs",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:11:31.290Z",
+      "createdAt": "2026-02-26T12:21:31.290Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Y8yEdScTKk",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-26T13:11:55.769Z",
+      "createdAt": "2026-02-26T12:21:55.769Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
