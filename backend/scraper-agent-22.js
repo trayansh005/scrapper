@@ -6,16 +6,19 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 22;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -124,15 +127,8 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		// Block unnecessary resources using shared helper
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -164,7 +160,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 	} finally {
 		await detailPage.close();
 	}
@@ -179,7 +175,7 @@ async function handleSearchPage({ page, request, browserController }) {
 	const url = request.url;
 	const isRental = url.includes("rental") || url.includes("letting");
 
-	console.log(`🔍 Navigating to: ${url}`);
+	logger.page(0, "", `Navigating to: ${url}`);
 	await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
 	// Extract auction_id from URL
@@ -187,11 +183,11 @@ async function handleSearchPage({ page, request, browserController }) {
 	const auctionId = auctionIdMatch ? auctionIdMatch[1] : null;
 
 	if (!auctionId) {
-		console.error("❌ Could not find auction_id in URL");
+		logger.error("Could not find auction_id in URL");
 		return;
 	}
 
-	console.log(`📬 Fetching properties from API for auction: ${auctionId}...`);
+	logger.step(`Fetching properties from API for auction: ${auctionId}`);
 
 	// Fetch all properties via API directly in the browser context
 	const allProperties = await page.evaluate(async (aucId) => {
@@ -221,13 +217,13 @@ async function handleSearchPage({ page, request, browserController }) {
 				}
 			}
 		} catch (e) {
-			console.error("API error:", e);
+			logger.error("API error", e);
 		}
 
 		return results;
 	}, auctionId);
 
-	console.log(`✅ Found ${allProperties.length} properties via API`);
+	logger.page(0, "", `Found ${allProperties.length} properties via API`);
 
 	for (const prop of allProperties) {
 		const link = generatePropertyURL(prop);
@@ -268,13 +264,15 @@ async function handleSearchPage({ page, request, browserController }) {
 }
 
 async function scrapeAllsop() {
-	console.log(`\n🚀 Starting Allsop scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Allsop scraper...`);
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1, // Stay nice to the API
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -289,7 +287,7 @@ async function scrapeAllsop() {
 		"https://www.allsop.co.uk/property-search?auction_id=f76e435a-46a5-11f0-ba8f-0242ac110002&page=1",
 	]);
 
-	console.log(
+	logger.step(
 		`\n✅ Completed Allsop - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
@@ -302,10 +300,10 @@ async function scrapeAllsop() {
 	try {
 		await scrapeAllsop();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

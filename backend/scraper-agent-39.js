@@ -5,9 +5,14 @@
 // node backend/scraper-agent-39.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized,} = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty,} = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 39;
@@ -77,6 +82,7 @@ async function scrapeJohnDWood() {
 				headless: true,
 			},
 		},
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 
 		async requestHandler({ page, request, crawler }) {
 			// Small randomized delay at the start of each request to avoid bursts
@@ -84,7 +90,7 @@ async function scrapeJohnDWood() {
 			// set a gentle accept-language h6der for the page
 			try {
 				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-			} catch (e) { }
+			} catch (e) {}
 			const { pageNum, isRental, label, isDetailPage, propertyData } = request.userData || {};
 
 			if (isDetailPage) {
@@ -112,17 +118,17 @@ async function scrapeJohnDWood() {
 						// Generic latitude/longitude keys in JSON or scripts
 						if (!latitude || !longitude) {
 							const latAny = html.match(
-								/(?:\"latitude\"|\"lat\"|latitude\s*:)\s*[:=]?\s*\"?([\d]{1,3}\.\d+)\"?/i
+								/(?:\"latitude\"|\"lat\"|latitude\s*:)\s*[:=]?\s*\"?([\d]{1,3}\.\d+)\"?/i,
 							);
 							const lonAny = html.match(
-								/(?:\"longitude\"|\"lng\"|\"lon\"|longitude\s*:)\s*[:=]?\s*\"?(-?\d{1,3}\.\d+)\"?/i
+								/(?:\"longitude\"|\"lng\"|\"lon\"|longitude\s*:)\s*[:=]?\s*\"?(-?\d{1,3}\.\d+)\"?/i,
 							);
 							if (latAny && lonAny) {
 								latitude = parseFloat(latAny[1]);
 								longitude = parseFloat(lonAny[1]);
 							}
 						}
-					} catch (e) { }
+					} catch (e) {}
 
 					// Try data-location attribute
 					if (!latitude || !longitude) {
@@ -137,14 +143,14 @@ async function scrapeJohnDWood() {
 									longitude = parseFloat(parts[1]);
 								}
 							}
-						} catch (e) { }
+						} catch (e) {}
 					}
 
 					// Fallback to JSON-LD
 					if (!latitude || !longitude) {
 						try {
 							const jsonLdTags = await page.$$eval('script[type="application/ld+json"]', (tags) =>
-								tags.map((t) => t.textContent)
+								tags.map((t) => t.textContent),
 							);
 							for (const s of jsonLdTags) {
 								try {
@@ -164,9 +170,9 @@ async function scrapeJohnDWood() {
 										}
 									}
 									if (latitude && longitude) break;
-								} catch (e) { }
+								} catch (e) {}
 							}
-						} catch (e) { }
+						} catch (e) {}
 					}
 
 					const tableName = isRental ? "property_for_rent" : "property_for_sale";
@@ -174,20 +180,21 @@ async function scrapeJohnDWood() {
 					// DB checks
 					const [rows] = await promisePool.query(
 						`SELECT agent_id FROM ${tableName} WHERE property_url = ?`,
-						[p.link.trim()]
+						[p.link.trim()],
 					);
 
-					const existingForThisAgent = rows.find(r => r.agent_id === AGENT_ID);
-					const existsForOtherAgent = rows.find(r => r.agent_id !== AGENT_ID);
+					const existingForThisAgent = rows.find((r) => r.agent_id === AGENT_ID);
+					const existsForOtherAgent = rows.find((r) => r.agent_id !== AGENT_ID);
 
 					if (existingRows.length > 0) {
 						await promisePool.query(
 							`UPDATE ${tableName} SET price = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE property_url = ? AND agent_id = ?`,
-							[property.price, latitude, longitude, property.link.trim(), AGENT_ID]
+							[property.price, latitude, longitude, property.link.trim(), AGENT_ID],
 						);
 						console.log(
-							`✅ Updated: ${property.link.substring(0, 60)}... | Price: £${property.price
-							} | Coords: ${latitude}, ${longitude}`
+							`✅ Updated: ${property.link.substring(0, 60)}... | Price: £${
+								property.price
+							} | Coords: ${latitude}, ${longitude}`,
 						);
 					} else if (otherAgentRows.length > 0) {
 						const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -206,8 +213,9 @@ async function scrapeJohnDWood() {
 							currentTime,
 						]);
 						console.log(
-							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${property.price
-							} | Coords: ${latitude}, ${longitude}`
+							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${
+								property.price
+							} | Coords: ${latitude}, ${longitude}`,
 						);
 					} else {
 						const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -226,8 +234,9 @@ async function scrapeJohnDWood() {
 							currentTime,
 						]);
 						console.log(
-							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${property.price
-							} | Coords: ${latitude}, ${longitude}`
+							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${
+								property.price
+							} | Coords: ${latitude}, ${longitude}`,
 						);
 					}
 
@@ -293,7 +302,7 @@ async function scrapeJohnDWood() {
 						// Bedrooms - first spec-list number
 						let bedrooms = null;
 						const spec = c.querySelector(
-							".card-content__spec-list .card-content__spec-list-item .card-content__spec-list-number"
+							".card-content__spec-list .card-content__spec-list-item .card-content__spec-list-number",
 						);
 						if (spec) {
 							const txt = spec.textContent || "";
@@ -315,7 +324,6 @@ async function scrapeJohnDWood() {
 
 			const chunkSize = 3;
 			for (const p of properties) {
-
 				if (!p.link) continue;
 
 				// Skip sold properties
@@ -333,7 +341,7 @@ async function scrapeJohnDWood() {
 					p.title,
 					p.bedrooms,
 					AGENT_ID,
-					isRental
+					isRental,
 				);
 
 				if (result.updated) {
@@ -342,18 +350,10 @@ async function scrapeJohnDWood() {
 
 				// Only open detail page if property is NEW
 				if (!result.isExisting && !result.error) {
-
 					const newPage = await page.context().newPage();
 
 					try {
-						await newPage.route("**/*", (route) => {
-							const type = route.request().resourceType();
-							if (["image", "font", "stylesheet", "media"].includes(type)) {
-								route.abort();
-							} else {
-								route.continue();
-							}
-						});
+						await blockNonEssentialResources(newPage);
 
 						await newPage.goto(p.link, {
 							waitUntil: "domcontentloaded",
@@ -373,14 +373,13 @@ async function scrapeJohnDWood() {
 							AGENT_ID,
 							isRental,
 							coords?.latitude || null,
-							coords?.longitude || null
+							coords?.longitude || null,
 						);
 
 						totalSaved++;
 						totalScraped++;
 
 						console.log(`✅ Created: ${p.title} - £${price}`);
-
 					} catch (err) {
 						console.error(`❌ Detail error ${p.link}:`, err.message);
 					} finally {
@@ -398,6 +397,9 @@ async function scrapeJohnDWood() {
 	});
 
 	// Queue pages per property type (use totalRecords/recordsPerPage to compute pages)
+	// Mark existing properties removed for this agent before the run
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages =
 			propertyType.totalRecords && propertyType.recordsPerPage
@@ -425,7 +427,7 @@ async function scrapeJohnDWood() {
 	}
 
 	console.log(
-		`\n✅ Completed John D Wood - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed John D Wood - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
 	);
 }
 

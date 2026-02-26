@@ -4,9 +4,15 @@
 // node backend/scraper-agent-54.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
@@ -15,11 +21,7 @@ const AGENT_ID = 54;
 let totalScraped = 0;
 let totalSaved = 0;
 const processedUrls = new Set();
-
-function formatPrice(num) {
-	if (!num || isNaN(num)) return "£0";
-	return "£" + Number(num).toLocaleString("en-GB");
-}
+const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for Leaders
 // 211 pages sales, 344 pages rent, total ~1686 sales + 2750 rent properties
@@ -43,7 +45,7 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeLeaders() {
-	console.log(`\n🚀 Starting Leaders scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Leaders scraper (Agent ${AGENT_ID})...`);
 
 	function getBrowserlessEndpoint() {
 		return (
@@ -51,7 +53,6 @@ async function scrapeLeaders() {
 			`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
 		);
 	}
-
 
 	async function scrapePropertyDetail(browserContext, property) {
 		await new Promise((r) => setTimeout(r, 700));
@@ -92,6 +93,7 @@ async function scrapeLeaders() {
 	}
 
 	const crawler = new PlaywrightCrawler({
+		navigationTimeoutSecs: 60,
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
@@ -113,7 +115,7 @@ async function scrapeLeaders() {
 
 			await page
 				.waitForSelector(".property-card-wrapper", { timeout: 20000 })
-				.catch(() => console.log(`⚠️ No property cards found on page ${pageNum}`));
+				.catch(() => logger.step(`No property cards found on page ${pageNum}`));
 
 			const properties = await page.evaluate(() => {
 				try {
@@ -158,7 +160,7 @@ async function scrapeLeaders() {
 			// 	});
 			// }
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 			const batchSize = 5;
 			for (let i = 0; i < properties.length; i += batchSize) {
@@ -266,7 +268,7 @@ async function scrapeLeaders() {
 							property.title,
 							property.bedrooms,
 							AGENT_ID,
-							isRental
+							isRental,
 						);
 
 						if (result.updated) {
@@ -284,54 +286,57 @@ async function scrapeLeaders() {
 								AGENT_ID,
 								isRental,
 								detail?.coords?.latitude || null,
-								detail?.coords?.longitude || null
+								detail?.coords?.longitude || null,
 							);
 
 							totalSaved++;
 							totalScraped++;
 						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 300));
 			}
 		},
 
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
+
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed: ${request.url}`);
 		},
 	});
 
 	// Enqueue pages
+	const allRequests = [];
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
-		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
 			const url = pg === 1 ? `${propertyType.urlBase}/` : `${propertyType.urlBase}/page-${pg}/`;
-			requests.push({
+			allRequests.push({
 				url,
 				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
 	}
 
-	console.log(
-		`\n✅ Completed Leaders - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
+	// Mark all properties removed and run crawler with initial requests
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	}
+
+	logger.step(`Completed Leaders - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
 }
 
 (async () => {
 	try {
 		await scrapeLeaders();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

@@ -4,9 +4,15 @@
 // node backend/scraper-agent-46.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
@@ -14,7 +20,7 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 46;
 let totalScraped = 0;
 let totalSaved = 0;
-
+const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
@@ -35,8 +41,7 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeConnells() {
-	console.log(`\n🚀 Starting Connells scraper (Agent ${AGENT_ID})...\n`);
-
+	logger.step(`Starting Connells scraper (Agent ${AGENT_ID})...`);
 
 	async function scrapePropertyDetail(browserContext, property) {
 		await new Promise((r) => setTimeout(r, 700)); // prevent rate limit
@@ -44,15 +49,8 @@ async function scrapeConnells() {
 		const detailPage = await browserContext.newPage();
 
 		try {
-			// Block heavy resources
-			await detailPage.route("**/*", (route) => {
-				const type = route.request().resourceType();
-				if (["image", "stylesheet", "font", "media"].includes(type)) {
-					route.abort();
-				} else {
-					route.continue();
-				}
-			});
+			// Block heavy resources using shared helper
+			await blockNonEssentialResources(detailPage);
 
 			await detailPage.goto(property.link, {
 				waitUntil: "domcontentloaded",
@@ -71,7 +69,7 @@ async function scrapeConnells() {
 				},
 			};
 		} catch (err) {
-			console.error(`⚠️ Detail scrape failed: ${property.link}`);
+			logger.error(`Detail scrape failed: ${property.link}`, err?.message || err);
 			return null;
 		} finally {
 			await detailPage.close();
@@ -83,22 +81,24 @@ async function scrapeConnells() {
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
 
+		navigationTimeoutSecs: 60,
 		launchContext: {
 			launchOptions: {
 				headless: true,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(pageNum, label, request.url);
 
 			// Wait for page content to populate
 			await page.waitForTimeout(1500);
 			await page.waitForSelector(".property", { timeout: 20000 }).catch(() => {
-				console.log(`⚠️ No property container found on page ${pageNum}`);
+				logger.step(`No property container found on page ${pageNum}`);
 			});
 
 			// Extract properties from the DOM
@@ -123,7 +123,7 @@ async function scrapeConnells() {
 				});
 			});
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 			// Process properties in small batches
 			const batchSize = 5;
@@ -151,7 +151,7 @@ async function scrapeConnells() {
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
-								isRental
+								isRental,
 							);
 
 							// If price updated only
@@ -171,16 +171,16 @@ async function scrapeConnells() {
 									AGENT_ID,
 									isRental,
 									detail?.coords?.latitude || null,
-									detail?.coords?.longitude || null
+									detail?.coords?.longitude || null,
 								);
 
 								totalSaved++;
 								totalScraped++;
 							}
 						} catch (err) {
-							console.error(`❌ DB error for ${property.link}: ${err.message}`);
+							logger.error(`DB error for ${property.link}:`, err?.message || err);
 						}
-					})
+					}),
 				);
 
 				// Small delay between batches
@@ -189,41 +189,41 @@ async function scrapeConnells() {
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed: ${request.url}`);
 		},
 	});
 
 	// Enqueue all listing pages per property type
+	const allRequests = [];
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
-		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			// Construct page URL: page-2, page-3, etc. (page 1 is base URL)
 			const url = pg === 1 ? `${propertyType.urlBase}` : `${propertyType.urlBase}/page-${pg}`;
-			requests.push({
+			allRequests.push({
 				url,
 				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
 	}
 
-	console.log(
-		`\n✅ Completed Connells - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
+	// Mark all properties removed and run crawler with initial requests
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	}
+
+	logger.step(`Completed Connells - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
 }
 
 (async () => {
 	try {
 		await scrapeConnells();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

@@ -16,6 +16,20 @@ function logMemoryUsage(label) {
 }
 
 /**
+ * Block non-essential resources (images, fonts, stylesheets, media) on a page
+ * @param {import('playwright').Page} page
+ */
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
+}
+
+/**
  * Run agent 13 using the separate script
  * @param {number} startPage - Starting page number (defaults to 1)
  * @returns {Promise} - Promise that resolves when scraper completes
@@ -427,4 +441,5 @@ module.exports = {
 	runAgent34Scraper,
 	runAgent36Scraper,
 	runAgent35Scraper,
+	blockNonEssentialResources,
 };

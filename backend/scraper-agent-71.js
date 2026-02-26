@@ -5,9 +5,11 @@
 // node backend/scraper-agent-71.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -15,6 +17,7 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 71;
 let totalScraped = 0;
 let totalSaved = 0;
+const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for sales and rentals
 const PROPERTY_TYPES = [
@@ -35,7 +38,7 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeHawesAndCo() {
-	console.log(`\n🚀 Starting Hawes & Co scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Hawes & Co scraper (Agent ${AGENT_ID})...`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -53,6 +56,7 @@ async function scrapeHawesAndCo() {
 
 			if (isDetailPage) {
 				try {
+					await blockNonEssentialResources(page);
 					await page.waitForLoadState("networkidle");
 
 					const htmlContent = await page.content();
@@ -63,9 +67,11 @@ async function scrapeHawesAndCo() {
 					// Detect sold property
 					const sold = isSoldProperty(htmlContent);
 
-					console.log("Detail URL:", propertyData.link);
-					console.log("Extracted coords:", coords);
-					console.log("Is Sold:", sold);
+					logger.page(0, "", `Detail URL: ${propertyData.link}`);
+					logger.step(
+						`Extracted coords: ${coords?.latitude || "No Lat"}, ${coords?.longitude || "No Lng"}`,
+					);
+					logger.step(`Is Sold: ${sold}`);
 
 					await updatePriceByPropertyURLOptimized({
 						link: propertyData.link,
@@ -82,18 +88,21 @@ async function scrapeHawesAndCo() {
 					totalSaved++;
 					totalScraped++;
 
-					console.log(
-						`✅ Saved: ${propertyData.title} | £${propertyData.price} | ${coords?.latitude || "No Lat"}, ${coords?.longitude || "No Lng"}`
+					logger.property(
+						propertyData.title,
+						`£${propertyData.price}`,
+						coords?.latitude && coords?.longitude
+							? `${coords.latitude}, ${coords.longitude}`
+							: "No coords",
 					);
-
 				} catch (error) {
-					console.error(`❌ Error saving property: ${error.message}`);
+					logger.error(`Error saving property: ${error.message}`);
 				}
 
 				return;
 			} else {
 				// Processing listing page
-				console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+				logger.page(pageNum, label, request.url);
 
 				// Wait for properties to load
 				await page.waitForTimeout(2000);
@@ -180,8 +189,8 @@ async function scrapeHawesAndCo() {
 					return { properties: results, debug: debugData };
 				});
 
-				console.log(`🔍 Extraction debug:`, debug);
-				console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+				logger.step(`Extraction debug: ${JSON.stringify(debug)}`);
+				logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 				// Add detail page requests to the queue with delay
 				for (let i = 0; i < properties.length; i++) {
@@ -215,8 +224,8 @@ async function scrapeHawesAndCo() {
 
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
-		console.log(
-			`🏠 Queueing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)`
+		logger.step(
+			`Queueing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)`,
 		);
 
 		for (let page = 1; page <= totalPages; page++) {
@@ -232,11 +241,11 @@ async function scrapeHawesAndCo() {
 		}
 	}
 
-	await crawler.addRequests(requests);
-	await crawler.run();
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+	await crawler.run(requests);
 
 	console.log(
-		`\n✅ Completed Hawes & Co - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n✅ Completed Hawes & Co - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
 	);
 }
 

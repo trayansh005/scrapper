@@ -6,14 +6,21 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 34;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -118,14 +125,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const type = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(type)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -146,14 +146,13 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			AGENT_ID,
 			isRental,
 			coords?.latitude || null,
-			coords?.longitude || null
+			coords?.longitude || null,
 		);
 
 		stats.totalScraped++;
 		stats.totalSaved++;
-
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 	} finally {
 		await detailPage.close();
 	}
@@ -165,7 +164,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 async function handleListingPage({ page, request, crawler }) {
 	const { pageNum, isRental, label } = request.userData;
-	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+	logger.page(pageNum, label, request.url);
 
 	// Strutt & Parker uses lazy loading / scrolling
 	let previousHeightValue = 0;
@@ -185,7 +184,7 @@ async function handleListingPage({ page, request, crawler }) {
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	// Process each property
 	for (const property of properties) {
@@ -212,7 +211,7 @@ async function handleListingPage({ page, request, crawler }) {
 
 		// If new property, scrape full details immediately
 		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			logger.page(pageNum, label, `Scraping detail for new property: ${property.title}`);
 			await scrapePropertyDetail(page.context(), property, isRental);
 		}
 		await sleep(500);
@@ -240,6 +239,7 @@ async function handleListingPage({ page, request, crawler }) {
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
+		navigationTimeoutSecs: 60,
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
@@ -250,8 +250,13 @@ function createCrawler(browserWSEndpoint) {
 			},
 		},
 		requestHandler: handleListingPage,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -261,7 +266,7 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeStruttAndParker() {
-	console.log(`\n🚀 Starting Strutt & Parker scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Strutt & Parker scraper (Agent ${AGENT_ID})...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -269,17 +274,21 @@ async function scrapeStruttAndParker() {
 	const totalLettingsPages = 2;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
+
+	// Mark existing properties as removed for this run
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const allRequests = [];
 
 	// Build Sales requests
 	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
 		allRequests.push({
-			url: `https://www.struttandparker.com/properties/residential/for-sale/london?showstc=on${p > 1 ? `&page=${p}` : ""
-				}`,
+			url: `https://www.struttandparker.com/properties/residential/for-sale/london?showstc=on${
+				p > 1 ? `&page=${p}` : ""
+			}`,
 			userData: {
 				pageNum: p,
 				isRental: false,
@@ -292,8 +301,9 @@ async function scrapeStruttAndParker() {
 	if (startPage === 1) {
 		for (let p = 1; p <= totalLettingsPages; p++) {
 			allRequests.push({
-				url: `https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on${p > 1 ? `&page=${p}` : ""
-					}`,
+				url: `https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on${
+					p > 1 ? `&page=${p}` : ""
+				}`,
 				userData: {
 					pageNum: p,
 					isRental: true,
@@ -304,16 +314,15 @@ async function scrapeStruttAndParker() {
 	}
 
 	if (allRequests.length === 0) {
-		console.log("⚠️ No pages to scrape with current arguments.");
+		logger.step("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-	console.log(
-		`\n✅ Completed Strutt & Parker - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Strutt & Parker - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 
@@ -325,10 +334,10 @@ async function scrapeStruttAndParker() {
 	try {
 		await scrapeStruttAndParker();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

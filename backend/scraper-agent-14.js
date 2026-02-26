@@ -4,13 +4,20 @@
 // node backend/scraper-agent-14.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 14;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -61,14 +68,7 @@ async function scrapePropertyDetail(browserContext, property) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -87,7 +87,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			},
 		};
 	} catch (error) {
-		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 		return null;
 	} finally {
 		await detailPage.close();
@@ -100,14 +100,16 @@ async function scrapePropertyDetail(browserContext, property) {
 
 async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+	logger.page(pageNum, label, request.url);
 
 	if (pageNum > 1) {
 		const finalUrl = page.url();
 		const expectedPageToken = `page=${pageNum}`;
 		if (!finalUrl.includes(expectedPageToken)) {
-			console.log(
-				` Warning: requested page ${pageNum} but landed on ${finalUrl}. Pagination may be redirecting.`,
+			logger.page(
+				pageNum,
+				label,
+				`Pagination mismatch: requested ${pageNum} landed on ${finalUrl}`,
 			);
 		}
 	}
@@ -115,7 +117,7 @@ async function handleListingPage({ page, request }) {
 	try {
 		await page.waitForSelector(".pegasus-property-card", { timeout: 15000 });
 	} catch (e) {
-		console.log(` Listing container not found on page ${pageNum}`);
+		logger.error(`Listing container not found on page ${pageNum}`, e);
 	}
 
 	const properties = await page.evaluate((rentalMode) => {
@@ -167,7 +169,7 @@ async function handleListingPage({ page, request }) {
 		}
 	}, isRental);
 
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	const pageSignature = properties
 		.map((p) => p.link)
@@ -176,8 +178,10 @@ async function handleListingPage({ page, request }) {
 	const signatureKey = isRental ? "LETTINGS" : "SALES";
 	const previousSignature = recentPageSignatures.get(signatureKey);
 	if (pageSignature && previousSignature === pageSignature) {
-		console.log(
-			` Warning: ${signatureKey} page ${pageNum} has the same leading links as previous page.`,
+		logger.page(
+			pageNum,
+			label,
+			`Warning: ${signatureKey} page ${pageNum} same leading links as previous page`,
 		);
 	}
 	recentPageSignatures.set(signatureKey, pageSignature);
@@ -201,7 +205,7 @@ async function handleListingPage({ page, request }) {
 				if (bedMatch) bedrooms = parseInt(bedMatch[0]);
 
 				if (!price) {
-					console.log(` Skipping update (no price found): ${property.link}`);
+					logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`);
 					return;
 				}
 
@@ -239,11 +243,18 @@ async function handleListingPage({ page, request }) {
 				}
 
 				const categoryLabel = isRental ? "LETTINGS" : "SALES";
-				console.log(
-					` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-						price,
-						isRental,
-					)} - ${property.link}`,
+				let propertyAction = "SEEN";
+				if (result.updated) propertyAction = "UPDATED";
+				if (!result.isExisting && !result.error) propertyAction = "CREATED";
+				logger.property(
+					pageNum,
+					label,
+					property.title.substring(0, 40),
+					formatPriceDisplay(price, isRental),
+					property.link,
+					isRental,
+					0,
+					propertyAction,
 				);
 			}),
 		);
@@ -260,6 +271,7 @@ function createCrawler(browserWSEndpoint) {
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -279,7 +291,8 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeChestertons() {
-	console.log(`\n Starting Chestertons scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Chestertons scraper...`);
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -302,7 +315,7 @@ async function scrapeChestertons() {
 	];
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
@@ -325,18 +338,18 @@ async function scrapeChestertons() {
 	}
 
 	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
+		logger.step("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
 	await crawler.addRequests(allRequests);
 	await crawler.run();
 
-	console.log(
-		`\n Completed Chestertons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Chestertons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 // ============================================================================
@@ -347,7 +360,7 @@ async function scrapeChestertons() {
 	try {
 		await scrapeChestertons();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
 		console.error(" Fatal error:", err?.message || err);

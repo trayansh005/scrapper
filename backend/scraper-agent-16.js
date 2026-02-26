@@ -7,13 +7,14 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
-const { logMemoryUsage } = require("./lib/scraper-utils.js");
+const { logMemoryUsage, blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { EventEmitter } = require("events");
 
 // Increase max listeners to prevent memory leak warnings
@@ -27,6 +28,7 @@ log.setLevel(log.LEVELS.ERROR);
 // ============================================================================
 
 const AGENT_ID = 16;
+const logger = createAgentLogger(AGENT_ID);
 const START_PAGE = 1;
 
 const USER_AGENTS = [
@@ -170,19 +172,19 @@ async function navigateToPage(page, url) {
 // ============================================================================
 
 async function extractCoordinatesFromStreetview(page) {
-	console.log(`🔍 Trying Streetview button for coordinates...`);
+	logger.step(`Trying Streetview button for coordinates`);
 
 	try {
 		const streetviewBtn = await page.locator(SELECTORS.STREETVIEW_BUTTON).first();
 		const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
 
 		if (!isVisible) {
-			console.log(`⚠️ Streetview button not visible`);
+			logger.page(0, "", `Streetview button not visible`);
 			return { latitude: null, longitude: null };
 		}
 
 		await streetviewBtn.click();
-		console.log(`🗺️ Clicked Streetview button, waiting for Google Maps...`);
+		logger.page(0, "", `Clicked Streetview button, waiting for Google Maps`);
 		await page.waitForTimeout(TIMING.STREETVIEW_LOAD);
 
 		// Retry coordinate extraction up to 5 times
@@ -203,8 +205,10 @@ async function extractCoordinatesFromStreetview(page) {
 			});
 
 			if (googleMapsCoords?.lat && googleMapsCoords?.lng) {
-				console.log(
-					`✅ Found coords from Streetview: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`,
+				logger.page(
+					0,
+					"",
+					`Found coords from Streetview: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`,
 				);
 				return {
 					latitude: googleMapsCoords.lat,
@@ -213,15 +217,15 @@ async function extractCoordinatesFromStreetview(page) {
 			}
 
 			if (retry < 4) {
-				console.log(`⏳ Retry ${retry + 1}/5 - waiting for coords...`);
+				logger.page(0, "", `Retry ${retry + 1}/5 waiting for coords`);
 				await page.waitForTimeout(TIMING.STREETVIEW_RETRY);
 			}
 		}
 
-		console.log(`⚠️ No coords found after 5 retries`);
+		logger.page(0, "", `No coords found after retries`);
 		return { latitude: null, longitude: null };
 	} catch (error) {
-		console.log(`⚠️ Could not extract streetview coords: ${error.message}`);
+		logger.error(`Could not extract streetview coords`, error);
 		return { latitude: null, longitude: null };
 	}
 }
@@ -231,7 +235,7 @@ async function extractCoordinates(htmlContent, detailPage) {
 	const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
 
 	if (htmlCoords.latitude && htmlCoords.longitude) {
-		console.log(`✅ Found coords in HTML: ${htmlCoords.latitude}, ${htmlCoords.longitude}`);
+		logger.page(0, "", `Found coords in HTML: ${htmlCoords.latitude}, ${htmlCoords.longitude}`);
 		return htmlCoords;
 	}
 
@@ -350,7 +354,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			property.isRental,
 			htmlContent,
 			coords.latitude,
-			coords.longitude
+			coords.longitude,
 		);
 
 		stats.totalScraped++;
@@ -359,8 +363,15 @@ async function scrapePropertyDetail(browserContext, property) {
 		const coordsStr =
 			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
 
-		console.log(
-			`✅ Created: ${property.link} | Price: ${formatPrice(property.price)} | Coords: ${coordsStr}`
+		logger.property(
+			0,
+			"",
+			property.title ? property.title.substring(0, 40) : "",
+			formatPrice(property.price),
+			property.link,
+			property.isRental,
+			0,
+			"CREATED",
 		);
 	} finally {
 		await detailPage.close();
@@ -374,21 +385,20 @@ async function scrapePropertyDetail(browserContext, property) {
 async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData || {};
 
-	console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+	logger.page(pageNum, label, request.url);
 
 	await setupPageHeaders(page);
 	await navigateToPage(page, request.url);
 
 	// Wait for properties to load
 	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
-		console.log(`⚠️ No properties found on page ${pageNum}`);
+		logger.page(pageNum, label, `No properties found on page ${pageNum}`);
 	});
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
-
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	// Process each property
 	for (const property of properties) {
@@ -404,7 +414,16 @@ async function handleListingPage({ page, request }) {
 
 		// If new property, scrape full details immediately
 		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				formatPrice(property.price),
+				property.link,
+				isRental,
+				0,
+				"CREATED",
+			);
 			await scrapePropertyDetail(page.context(), {
 				...property,
 				isRental,
@@ -422,6 +441,7 @@ function createCrawler(browserWSEndpoint) {
 		maxConcurrency: 2,
 		maxRequestRetries: 3,
 		requestHandlerTimeoutSecs: 120,
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -445,11 +465,11 @@ function generatePageRequests(propertyType, startPage) {
 			? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
 			: 1;
 
-	console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
+	logger.step(`Queueing ${propertyType.label} pages: ${totalPages}`);
 
 	const validStartPage = startPage > 0 && startPage <= totalPages ? startPage : 1;
 
-	console.log(`📋 Starting from page ${validStartPage} to ${totalPages}`);
+	logger.step(`Starting from page ${validStartPage} to ${totalPages}`);
 
 	const requests = [];
 
@@ -477,11 +497,13 @@ function generatePageRequests(propertyType, startPage) {
 // ============================================================================
 
 async function scrapeRomans() {
-	console.log(`\n🚀 Starting Romans scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Romans scraper...`);
 	logMemoryUsage("START");
 
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 	const startPage = getStartingPage(process.argv.slice(2));
@@ -496,8 +518,8 @@ async function scrapeRomans() {
 		logMemoryUsage(`After ${propertyType.label}`);
 	}
 
-	console.log(
-		`\n✅ Completed Romans - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Romans - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 	logMemoryUsage("END");
 }
@@ -510,10 +532,10 @@ async function scrapeRomans() {
 	try {
 		await scrapeRomans();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (error) {
-		console.error("❌ Fatal error:", error?.message || error);
+		logger.error("Fatal error", error);
 		process.exit(1);
 	}
 })();

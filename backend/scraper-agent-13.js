@@ -4,10 +4,15 @@
 // node backend/scraper-agent-13.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -36,15 +41,7 @@ function formatPriceDisplay(price, isRental) {
 	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
-function blockNonEssentialResources(page) {
-	return page.route("**/*", (route) => {
-		const resourceType = route.request().resourceType();
-		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-			return route.abort();
-		}
-		return route.continue();
-	});
-}
+// using shared blockNonEssentialResources from lib/scraper-utils.js
 
 // ============================================================================
 // BROWSERLESS SETUP
@@ -247,6 +244,7 @@ function createCrawler(browserWSEndpoint) {
 
 async function scrapeBairstowEves() {
 	logger.step("Starting Bairstow Eves scraper...");
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;

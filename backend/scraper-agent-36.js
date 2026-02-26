@@ -6,14 +6,22 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 36;
+
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -120,14 +128,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const type = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(type)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -147,14 +148,13 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			AGENT_ID,
 			isRental,
 			coords?.latitude || null,
-			coords?.longitude || null
+			coords?.longitude || null,
 		);
 
 		stats.totalScraped++;
 		stats.totalSaved++;
-
 	} catch (error) {
-		console.error(`❌ Detail scrape error ${property.link}:`, error.message);
+		logger.error(`Detail scrape error ${property.link}:`, error.message || error);
 	} finally {
 		await detailPage.close();
 	}
@@ -165,12 +165,12 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-// 	if (properties.length === 0) {
-// 	console.log("⚠ No properties found, stopping pagination.");
-// 	return;
-// }
+	// 	if (properties.length === 0) {
+	// 	console.log("⚠ No properties found, stopping pagination.");
+	// 	return;
+	// }
 	const { pageNum, isRental, label } = request.userData;
-	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+	logger.page(pageNum, label, request.url);
 
 	// Wait for results to load
 	await page.waitForSelector(".search-results-list__inner", { timeout: 30000 }).catch(() => {});
@@ -180,44 +180,46 @@ async function handleListingPage({ page, request, crawler }) {
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-
-	console.log(`🔗 Page ${pageNum}: ${properties.length} properties`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	// Process each property
 	for (const property of properties) {
+		if (!property.link) continue;
 
-	if (!property.link) continue;
+		// Skip sold
+		if (isSoldProperty(property.title || "")) continue;
 
-	// Skip sold
-	if (isSoldProperty(property.title || "")) continue;
+		const price = formatPriceUk(property.price);
+		if (!price) continue;
 
-	const price = formatPriceUk(property.price);
-	if (!price) continue;
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+		);
 
-	const result = await updatePriceByPropertyURLOptimized(
-		property.link,
-		price,
-		property.title,
-		property.bedrooms,
-		AGENT_ID,
-		isRental
-	);
+		if (result.updated) {
+			stats.totalSaved++;
+		}
 
-	if (result.updated) {
-		stats.totalSaved++;
+		if (!result.isExisting && !result.error) {
+			logger.page(pageNum, label, `Scraping detail: ${property.title}`);
+
+			await scrapePropertyDetail(
+				page.context(),
+				{
+					...property,
+					price,
+				},
+				isRental,
+			);
+		}
+
+		await sleep(400); // prevent rate limiting
 	}
-
-	if (!result.isExisting && !result.error) {
-		console.log(`🆕 Scraping detail: ${property.title}`);
-
-		await scrapePropertyDetail(page.context(), {
-			...property,
-			price
-		}, isRental);
-	}
-
-	await sleep(400); // prevent rate limiting
-}
 
 	// Pagination - Winkworth uses ?page=N
 	const $ = cheerio.load(htmlContent);
@@ -245,6 +247,7 @@ async function handleListingPage({ page, request, crawler }) {
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
+		navigationTimeoutSecs: 60,
 		maxConcurrency: 3,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
@@ -255,8 +258,9 @@ function createCrawler(browserWSEndpoint) {
 			},
 		},
 		requestHandler: handleListingPage,
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -266,7 +270,7 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeWinkworth() {
-	console.log(`\n🚀 Starting Winkworth scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Winkworth scraper (Agent ${AGENT_ID})...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -274,9 +278,11 @@ async function scrapeWinkworth() {
 	const totalLettingsPages = 100; // Roughly 2,000 properties
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
+
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const allRequests = [];
 
@@ -311,16 +317,15 @@ async function scrapeWinkworth() {
 	}
 
 	if (allRequests.length === 0) {
-		console.log("⚠️ No pages to scrape with current arguments.");
+		logger.step("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-	console.log(
-		`\n✅ Completed Winkworth - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Winkworth - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 }
 
@@ -332,10 +337,10 @@ async function scrapeWinkworth() {
 	try {
 		await scrapeWinkworth();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

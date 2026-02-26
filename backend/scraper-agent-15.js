@@ -4,13 +4,20 @@
 // node backend/scraper-agent-15.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 15;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -55,14 +62,7 @@ async function scrapePropertyDetail(browserContext, property) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -81,7 +81,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			},
 		};
 	} catch (error) {
-		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 		return null;
 	} finally {
 		await detailPage.close();
@@ -94,18 +94,18 @@ async function scrapePropertyDetail(browserContext, property) {
 
 async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+	logger.page(pageNum, label, request.url);
 
 	const finalUrl = page.url();
 	if (!finalUrl.includes(`page=${pageNum}`)) {
-		console.log(`Warning: Expected page ${pageNum} but landed on ${finalUrl}`);
+		logger.page(pageNum, label, `Pagination mismatch: landed on ${finalUrl}`);
 	}
 
 	try {
 		await page.waitForLoadState("networkidle");
 		await page.waitForTimeout(4000);
 	} catch (e) {
-		console.log(`Listing container not found on page ${pageNum}`);
+		logger.error(`Listing container not found on page ${pageNum}`, e);
 	}
 
 	const properties = await page.evaluate((rentalMode) => {
@@ -118,8 +118,8 @@ async function handleListingPage({ page, request }) {
 			// );
 
 			const cards = Array.from(
-				document.querySelectorAll("#search-results-container a[href*='/properties/']")
-			).map(a => a.closest("div"));
+				document.querySelectorAll("#search-results-container a[href*='/properties/']"),
+			).map((a) => a.closest("div"));
 
 			for (const card of cards) {
 				const linkEl = card.querySelector("a[href*='/properties/']");
@@ -158,7 +158,7 @@ async function handleListingPage({ page, request }) {
 		}
 	}, isRental);
 
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	for (const property of properties) {
 		if (!property.link) continue;
@@ -174,7 +174,7 @@ async function handleListingPage({ page, request }) {
 		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
 
 		if (!price) {
-			console.log(` Skipping update (no price found): ${property.link}`);
+			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`);
 			continue;
 		}
 
@@ -212,11 +212,18 @@ async function handleListingPage({ page, request }) {
 		}
 
 		const categoryLabel = isRental ? "LETTINGS" : "SALES";
-		console.log(
-			` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-				price,
-				isRental,
-			)} - ${property.link}`,
+		let propertyAction = "SEEN";
+		if (result.updated) propertyAction = "UPDATED";
+		if (!result.isExisting && !result.error) propertyAction = "CREATED";
+		logger.property(
+			pageNum,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(price, isRental),
+			property.link,
+			isRental,
+			0,
+			propertyAction,
 		);
 
 		await sleep(800);
@@ -232,6 +239,7 @@ function createCrawler(browserWSEndpoint) {
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -251,7 +259,8 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeSequenceHome() {
-	console.log(`\n Starting Sequence Home scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting Sequence Home scraper...`);
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -274,7 +283,7 @@ async function scrapeSequenceHome() {
 	];
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
@@ -297,18 +306,18 @@ async function scrapeSequenceHome() {
 	}
 
 	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
+		logger.step("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
 	await crawler.addRequests(allRequests);
 	await crawler.run();
 
-	console.log(
-		`\n Completed Sequence Home - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Sequence Home - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 // ============================================================================
@@ -319,7 +328,7 @@ async function scrapeSequenceHome() {
 	try {
 		await scrapeSequenceHome();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
 		console.error(" Fatal error:", err?.message || err);

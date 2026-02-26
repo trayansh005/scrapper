@@ -5,10 +5,12 @@
 // node backend/scraper-agent-63.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { firefox } = require("playwright");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { markAllPropertiesRemovedForAgent } = require("./db.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -16,6 +18,7 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 63;
 let totalScraped = 0;
 let totalSaved = 0;
+const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
@@ -36,19 +39,21 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeBHHSLondon() {
-	console.log(`\n🚀 Starting BHHS London Properties scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting BHHS London Properties scraper (Agent ${AGENT_ID})...`);
 
 	const crawler = new PlaywrightCrawler({
+		navigationTimeoutSecs: 60,
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
 
 		launchContext: {
-			launcher: firefox,
 			launchOptions: {
 				headless: true,
 			},
 		},
+
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 
 		async requestHandler({ page, request }) {
 			const { isDetailPage, propertyData, pageNum, isRental, label } = request.userData;
@@ -68,29 +73,30 @@ async function scrapeBHHSLondon() {
 						AGENT_ID,
 						isRental,
 						coords?.latitude || null,
-						coords?.longitude || null
+						coords?.longitude || null,
 					);
 
 					totalSaved++;
 					totalScraped++;
 
-					console.log(
-						`✅ ${propertyData.title} - £${propertyData.price} - ${coords?.latitude && coords?.longitude
+					logger.property(
+						propertyData.title,
+						`£${propertyData.price}`,
+						coords?.latitude && coords?.longitude
 							? `${coords.latitude}, ${coords.longitude}`
-							: "No coords"
-						}`
+							: "No coords",
 					);
 				} catch (error) {
-					console.error(`❌ Error saving property: ${error.message}`);
+					logger.error(`Error saving property: ${error.message}`);
 				}
 			} else {
 				// Processing listing page
-				console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+				logger.page(pageNum, label, request.url);
 
 				// Wait for properties to load
 				await page.waitForTimeout(2000);
 				await page.waitForSelector(".property-card", { timeout: 30000 }).catch(() => {
-					console.log(`⚠️ No properties found on page ${pageNum}`);
+					logger.step(`No properties found on page ${pageNum}`);
 				});
 
 				// Extract all properties from the page
@@ -173,13 +179,13 @@ async function scrapeBHHSLondon() {
 					return { properties: results, debug: debugData };
 				});
 
-				console.log(`🔍 Extraction debug:`, debug);
-				console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+				logger.step(`Extraction debug: ${JSON.stringify(debug)}`);
+				logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 				// Add detail page requests to the queue with delay
 				for (const property of properties) {
 					if (isSoldProperty(property.title)) {
-						console.log(`⏭ Skipping sold property: ${property.title}`);
+						logger.step(`Skipping sold property: ${property.title}`);
 						continue;
 					}
 
@@ -193,7 +199,7 @@ async function scrapeBHHSLondon() {
 							property.title,
 							property.bedrooms,
 							AGENT_ID,
-							isRental
+							isRental,
 						);
 
 						// If property exists → price updated only
@@ -218,14 +224,14 @@ async function scrapeBHHSLondon() {
 							]);
 						}
 					} catch (err) {
-						console.error("❌ Optimization error:", err.message);
+						logger.error("Optimization error:", err?.message || err);
 					}
 				}
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed: ${request.url}`);
 		},
 	});
 
@@ -234,8 +240,8 @@ async function scrapeBHHSLondon() {
 
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
-		console.log(
-			`🏠 Queueing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)`
+		logger.step(
+			`🏠 Queueing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)`,
 		);
 
 		for (let page = 1; page <= totalPages; page++) {
@@ -251,11 +257,11 @@ async function scrapeBHHSLondon() {
 		}
 	}
 
-	await crawler.addRequests(requests);
-	await crawler.run();
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+	await crawler.run(requests);
 
-	console.log(
-		`\n✅ Completed BHHS London Properties - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+	logger.step(
+		`Completed BHHS London Properties - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
 	);
 }
 
@@ -264,10 +270,10 @@ async function scrapeBHHSLondon() {
 	try {
 		await scrapeBHHSLondon();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

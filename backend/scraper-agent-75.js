@@ -6,9 +6,15 @@
 // node backend/scraper-agent-75.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURL,
+	updateRemoveStatus,
+	markAllPropertiesRemovedForAgent,
+} = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce logging noise
 log.setLevel(log.LEVELS.ERROR);
@@ -16,18 +22,18 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 75;
 let totalScraped = 0;
 let totalSaved = 0;
-
+const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for sales and rentals — full KFH URLs
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/",
-	// 	totalRecords: 1689,
-	// 	totalPages: 94,
-	// 	recordsPerPage: 18,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		urlBase: "https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/",
+		totalRecords: 1689,
+		totalPages: 94,
+		recordsPerPage: 18,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		urlBase: "https://www.kfh.co.uk/property/to-rent/in-london/exclude-let-agreed/",
 		totalRecords: 691,
@@ -39,7 +45,7 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeKFH() {
-	console.log(`\n🚀 Starting KFH scraper (Agent ${AGENT_ID})...\n`);
+	logger.step(`Starting KFH scraper (Agent ${AGENT_ID})...`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -56,7 +62,7 @@ async function scrapeKFH() {
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(pageNum, label, request.url);
 
 			// Wait for page to load
 			await page.waitForTimeout(6000);
@@ -74,10 +80,10 @@ async function scrapeKFH() {
 					".sales-wrap, .PropertyCard__StyledPropertyCard-sc-1kiuolp-0, .property-card, .result-card",
 					{
 						timeout: 40000,
-					}
+					},
 				)
 				.catch(() => {
-					console.log(`⚠️ No listing container found on page ${pageNum}`);
+					logger.step(`No listing container found on page ${pageNum}`);
 				});
 
 			// Extract properties — try client-side JS first, then DOM
@@ -149,7 +155,7 @@ async function scrapeKFH() {
 
 								if (!bedrooms) {
 									const bedSpans = card.querySelectorAll(
-										"span[class*='PropertyMeta__StyledMetaItem'], .property-meta-item"
+										"span[class*='PropertyMeta__StyledMetaItem'], .property-meta-item",
 									);
 									for (const span of bedSpans) {
 										const text = span.textContent?.trim() || "";
@@ -180,7 +186,7 @@ async function scrapeKFH() {
 				}
 			});
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 			// Process properties in batches (concurrent processing like agent 84)
 			const batchSize = 5;
@@ -197,6 +203,7 @@ async function scrapeKFH() {
 						let sold = false;
 
 						try {
+							await blockNonEssentialResources(detailPage);
 							await detailPage.goto(property.link, {
 								waitUntil: "networkidle",
 								timeout: 30000,
@@ -213,12 +220,13 @@ async function scrapeKFH() {
 							// Sold detection
 							sold = isSoldProperty(html);
 
-							console.log("Detail URL:", property.link);
-							console.log("Coords:", coords);
-							console.log("Is Sold:", sold);
-
+							logger.page(0, "", `Detail URL: ${property.link}`);
+							logger.step(
+								`Coords: ${coords?.latitude || "No Lat"}, ${coords?.longitude || "No Lng"}`,
+							);
+							logger.step(`Is Sold: ${sold}`);
 						} catch (err) {
-							console.log("Detail page error:", err.message);
+							logger.error(`Detail page error: ${err.message || err}`);
 						} finally {
 							await detailPage.close();
 						}
@@ -249,22 +257,23 @@ async function scrapeKFH() {
 								AGENT_ID,
 								isRental,
 								coords?.latitude || null,
-								coords?.longitude || null
+								coords?.longitude || null,
 							);
 
 							totalSaved++;
 							totalScraped++;
 
 							console.log(
-								`✅ ${property.title} | ${formattedPrice} | ${coords?.latitude && coords?.longitude
-									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords"
-								}`
+								`✅ ${property.title} | ${formattedPrice} | ${
+									coords?.latitude && coords?.longitude
+										? `${coords.latitude}, ${coords.longitude}`
+										: "No coords"
+								}`,
 							);
 						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
+							logger.error(`DB error for ${property.link}: ${dbErr.message || dbErr}`);
 						}
-					})
+					}),
 				);
 
 				// Small delay between batches
@@ -273,15 +282,16 @@ async function scrapeKFH() {
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed: ${request.url}`);
 		},
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 	});
 
 	// Enqueue all listing pages one by one
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(
-			`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages, 18 per page)`
-		);
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages, 18 per page)`);
 
 		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
@@ -293,11 +303,12 @@ async function scrapeKFH() {
 			});
 		}
 
-		await crawler.addRequests(requests);
-		await crawler.run();
+		if (requests.length > 0) {
+			await crawler.run(requests);
+		}
 	}
 
-	console.log(`\n✅ Completed KFH - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
+	logger.step(`Completed KFH - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
 }
 
 (async () => {
