@@ -100,7 +100,7 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNum, label, request.url);
 
 	const finalUrl = page.url();
-	if (!finalUrl.includes(`page=${pageNum}`)) {
+	if (!finalUrl.includes(`page-${pageNum}`)) {
 		logger.page(pageNum, label, `Pagination mismatch: landed on ${finalUrl}`);
 	}
 
@@ -313,7 +313,7 @@ async function scrapeSequenceHome() {
 
 		for (let pg = effectiveStartPage; pg <= totalPages; pg++) {
 			allRequests.push({
-				url: `${type.urlBase}?page=${pg}`,
+				url: `${type.urlBase}/page-${pg}`,
 				userData: {
 					pageNum: pg,
 					isRental: type.isRental,
