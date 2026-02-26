@@ -4,8 +4,9 @@
 // node backend/scraper-agent-84.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
@@ -220,30 +221,58 @@ async function scrapeWhiteAndSons() {
 						const tableName = isRental ? "property_for_rent" : "property_for_sale";
 
 						try {
-							// Clean price: extract only numbers (e.g., "£47,666pcm" → "47666")
-							const priceClean = property.price
-								? property.price.replace(/[^0-9]/g, "").trim()
-								: null;
+							// ⏭ Skip sold properties
+							if (isSoldProperty(property.title)) {
+								console.log(`⏭ Skipping sold: ${property.title}`);
+								return;
+							}
 
+							const formattedPrice = formatPriceUk(property.price);
+
+							// Extract coords from detail HTML if still null
+							if (!coords.latitude || !coords.longitude) {
+								const html = await detailPage.content();
+								const extracted = extractCoordinatesFromHTML(html);
+
+								if (extracted) {
+									coords.latitude = extracted.latitude;
+									coords.longitude = extracted.longitude;
+								}
+							}
+
+							// 1️⃣ Optimized update
+							await updatePriceByPropertyURLOptimized({
+								link: property.link,
+								price: formattedPrice,
+								title: property.title,
+								bedrooms: property.bedrooms,
+								agentId: AGENT_ID,
+								isRental,
+								latitude: coords?.latitude || null,
+								longitude: coords?.longitude || null,
+							});
+
+							// 2️⃣ Fallback safety update
 							await updatePriceByPropertyURL(
 								property.link,
-								priceClean,
+								formattedPrice,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
+								coords?.latitude || null,
+								coords?.longitude || null
 							);
 
 							totalSaved++;
 							totalScraped++;
 
-							const coordsStr =
-								coords.latitude && coords.longitude
+							console.log(
+								`✅ ${property.title} | ${formattedPrice} | ${coords?.latitude && coords?.longitude
 									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords";
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
+									: "No coords"
+								}`
+							);
 						} catch (dbErr) {
 							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
 						}

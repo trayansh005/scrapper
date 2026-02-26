@@ -4,31 +4,105 @@
 // node backend/scraper-agent-209.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 
-// Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 209;
-let totalScraped = 0;
-let totalSaved = 0;
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+const recentPageSignatures = new Map();
+const processedUrls = new Set();
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Configuration for sales and lettings on FrostWeb
+function formatPriceDisplay(price, isRental) {
+	if (!price) return isRental ? "£0 pcm" : "£0";
+	return `£${price}${isRental ? " pcm" : ""}`;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(700);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		});
+
+		await detailPage.waitForTimeout(1500);
+
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
+	} catch (error) {
+		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// PROPERTY TYPES CONFIGURATION
+// ============================================================================
+
 const PROPERTY_TYPES = [
-	// {
-	// 	// Sales
-	// 	urlBase:
-	// 		"https://www.frostweb.co.uk/search/?showstc=+off&showsold=off&department=%21commercial&instruction_type=Sale&ajax_polygon=&ajax_radius=&minprice=&maxprice=",
-	// 	totalPages: 62, // 491 properties, 8 per page -> 62 pages
-	// 	recordsPerPage: 8,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		// Sales
+		urlBase:
+			"https://www.frostweb.co.uk/search/?showstc=+off&showsold=off&department=%21commercial&instruction_type=Sale&ajax_polygon=&ajax_radius=&minprice=&maxprice=",
+		totalPages: 62, // 491 properties, 8 per page -> 62 pages
+		recordsPerPage: 8,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		// Lettings
 		urlBase:
@@ -40,211 +114,222 @@ const PROPERTY_TYPES = [
 	},
 ];
 
-async function scrapeFrostWeb() {
-	console.log(`\n🚀 Starting FrostWeb scraper (Agent ${AGENT_ID})...\n`);
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+
+	try {
+		await page.waitForSelector("#search-results", { timeout: 20000 });
+	} catch (e) {
+		console.log(` Search container not found on page ${pageNum}`);
+	}
+
+	const properties = await page.evaluate(() => {
+		try {
+			const container = document.querySelector("#search-results");
+			if (!container) return [];
+			const items = Array.from(container.querySelectorAll(".row.thing"));
+			return items
+				.map((el) => {
+					const linkEl = el.querySelector(".col-sm-4 a");
+					const href = linkEl ? linkEl.getAttribute("href") : null;
+					const link = href
+						? href.startsWith("http")
+							? href
+							: "https://www.frostweb.co.uk" + href
+						: null;
+
+					const title = el.querySelector("h3")?.textContent?.trim() || "";
+
+					// Price is inside h4 text (may include labels)
+					const h4 = el.querySelector("h4");
+					const priceText = h4 ? h4.textContent.replace(/\n|\r/g, " ").trim() : "";
+					const priceMatch = priceText.match(/£[0-9,]+/);
+					const price = priceMatch ? priceMatch[0] : priceText;
+
+					const bedrooms = el.querySelector(".property-bedrooms")?.textContent?.trim() || null;
+
+					return { link, price, title, bedrooms };
+				})
+				.filter((p) => p.link);
+		} catch (e) {
+			return [];
+		}
+	});
+
+	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+
+	const pageSignature = properties
+		.map((p) => p.link)
+		.slice(0, 5)
+		.join("|");
+	const signatureKey = isRental ? "LETTINGS" : "SALES";
+	const previousSignature = recentPageSignatures.get(signatureKey);
+	if (pageSignature && previousSignature === pageSignature) {
+		console.log(
+			` Warning: ${signatureKey} page ${pageNum} has the same leading links as previous page.`,
+		);
+	}
+	recentPageSignatures.set(signatureKey, pageSignature);
+
+	const batchSize = 2;
+	for (let i = 0; i < properties.length; i += batchSize) {
+		const batch = properties.slice(i, i + batchSize);
+
+		await Promise.all(
+			batch.map(async (property) => {
+				if (!property.link) return;
+
+				if (processedUrls.has(property.link)) return;
+				processedUrls.add(property.link);
+
+				const price = formatPriceUk(property.price);
+				let bedrooms = null;
+				const bedMatch = property.bedrooms ? property.bedrooms.match(/\d+/) : null;
+				if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+
+				if (!price) {
+					console.log(` Skipping update (no price found): ${property.link}`);
+					return;
+				}
+
+				const result = await updatePriceByPropertyURLOptimized(
+					property.link,
+					price,
+					property.title,
+					bedrooms,
+					AGENT_ID,
+					isRental,
+				);
+
+				if (result.updated) {
+					stats.totalSaved++;
+				}
+
+				if (!result.isExisting && !result.error) {
+					const detail = await scrapePropertyDetail(page.context(), property);
+
+					await updatePriceByPropertyURL(
+						property.link.trim(),
+						price,
+						property.title,
+						bedrooms,
+						AGENT_ID,
+						isRental,
+						detail?.coords?.latitude || null,
+						detail?.coords?.longitude || null,
+					);
+
+					stats.totalSaved++;
+					stats.totalScraped++;
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
+				}
+
+				const categoryLabel = isRental ? "LETTINGS" : "SALES";
+				console.log(
+					` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+						price,
+						isRental,
+					)} - ${property.link}`,
+				);
+			}),
+		);
+		await sleep(500);
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
-
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			// Wait for page content
-			await page.waitForTimeout(1200);
-			await page.waitForSelector("#search-results", { timeout: 20000 }).catch(() => {
-				console.log(`⚠️ No #search-results container on page ${pageNum}`);
-			});
-
-			// Extract property list from DOM
-			const properties = await page.evaluate(() => {
-				try {
-					const container = document.querySelector("#search-results");
-					if (!container) return [];
-					const items = Array.from(container.querySelectorAll(".row.thing"));
-					return items
-						.map((el) => {
-							const linkEl = el.querySelector(".col-sm-4 a");
-							const href = linkEl ? linkEl.getAttribute("href") : null;
-							const link = href
-								? href.startsWith("http")
-									? href
-									: "https://www.frostweb.co.uk" + href
-								: null;
-
-							const title = el.querySelector("h3")?.textContent?.trim() || "";
-
-							// Price is inside h4 text (may include labels)
-							const h4 = el.querySelector("h4");
-							const priceText = h4 ? h4.textContent.replace(/\n|\r/g, " ").trim() : "";
-							const priceMatch = priceText.match(/£[0-9,]+/);
-							const price = priceMatch ? priceMatch[0] : priceText;
-
-							const bedrooms = el.querySelector(".property-bedrooms")?.textContent?.trim() || null;
-
-							return { link, price, title, bedrooms, lat: null, lng: null };
-						})
-						.filter((p) => p.link);
-				} catch (e) {
-					return [];
-				}
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			// Process properties in small batches
-			const batchSize = 5;
-			for (let i = 0; i < properties.length; i += batchSize) {
-				const batch = properties.slice(i, i + batchSize);
-
-				await Promise.all(
-					batch.map(async (property) => {
-						if (!property.link) return;
-
-						let coords = { latitude: property.lat || null, longitude: property.lng || null };
-
-						// If no coords, visit detail page to extract JSON-LD geo
-						if (!coords.latitude || !coords.longitude) {
-							const detailPage = await page.context().newPage();
-							try {
-								await detailPage.goto(property.link, {
-									waitUntil: "domcontentloaded",
-									timeout: 30000,
-								});
-								await detailPage.waitForTimeout(500);
-
-								const detailCoords = await detailPage.evaluate(() => {
-									try {
-										const scripts = Array.from(
-											document.querySelectorAll('script[type="application/ld+json"]')
-										);
-										for (const s of scripts) {
-											try {
-												const data = JSON.parse(s.textContent);
-												if (data && data.geo && data.geo.latitude && data.geo.longitude) {
-													return { lat: data.geo.latitude, lng: data.geo.longitude };
-												}
-											} catch (e) {
-												// continue
-											}
-										}
-
-										// Last resort: regex search for latitude/longitude in scripts
-										const allScripts = Array.from(document.querySelectorAll("script"))
-											.map((s) => s.textContent)
-											.join("\n");
-										const latMatch =
-											allScripts.match(/"latitude"\s*:\s*"?([0-9.+-]+)"?/i) ||
-											allScripts.match(/"lat"\s*:\s*([0-9.+-]+)/i);
-										const lngMatch =
-											allScripts.match(/"longitude"\s*:\s*"?([0-9.+-]+)"?/i) ||
-											allScripts.match(/"lng"\s*:\s*([0-9.+-]+)/i);
-										if (latMatch && lngMatch) {
-											return { lat: parseFloat(latMatch[1]), lng: parseFloat(lngMatch[1]) };
-										}
-
-										return null;
-									} catch (e) {
-										return null;
-									}
-								});
-
-								if (detailCoords) {
-									coords.latitude = detailCoords.lat;
-									coords.longitude = detailCoords.lng;
-								}
-							} catch (err) {
-								// ignore detail page errors
-							} finally {
-								await detailPage.close();
-							}
-						}
-
-						try {
-							const priceClean = (property.price || "").replace(/[£,\s]/g, "").trim();
-
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude
-							);
-
-							totalSaved++;
-							totalScraped++;
-
-							const coordsStr =
-								coords.latitude && coords.longitude
-									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords";
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
-						}
-					})
-				);
-
-				// Small delay between batches
-				await new Promise((resolve) => setTimeout(resolve, 200));
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			console.error(` Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Enqueue listing pages per property type
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
-		const requests = [];
-		for (let pg = 11; pg <= propertyType.totalPages; pg++) {
+async function scrapeFrostWeb() {
+	console.log(`\n Starting FrostWeb scraper (Agent ${AGENT_ID})...\n`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const allRequests = [];
+
+	for (const type of PROPERTY_TYPES) {
+		console.log(` Processing ${type.label} (${type.totalPages} pages)`);
+
+		for (let pg = 1; pg <= type.totalPages; pg++) {
 			// For FrostWeb page 1 uses the base URL with query string, subsequent pages use /search/{n}.html?
 			let url;
 			if (pg === 1) {
-				url = propertyType.urlBase;
+				url = type.urlBase;
 			} else {
-				url = propertyType.urlBase.replace("/search/", `/search/${pg}.html?`);
+				url = type.urlBase.replace("/search/", `/search/${pg}.html?`);
 			}
 
-			requests.push({
+			allRequests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNum: pg,
+					isRental: type.isRental,
+					label: `${type.label}_PAGE_${pg}`,
+				},
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
 	}
 
+	if (allRequests.length === 0) {
+		console.log(" No pages to scrape.");
+		return;
+	}
+
+	console.log(` Queueing ${allRequests.length} listing pages...`);
+	await crawler.addRequests(allRequests);
+	await crawler.run();
+
 	console.log(
-		`\n✅ Completed FrostWeb - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n Completed FrostWeb - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
 
 (async () => {
 	try {
 		await scrapeFrostWeb();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		console.log("\n All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		console.error(" Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

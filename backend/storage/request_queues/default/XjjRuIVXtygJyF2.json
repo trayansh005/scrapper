@@ -1,8 +1,8 @@
 {
 	"id": "XjjRuIVXtygJyF2",
-	"json": "{\"id\":\"XjjRuIVXtygJyF2\",\"url\":\"https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=307\",\"uniqueKey\":\"https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?addOptions=sold&address=United+Kingdom&country=GB&currency=GBP&page=307&sortBy=price-high\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":307,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"XjjRuIVXtygJyF2\",\"url\":\"https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=307\",\"loadedUrl\":\"https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=307\",\"uniqueKey\":\"https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?addOptions=sold&address=United+Kingdom&country=GB&currency=GBP&page=307&sortBy=price-high\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":307,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-02-26T11:14:13.002Z\"}",
 	"method": "GET",
-	"orderNo": 1772026717250,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?addOptions=sold&address=United+Kingdom&country=GB&currency=GBP&page=307&sortBy=price-high",
 	"url": "https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=307"

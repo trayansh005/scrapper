@@ -4,7 +4,9 @@
 // node backend/scraper-agent-114.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
@@ -13,25 +15,21 @@ const AGENT_ID = 114;
 let totalScraped = 0;
 let totalSaved = 0;
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
-}
 
 // Configuration for Jackson-Stops
 // Sales: ~160 properties / 48 per page => 4 pages
 // Lettings: ~382 properties / 48 per page => 8 pages
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.jackson-stops.co.uk/london/sales",
-	// 	totalPages: 4,
-	// 	recordsPerPage: 48,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		urlBase: "https://www.jackson-stops.co.uk/london/sales",
+		totalPages: 11,
+		recordsPerPage: 48,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		urlBase: "https://www.jackson-stops.co.uk/properties/lettings",
-		totalPages: 8,
+		totalPages: 28,
 		recordsPerPage: 48,
 		isRental: true,
 		label: "RENTALS",
@@ -200,27 +198,77 @@ async function scrapeJacksonStops() {
 						}
 
 						try {
-							const priceClean = (property.price || "").replace(/[^0-9]/g, "");
+							// Skip sold properties (extra safety)
+							if (isSoldProperty(property.title)) {
+								console.log(`⏭ Skipping sold: ${property.title}`);
+								return;
+							}
 
+							// Format UK price properly
+							const formattedPrice = formatPriceUk(property.price);
+
+							// Safe title fallback
+							property.title =
+								property.title?.trim() ||
+								property.link.split("/").pop().replace(/-/g, " ");
+
+							// If coordinates still missing, use shared extractor
+							if (!coords.latitude || !coords.longitude) {
+								const detailPage = await page.context().newPage();
+								try {
+									await detailPage.goto(property.link, {
+										waitUntil: "domcontentloaded",
+										timeout: 30000,
+									});
+									await detailPage.waitForTimeout(500);
+
+									const html = await detailPage.content();
+									const extracted = extractCoordinatesFromHTML(html);
+
+									if (extracted) {
+										coords.latitude = extracted.latitude;
+										coords.longitude = extracted.longitude;
+									}
+								} catch (err) {
+									// ignore
+								} finally {
+									await detailPage.close();
+								}
+							}
+
+							// Optimized update (smart change detection)
+							await updatePriceByPropertyURLOptimized({
+								link: property.link,
+								price: formattedPrice,
+								title: property.title,
+								bedrooms: property.bedrooms,
+								agentId: AGENT_ID,
+								isRental,
+								latitude: coords?.latitude || null,
+								longitude: coords?.longitude || null,
+							});
+
+							// Fallback safety update
 							await updatePriceByPropertyURL(
 								property.link,
-								priceClean,
+								formattedPrice,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
+								coords?.latitude || null,
+								coords?.longitude || null
 							);
 
 							totalSaved++;
 							totalScraped++;
 
-							const coordsStr =
-								coords.latitude && coords.longitude
+							console.log(
+								`✅ ${property.title} | ${formattedPrice} | ${coords?.latitude && coords?.longitude
 									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords";
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
+									: "No coords"
+								}`
+							);
 						} catch (dbErr) {
 							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
 						}
