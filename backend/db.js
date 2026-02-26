@@ -131,34 +131,47 @@ async function updatePriceByPropertyURL(
 	}
 }
 
-// Update remove status for old or future-dated properties
-async function updateRemoveStatus(agent_id) {
+// Update remove status for old properties
+async function updateRemoveStatus(agent_id, scrapeStartTime = null) {
 	try {
 		const remove_status = 1;
-		const params = [remove_status, agent_id];
 
-		// Flag records that are stale or have clearly bad future timestamps
+		let timeCondition =
+			"updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY";
+
+		// If we have a specific scrape start time, use it as the safety window
+		// This is much more accurate as it flags anything NOT updated during THIS run
+		if (scrapeStartTime) {
+			const formattedStartTime =
+				scrapeStartTime instanceof Date
+					? scrapeStartTime.toISOString().slice(0, 19).replace("T", " ")
+					: scrapeStartTime;
+			timeCondition = `updated_at < '${formattedStartTime}'`;
+		}
+
 		const [saleResult] = await promisePool.query(
 			`UPDATE property_for_sale
              SET remove_status = ?
              WHERE agent_id = ?
-             AND (updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY)`,
-			params,
+             AND (${timeCondition})`,
+			[remove_status, agent_id],
 		);
 
 		const [rentResult] = await promisePool.query(
 			`UPDATE property_for_rent
              SET remove_status = ?
              WHERE agent_id = ?
-             AND (updated_at < NOW() - INTERVAL 1 DAY OR updated_at > NOW() + INTERVAL 1 DAY)`,
-			params,
+             AND (${timeCondition})`,
+			[remove_status, agent_id],
 		);
 
 		const removedCount = (saleResult?.affectedRows || 0) + (rentResult?.affectedRows || 0);
 		console.log(
-			`🧹 Removed old or future-dated properties for agent ${agent_id} (sale: ${
+			`🧹 Removed old properties for agent ${agent_id} (sale: ${
 				saleResult?.affectedRows || 0
-			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount})`,
+			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount}) using window: ${
+				scrapeStartTime ? scrapeStartTime : "1 DAY"
+			}`,
 		);
 	} catch (error) {
 		console.error("Error updating remove status:", error.message);

@@ -39,9 +39,10 @@ Agent `4` is the baseline implementation style.
    - For each listing:
      - Call `updatePriceByPropertyURLOptimized(...)` first.
      - If not existing, scrape detail and call `updatePriceByPropertyURL(...)`.
-5. **Remove-status strategy**
-   - At run start: `markAllPropertiesRemovedForAgent(agentId)`.
-   - On seen listings: updates must set `remove_status = 0`.
+5. **Enhanced Remove-Status Strategy**
+   - **Full Scrape**: Capture `scrapeStartTime` at the start of the execution.
+   - **Safety Window**: Pass `scrapeStartTime` to `updateRemoveStatus(agentId, scrapeStartTime)`. This ensures only records NOT updated during THIS specific run are flagged as removed.
+   - **Partial Run Protection**: Detect if the run is partial (e.g., `startPage > 1`). If so, **bypassing** `updateRemoveStatus` is MANDATORY to prevent accidental deletion of properties on pages not scraped.
 
 ## Combined Runner Rules (`backend/combined-scraper.js`)
 
@@ -67,8 +68,14 @@ Agent `4` is the baseline implementation style.
 
 1. Use only shared logger from `backend/lib/logger-helpers.js`.
 2. Include page progress using `totalPages` in `request.userData`.
-3. Property logs must include action state: `CREATED`, `UPDATED`, `SEEN`, `ERROR`.
-4. Avoid duplicate DB-level per-property noise:
+3. **Verbose Status Logging**:
+   - Log skip reasons clearly (e.g., `Skipped: Sold`, `Skipped: Already Processed`).
+   - Log detail page progress (`[Detail] Scraping coordinates...`, `[Detail] Found coordinates`).
+4. **Final Summary**: Every agent should output a final summary block showing:
+   - Total Collected
+   - Total Saved to DB
+   - Breakdown (Sales vs Rentals)
+5. Avoid duplicate DB-level per-property noise:
    - Keep DB verbose logs behind `DB_VERBOSE_LOGS=1`.
 
 ## Request Metadata Standard

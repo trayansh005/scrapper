@@ -59,7 +59,7 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property) {
-	await sleep(700);
+	await sleep(1500);
 
 	const detailPage = await browserContext.newPage();
 
@@ -205,7 +205,7 @@ async function handleListingPage({ page, request }) {
 			propertyAction,
 		);
 
-		await sleep(500);
+		await sleep(3000);
 	}
 }
 

@@ -4,11 +4,7 @@
 // node backend/scraper-agent-15.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const {
-	updatePriceByPropertyURL,
-	updateRemoveStatus,
-	markAllPropertiesRemovedForAgent,
-} = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -57,7 +53,8 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property) {
-	await sleep(700);
+	logger.step(`[Detail] Scraping coordinates for: ${property.title}`);
+	await sleep(1200);
 
 	const detailPage = await browserContext.newPage();
 
@@ -74,6 +71,12 @@ async function scrapePropertyDetail(browserContext, property) {
 		const htmlContent = await detailPage.content();
 		const coords = await extractCoordinatesFromHTML(htmlContent);
 
+		if (coords.latitude && coords.longitude) {
+			logger.step(`[Detail] Found coordinates: ${coords.latitude}, ${coords.longitude}`);
+		} else {
+			logger.step(`[Detail] No coordinates found in HTML`);
+		}
+
 		return {
 			coords: {
 				latitude: coords.latitude || null,
@@ -81,7 +84,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			},
 		};
 	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}`, error);
+		logger.error(`[Detail] Error scraping detail page ${property.link}`, error);
 		return null;
 	} finally {
 		await detailPage.close();
@@ -158,14 +161,23 @@ async function handleListingPage({ page, request }) {
 		}
 	}, isRental);
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`);
+	logger.page(pageNum, label, `Processing ${properties.length} properties found on page`);
 
 	for (const property of properties) {
-		if (!property.link) continue;
+		if (!property.link) {
+			logger.page(pageNum, label, `Skipped: Missing link for property`);
+			continue;
+		}
 
-		if (isSoldProperty(property.statusText || "")) continue;
+		if (isSoldProperty(property.statusText || "")) {
+			logger.page(pageNum, label, `Skipped: Property is Sold/Under Offer (${property.link})`);
+			continue;
+		}
 
-		if (processedUrls.has(property.link)) continue;
+		if (processedUrls.has(property.link)) {
+			logger.page(pageNum, label, `Skipped: Already processed (${property.link})`);
+			continue;
+		}
 		processedUrls.add(property.link);
 
 		const price = formatPriceUk(property.priceRaw);
@@ -174,7 +186,7 @@ async function handleListingPage({ page, request }) {
 		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
 
 		if (!price) {
-			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`);
+			logger.page(pageNum, label, `Skipped: No price found for ${property.link}`);
 			continue;
 		}
 
@@ -211,7 +223,6 @@ async function handleListingPage({ page, request }) {
 			else stats.savedSales++;
 		}
 
-		const categoryLabel = isRental ? "LETTINGS" : "SALES";
 		let propertyAction = "SEEN";
 		if (result.updated) propertyAction = "UPDATED";
 		if (!result.isExisting && !result.error) propertyAction = "CREATED";
@@ -226,7 +237,7 @@ async function handleListingPage({ page, request }) {
 			propertyAction,
 		);
 
-		await sleep(800);
+		await sleep(2000);
 	}
 }
 
@@ -259,11 +270,18 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeSequenceHome() {
-	logger.step(`Starting Sequence Home scraper...`);
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
+	const scrapeStartTime = new Date();
+	logger.step(`Starting Sequence Home scraper at ${scrapeStartTime.toISOString()}...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+
+	if (isPartialRun) {
+		logger.step(
+			`CRITICAL: Partial run detected (startPage: ${startPage}). Automatic cleanup will be disabled.`,
+		);
+	}
 
 	const PROPERTY_TYPES = [
 		{
@@ -318,6 +336,8 @@ async function scrapeSequenceHome() {
 		`Completed Sequence Home - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+
+	return { scrapeStartTime, isPartialRun };
 }
 
 // ============================================================================
@@ -326,8 +346,23 @@ async function scrapeSequenceHome() {
 
 (async () => {
 	try {
-		await scrapeSequenceHome();
-		await updateRemoveStatus(AGENT_ID);
+		const { scrapeStartTime, isPartialRun } = await scrapeSequenceHome();
+
+		if (!isPartialRun) {
+			logger.step("Full run completed. Starting cleanup of stale properties...");
+			await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+			logger.step("Cleanup finished successfully.");
+		} else {
+			logger.step(
+				"Partial run completed. Skipping cleanup of stale properties to prevent accidental removal.",
+			);
+		}
+
+		logger.step("Summary of Scraper Run:");
+		logger.step(`- Total Collected: ${stats.totalScraped}`);
+		logger.step(`- Total Saved to DB: ${stats.totalSaved}`);
+		logger.step(`- Sales Saved: ${stats.savedSales}`);
+		logger.step(`- Rentals Saved: ${stats.savedRentals}`);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
