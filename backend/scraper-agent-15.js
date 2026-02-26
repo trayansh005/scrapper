@@ -237,7 +237,9 @@ async function handleListingPage({ page, request }) {
 			propertyAction,
 		);
 
-		await sleep(2000);
+		// Randomize delay between processing properties (1.5s - 3.5s)
+		const propertyJitter = Math.floor(Math.random() * 2000) + 1500;
+		await sleep(propertyJitter);
 	}
 }
 
@@ -248,14 +250,35 @@ async function handleListingPage({ page, request }) {
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
-		maxRequestRetries: 2,
+		maxRequestRetries: 3, // Increased retries for 403 handling
 		requestHandlerTimeoutSecs: 300,
-		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
+		preNavigationHooks: [
+			async ({ page, request }) => {
+				await blockNonEssentialResources(page);
+
+				// Add random jitter to avoid patterns (2-5 seconds)
+				const jitter = Math.floor(Math.random() * 3000) + 2000;
+				await page.waitForTimeout(jitter);
+
+				// Rotate User-Agent to a common desktop one
+				const userAgents = [
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+					"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+					"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+				];
+				const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+				await page.setExtraHTTPHeaders({ "User-Agent": randomUA });
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				args: [
+					"--no-sandbox",
+					"--disable-setuid-sandbox",
+					"--disable-blink-features=AutomationControlled", // Help bypass detection
+				],
 			},
 		},
 		requestHandler: handleListingPage,
