@@ -15,7 +15,6 @@ Follow `backend/AGENT4_BASELINE_RULES.md` as the primary engineering standard.
 2. Read relevant files before editing.
 3. Keep edits small, targeted, and style-consistent.
 4. Validate edited files for errors.
-5. **After every edit, always verify syntax (e.g. `node --check <file>`) to prevent syntax errors before running or committing.**
 
 ## Scraper-specific rules
 

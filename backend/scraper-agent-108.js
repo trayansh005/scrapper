@@ -5,7 +5,7 @@
 // node backend/scraper-agent-108.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
