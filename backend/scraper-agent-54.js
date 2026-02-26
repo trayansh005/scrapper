@@ -24,14 +24,14 @@ function formatPrice(num) {
 // Configuration for Leaders
 // 211 pages sales, 344 pages rent, total ~1686 sales + 2750 rent properties
 const PROPERTY_TYPES = [
-	{
-		// Sales
-		urlBase: "https://www.leaders.co.uk/properties/for-sale",
-		totalPages: 211,
-		recordsPerPage: 8,
-		isRental: false,
-		label: "SALES",
-	},
+	// {
+	// 	// Sales
+	// 	urlBase: "https://www.leaders.co.uk/properties/for-sale",
+	// 	totalPages: 211,
+	// 	recordsPerPage: 8,
+	// 	isRental: false,
+	// 	label: "SALES",
+	// },
 	{
 		// Rentals
 		urlBase: "https://www.leaders.co.uk/properties/to-rent",
