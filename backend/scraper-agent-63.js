@@ -6,7 +6,9 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { firefox } = require("playwright");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -52,49 +54,32 @@ async function scrapeBHHSLondon() {
 			const { isDetailPage, propertyData, pageNum, isRental, label } = request.userData;
 
 			if (isDetailPage) {
-				// Processing detail page to get coordinates
 				try {
-					await page.waitForTimeout(1000);
-
-					let coords = { latitude: null, longitude: null };
-
-					// Extract coordinates from #mapView data attributes
-					try {
-						const mapView = await page.$("#mapView");
-						if (mapView) {
-							const lat = await mapView.getAttribute("data-lat");
-							const lon = await mapView.getAttribute("data-lon");
-
-							if (lat && lon) {
-								coords.latitude = parseFloat(lat);
-								coords.longitude = parseFloat(lon);
-							}
-						}
-					} catch (err) {
-						// Coordinates not found
-					}
+					await page.waitForLoadState("networkidle");
+					// ✅ STEP 4 — Extract coordinates using helper
+					const html = await page.content();
+					const coords = extractCoordinatesFromHTML(html);
 
 					await updatePriceByPropertyURL(
-						propertyData.link,
+						propertyData.link.trim(),
 						propertyData.price,
 						propertyData.title,
 						propertyData.bedrooms,
 						AGENT_ID,
 						isRental,
-						coords.latitude,
-						coords.longitude
+						coords?.latitude || null,
+						coords?.longitude || null
 					);
 
 					totalSaved++;
 					totalScraped++;
 
-					if (coords.latitude && coords.longitude) {
-						console.log(
-							`✅ ${propertyData.title} - £${propertyData.price} - ${coords.latitude}, ${coords.longitude}`
-						);
-					} else {
-						console.log(`✅ ${propertyData.title} - £${propertyData.price} - No coords`);
-					}
+					console.log(
+						`✅ ${propertyData.title} - £${propertyData.price} - ${coords?.latitude && coords?.longitude
+							? `${coords.latitude}, ${coords.longitude}`
+							: "No coords"
+						}`
+					);
 				} catch (error) {
 					console.error(`❌ Error saving property: ${error.message}`);
 				}
@@ -143,7 +128,7 @@ async function scrapeBHHSLondon() {
 								const priceText = priceEl.textContent.trim();
 								const priceMatch = priceText.match(/£([\d,]+)/);
 								if (priceMatch) {
-									price = priceMatch[1].replace(/,/g, "");
+									price = priceMatch[1]; // DO NOT remove commas
 								}
 							} else {
 								// Try alternative price location
@@ -192,22 +177,48 @@ async function scrapeBHHSLondon() {
 				console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
 
 				// Add detail page requests to the queue with delay
-				for (let i = 0; i < properties.length; i++) {
-					const property = properties[i];
-					await crawler.addRequests([
-						{
-							url: property.link,
-							userData: {
-								isDetailPage: true,
-								propertyData: property,
-								isRental,
-							},
-						},
-					]);
+				for (const property of properties) {
+					if (isSoldProperty(property.title)) {
+						console.log(`⏭ Skipping sold property: ${property.title}`);
+						continue;
+					}
 
-					// Add delay between detail page requests to avoid rate limiting
-					if (i < properties.length - 1) {
-						await new Promise((resolve) => setTimeout(resolve, 1000));
+					const price = formatPriceUk(property.price);
+					if (!price) continue;
+
+					try {
+						const result = await updatePriceByPropertyURLOptimized(
+							property.link,
+							price,
+							property.title,
+							property.bedrooms,
+							AGENT_ID,
+							isRental
+						);
+
+						// If property exists → price updated only
+						if (result.updated) {
+							totalSaved++;
+						}
+
+						// If property is NEW → then go to detail page
+						if (!result.isExisting && !result.error) {
+							await crawler.addRequests([
+								{
+									url: property.link,
+									userData: {
+										isDetailPage: true,
+										propertyData: {
+											...property,
+											price,
+										},
+										isRental,
+									},
+								},
+							]);
+						}
+					} catch (err) {
+						console.error("❌ Optimization error:", err.message);
 					}
 				}
 			}

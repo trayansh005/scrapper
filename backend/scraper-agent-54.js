@@ -5,6 +5,8 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
@@ -12,6 +14,7 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 54;
 let totalScraped = 0;
 let totalSaved = 0;
+const processedUrls = new Set();
 
 function formatPrice(num) {
 	if (!num || isNaN(num)) return "£0";
@@ -21,14 +24,14 @@ function formatPrice(num) {
 // Configuration for Leaders
 // 211 pages sales, 344 pages rent, total ~1686 sales + 2750 rent properties
 const PROPERTY_TYPES = [
-	// {
-	// 	// Sales
-	// 	urlBase: "https://www.leaders.co.uk/properties/for-sale",
-	// 	totalPages: 211,
-	// 	recordsPerPage: 8,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		// Sales
+		urlBase: "https://www.leaders.co.uk/properties/for-sale",
+		totalPages: 211,
+		recordsPerPage: 8,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		// Rentals
 		urlBase: "https://www.leaders.co.uk/properties/to-rent",
@@ -42,14 +45,61 @@ const PROPERTY_TYPES = [
 async function scrapeLeaders() {
 	console.log(`\n🚀 Starting Leaders scraper (Agent ${AGENT_ID})...\n`);
 
+	function getBrowserlessEndpoint() {
+		return (
+			process.env.BROWSERLESS_WS_ENDPOINT ||
+			`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+		);
+	}
+
+
+	async function scrapePropertyDetail(browserContext, property) {
+		await new Promise((r) => setTimeout(r, 700));
+
+		const detailPage = await browserContext.newPage();
+
+		try {
+			await detailPage.route("**/*", (route) => {
+				const resourceType = route.request().resourceType();
+				if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+					route.abort();
+				} else {
+					route.continue();
+				}
+			});
+
+			await detailPage.goto(property.link, {
+				waitUntil: "domcontentloaded",
+				timeout: 90000,
+			});
+
+			await detailPage.waitForTimeout(1500);
+
+			const htmlContent = await detailPage.content();
+			const coords = await extractCoordinatesFromHTML(htmlContent);
+
+			return {
+				coords: {
+					latitude: coords.latitude || null,
+					longitude: coords.longitude || null,
+				},
+			};
+		} catch (error) {
+			return null;
+		} finally {
+			await detailPage.close();
+		}
+	}
+
 	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 3,
+		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
 
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint: getBrowserlessEndpoint(),
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
@@ -76,8 +126,8 @@ async function scrapeLeaders() {
 								? href.startsWith("http")
 									? href
 									: href.startsWith("/")
-									? "https://www.leaders.co.uk" + href
-									: "https://www.leaders.co.uk/" + href
+										? "https://www.leaders.co.uk" + href
+										: "https://www.leaders.co.uk/" + href
 								: null;
 
 							const title = el.querySelector(".property-title h2")?.textContent?.trim() || "";
@@ -89,12 +139,11 @@ async function scrapeLeaders() {
 								bedrooms = bedroomsEls[1].textContent.trim();
 							}
 
-							const statusEl = el.querySelector(".property-status");
-							const isSaleAgreed = statusEl && statusEl.textContent.trim() === "Sale Agreed";
+							const statusText = el.innerText || "";
 
-							return { link, price, title, bedrooms, lat: null, lng: null, isSaleAgreed };
+							return { link, price, title, bedrooms, statusText };
 						})
-						.filter((p) => p.link && !p.isSaleAgreed);
+						.filter((p) => p.link);
 				} catch (e) {
 					return [];
 				}
@@ -119,113 +168,127 @@ async function scrapeLeaders() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let coords = { latitude: property.lat || null, longitude: property.lng || null };
+						if (processedUrls.has(property.link)) return;
+						processedUrls.add(property.link);
+						if (isSoldProperty(property.statusText || "")) return;
 
-						if (!coords.latitude || !coords.longitude) {
-							const detailPage = await page.context().newPage();
-							try {
-								await detailPage.goto(property.link, {
-									waitUntil: "domcontentloaded",
-									timeout: 30000,
-								});
-								await detailPage.waitForTimeout(400);
+						// let coords = { latitude: property.lat || null, longitude: property.lng || null };
 
-								const detailCoords = await detailPage.evaluate(() => {
-									try {
-										// Get all script tags and search for latitude/longitude
-										const scripts = Array.from(document.querySelectorAll("script:not([src])"));
+						// if (!coords.latitude || !coords.longitude) {
+						// 	const detailPage = await page.context().newPage();
+						// 	try {
+						// 		await detailPage.goto(property.link, {
+						// 			waitUntil: "domcontentloaded",
+						// 			timeout: 30000,
+						// 		});
+						// 		await detailPage.waitForTimeout(400);
 
-										for (const script of scripts) {
-											const text = script.textContent;
+						// 		const detailCoords = await detailPage.evaluate(() => {
+						// 			try {
+						// 				// Get all script tags and search for latitude/longitude
+						// 				const scripts = Array.from(document.querySelectorAll("script:not([src])"));
 
-											// Try multiple patterns for latitude/longitude
-											const patterns = [
-												{
-													lat: /"latitude"\s*:\s*([0-9.+-]+)/,
-													lng: /"longitude"\s*:\s*([0-9.+-]+)/,
-												},
-												{
-													lat: /"latitude"\s*:\s*"([0-9.+-]+)"/,
-													lng: /"longitude"\s*:\s*"([0-9.+-]+)"/,
-												},
-												{
-													lat: /\\"latitude\\"\s*:\s*([0-9.+-]+)/,
-													lng: /\\"longitude\\"\s*:\s*([0-9.+-]+)/,
-												},
-												{
-													lat: /\\"latitude\\"\s*:\s*\\"([0-9.+-]+)\\"/,
-													lng: /\\"longitude\\"\s*:\s*\\"([0-9.+-]+)\\"/,
-												},
-											];
+						// 				for (const script of scripts) {
+						// 					const text = script.textContent;
 
-											for (const pattern of patterns) {
-												const latMatch = text.match(pattern.lat);
-												const lngMatch = text.match(pattern.lng);
+						// 					// Try multiple patterns for latitude/longitude
+						// 					const patterns = [
+						// 						{
+						// 							lat: /"latitude"\s*:\s*([0-9.+-]+)/,
+						// 							lng: /"longitude"\s*:\s*([0-9.+-]+)/,
+						// 						},
+						// 						{
+						// 							lat: /"latitude"\s*:\s*"([0-9.+-]+)"/,
+						// 							lng: /"longitude"\s*:\s*"([0-9.+-]+)"/,
+						// 						},
+						// 						{
+						// 							lat: /\\"latitude\\"\s*:\s*([0-9.+-]+)/,
+						// 							lng: /\\"longitude\\"\s*:\s*([0-9.+-]+)/,
+						// 						},
+						// 						{
+						// 							lat: /\\"latitude\\"\s*:\s*\\"([0-9.+-]+)\\"/,
+						// 							lng: /\\"longitude\\"\s*:\s*\\"([0-9.+-]+)\\"/,
+						// 						},
+						// 					];
 
-												if (latMatch && lngMatch) {
-													const lat = parseFloat(latMatch[1]);
-													const lng = parseFloat(lngMatch[1]);
-													if (!isNaN(lat) && !isNaN(lng)) {
-														return { lat, lng };
-													}
-												}
-											}
-										}
+						// 					for (const pattern of patterns) {
+						// 						const latMatch = text.match(pattern.lat);
+						// 						const lngMatch = text.match(pattern.lng);
 
-										return null;
-									} catch (e) {
-										return null;
-									}
-								});
+						// 						if (latMatch && lngMatch) {
+						// 							const lat = parseFloat(latMatch[1]);
+						// 							const lng = parseFloat(lngMatch[1]);
+						// 							if (!isNaN(lat) && !isNaN(lng)) {
+						// 								return { lat, lng };
+						// 							}
+						// 						}
+						// 					}
+						// 				}
 
-								console.log(`Coords for ${property.link}: ${JSON.stringify(detailCoords)}`);
+						// 				return null;
+						// 			} catch (e) {
+						// 				return null;
+						// 			}
+						// 		});
 
-								if (detailCoords) {
-									let lat = detailCoords.lat;
-									let lng = detailCoords.lng;
-									// Heuristic for inverted coordinates (UK region)
-									if (
-										Math.abs(lat) <= 10 &&
-										lng >= 49 &&
-										lng <= 61 &&
-										!(lat >= 49 && lat <= 61 && Math.abs(lng) <= 10)
-									) {
-										const t = lat;
-										lat = lng;
-										lng = t;
-									}
-									coords.latitude = lat;
-									coords.longitude = lng;
-								}
-							} catch (err) {
-								// ignore detail page errors
-							} finally {
-								await detailPage.close();
-							}
+						// 		console.log(`Coords for ${property.link}: ${JSON.stringify(detailCoords)}`);
+
+						// 		if (detailCoords) {
+						// 			let lat = detailCoords.lat;
+						// 			let lng = detailCoords.lng;
+						// 			// Heuristic for inverted coordinates (UK region)
+						// 			if (
+						// 				Math.abs(lat) <= 10 &&
+						// 				lng >= 49 &&
+						// 				lng <= 61 &&
+						// 				!(lat >= 49 && lat <= 61 && Math.abs(lng) <= 10)
+						// 			) {
+						// 				const t = lat;
+						// 				lat = lng;
+						// 				lng = t;
+						// 			}
+						// 			coords.latitude = lat;
+						// 			coords.longitude = lng;
+						// 		}
+						// 	} catch (err) {
+						// 		// ignore detail page errors
+						// 	} finally {
+						// 		await detailPage.close();
+						// 	}
+						// }
+
+						const price = formatPriceUk(property.price);
+						if (!price) return;
+
+						const result = await updatePriceByPropertyURLOptimized(
+							property.link,
+							price,
+							property.title,
+							property.bedrooms,
+							AGENT_ID,
+							isRental
+						);
+
+						if (result.updated) {
+							totalSaved++;
 						}
 
-						const rawPrice = (property.price || "").toString();
-						const numMatch = rawPrice.match(/[0-9][0-9,\.\s]*/);
-						const priceClean = numMatch ? numMatch[0].replace(/[^0-9]/g, "") : "";
+						if (!result.isExisting && !result.error) {
+							const detail = await scrapePropertyDetail(page.context(), property);
 
-						try {
 							await updatePriceByPropertyURL(
 								property.link.trim(),
-								priceClean || null,
-								property.title || "",
-								property.bedrooms || null,
+								price,
+								property.title,
+								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
+								detail?.coords?.latitude || null,
+								detail?.coords?.longitude || null
 							);
-
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${property.link}`);
 
 							totalSaved++;
 							totalScraped++;
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
 						}
 					})
 				);

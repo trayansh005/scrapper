@@ -6,11 +6,9 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db.js");
-const {
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
-} = require("./lib/db-helpers.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -21,6 +19,8 @@ const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
 };
+
+const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -71,7 +71,8 @@ function parsePropertyCard($, element) {
 
 		// Extract price
 		const priceEl = $card.find(".card__price, .card__price-container .card__price");
-		const price = parsePrice(priceEl.text().trim());
+		const priceRaw = priceEl.text().trim();
+		const price = formatPriceUk(priceRaw);
 
 		if (link && title && price) {
 			return { link, title, price, bedrooms };
@@ -112,15 +113,14 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
+	await sleep(800);
 
 	const detailPage = await browserContext.newPage();
 
 	try {
-		// Block unnecessary resources
 		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			const type = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(type)) {
 				route.abort();
 			} else {
 				route.continue();
@@ -129,25 +129,29 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 30000,
+			timeout: 60000,
 		});
 
-		// Get HTML content and extract coordinates
+		await detailPage.waitForTimeout(1200);
+
 		const htmlContent = await detailPage.content();
 
-		// Save property to database
-		await processPropertyWithCoordinates(
-			property.link,
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		await updatePriceByPropertyURL(
+			property.link.trim(),
 			property.price,
 			property.title,
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
-			htmlContent,
+			coords?.latitude || null,
+			coords?.longitude || null
 		);
 
 		stats.totalScraped++;
 		stats.totalSaved++;
+
 	} catch (error) {
 		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
 	} finally {
@@ -185,6 +189,13 @@ async function handleListingPage({ page, request, crawler }) {
 
 	// Process each property
 	for (const property of properties) {
+		// Skip duplicate URLs
+		if (processedUrls.has(property.link)) continue;
+		processedUrls.add(property.link);
+
+		// Skip sold properties
+		if (isSoldProperty(property.title || "")) continue;
+
 		// Update price in database (or insert minimal record if new)
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
@@ -204,22 +215,23 @@ async function handleListingPage({ page, request, crawler }) {
 			console.log(`🆕 Scraping detail for new property: ${property.title}`);
 			await scrapePropertyDetail(page.context(), property, isRental);
 		}
+		await sleep(500);
 	}
 
 	// Pagination - Strutt & Parker uses &page=N
-	if (pageNum < 2) {
-		const nextUrl = request.url + "&page=" + (pageNum + 1);
-		await crawler.addRequests([
-			{
-				url: nextUrl,
-				userData: {
-					pageNum: pageNum + 1,
-					isRental,
-					label,
-				},
-			},
-		]);
-	}
+	// if (pageNum < 2) {
+	// 	const nextUrl = request.url + "&page=" + (pageNum + 1);
+	// 	await crawler.addRequests([
+	// 		{
+	// 			url: nextUrl,
+	// 			userData: {
+	// 				pageNum: pageNum + 1,
+	// 				isRental,
+	// 				label,
+	// 			},
+	// 		},
+	// 	]);
+	// }
 }
 
 // ============================================================================
@@ -266,9 +278,8 @@ async function scrapeStruttAndParker() {
 	// Build Sales requests
 	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
 		allRequests.push({
-			url: `https://www.struttandparker.com/properties/residential/for-sale/london?showstc=on${
-				p > 1 ? `&page=${p}` : ""
-			}`,
+			url: `https://www.struttandparker.com/properties/residential/for-sale/london?showstc=on${p > 1 ? `&page=${p}` : ""
+				}`,
 			userData: {
 				pageNum: p,
 				isRental: false,
@@ -281,9 +292,8 @@ async function scrapeStruttAndParker() {
 	if (startPage === 1) {
 		for (let p = 1; p <= totalLettingsPages; p++) {
 			allRequests.push({
-				url: `https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on${
-					p > 1 ? `&page=${p}` : ""
-				}`,
+				url: `https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on${p > 1 ? `&page=${p}` : ""
+					}`,
 				userData: {
 					pageNum: p,
 					isRental: true,

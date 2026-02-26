@@ -6,7 +6,9 @@
 // node backend/scraper-agent-75.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 
 // Reduce logging noise
 log.setLevel(log.LEVELS.ERROR);
@@ -15,12 +17,6 @@ const AGENT_ID = 75;
 let totalScraped = 0;
 let totalSaved = 0;
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	const num = Number(price);
-	if (isNaN(num)) return "N/A";
-	return "£" + num.toLocaleString("en-GB");
-}
 
 // Configuration for sales and rentals — full KFH URLs
 const PROPERTY_TYPES = [
@@ -195,121 +191,76 @@ async function scrapeKFH() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
-						let coords = { latitude: null, longitude: null };
-
-						// Open detail page in a new context to extract coordinates
+						// Open detail page
 						const detailPage = await page.context().newPage();
+						let coords = { latitude: null, longitude: null };
+						let sold = false;
+
 						try {
 							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
+								waitUntil: "networkidle",
 								timeout: 30000,
 							});
-							await detailPage.waitForTimeout(2000);
 
-							// Extract coordinates from JSON-LD, iframe, or window objects
-							const detailCoords = await detailPage.evaluate(() => {
-								// 1. Try all JSON-LD scripts
-								const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
-								for (const script of ldScripts) {
-									try {
-										const data = JSON.parse(script.textContent);
-										const items = Array.isArray(data) ? data : [data];
-										for (const item of items) {
-											if (item?.geo?.latitude && item?.geo?.longitude) {
-												return {
-													latitude: parseFloat(item.geo.latitude),
-													longitude: parseFloat(item.geo.longitude),
-												};
-											}
-											if (item?.latitude && item?.longitude) {
-												return {
-													latitude: parseFloat(item.latitude),
-													longitude: parseFloat(item.longitude),
-												};
-											}
-										}
-									} catch (e) {}
-								}
+							const html = await detailPage.content();
 
-								// 2. Try iframe src (location-map)
-								const iframe = document.querySelector(
-									"#location-map, .location-map, iframe[src*='maps']"
-								);
-								if (iframe && iframe.src) {
-									const latMatch = iframe.src.match(/lat=([0-9.-]+)/);
-									const lngMatch = iframe.src.match(/lng=([0-9.-]+)/);
-									if (latMatch && lngMatch) {
-										return {
-											latitude: parseFloat(latMatch[1]),
-											longitude: parseFloat(lngMatch[1]),
-										};
-									}
-								}
-
-								// 3. Try window objects (Gatsby / React states)
-								const possibleState =
-									window.__initialState || window.__PRELOADED_STATE__ || window.___INITIAL_STATE__;
-								if (possibleState && possibleState.property) {
-									const p = possibleState.property;
-									if (p.latitude && p.longitude) {
-										return {
-											latitude: parseFloat(p.latitude),
-											longitude: parseFloat(p.longitude),
-										};
-									}
-								}
-
-								// 4. Try searching for lat/lng in all text if everything else fails (last resort)
-								const html = document.documentElement.innerHTML;
-								const latRegex = /"latitude":\s*([0-9.-]+)/;
-								const lngRegex = /"longitude":\s*([0-9.-]+)/;
-								const latM = html.match(latRegex);
-								const lngM = html.match(lngRegex);
-								if (latM && lngM) {
-									return {
-										latitude: parseFloat(latM[1]),
-										longitude: parseFloat(lngM[1]),
-									};
-								}
-
-								return null;
-							});
-
-							if (detailCoords && detailCoords.latitude && detailCoords.longitude) {
-								coords = detailCoords;
+							//  Use shared coordinate extractor
+							const extracted = extractCoordinatesFromHTML(html);
+							if (extracted) {
+								coords = extracted;
 							}
+
+							// Sold detection
+							sold = isSoldProperty(html);
+
+							console.log("Detail URL:", property.link);
+							console.log("Coords:", coords);
+							console.log("Is Sold:", sold);
+
 						} catch (err) {
-							// ignore detail page errors
+							console.log("Detail page error:", err.message);
 						} finally {
 							await detailPage.close();
 						}
 
 						// Save to database
 						try {
-							// Clean price: extract only numbers (e.g., "£47,666pcm" → "47666")
-							const priceClean = property.price
-								? property.price.replace(/[^0-9]/g, "").trim()
-								: null;
+							const formattedPrice = formatPriceUk(property.price);
 
+							// First: Optimized update (checks changes, sold, coords etc.)
+							await updatePriceByPropertyURLOptimized({
+								link: property.link,
+								price: formattedPrice,
+								title: property.title,
+								bedrooms: property.bedrooms,
+								agentId: AGENT_ID,
+								isRental,
+								latitude: coords?.latitude || null,
+								longitude: coords?.longitude || null,
+								isSold: sold,
+							});
+
+							// Second: Fallback safety update (ensures record exists)
 							await updatePriceByPropertyURL(
 								property.link,
-								priceClean,
+								formattedPrice,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
 								isRental,
-								coords.latitude,
-								coords.longitude
+								coords?.latitude || null,
+								coords?.longitude || null
 							);
 
 							totalSaved++;
 							totalScraped++;
 
-							const coordsStr =
-								coords.latitude && coords.longitude
+							console.log(
+								`✅ ${property.title} | ${formattedPrice} | ${coords?.latitude && coords?.longitude
 									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords";
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
+									: "No coords"
+								}`
+							);
 						} catch (dbErr) {
 							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
 						}

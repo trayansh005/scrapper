@@ -5,7 +5,9 @@
 // node backend/scraper-agent-70.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool } = require("./db.js");
+const { updatePriceByPropertyURL } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const {isSoldProperty } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -17,7 +19,7 @@ let totalSaved = 0;
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
     { urlPath: 'sales/property-for-sale', totalPages: 355, recordsPerPage: 10, isRental: false, label: 'SALES' },
-    // { urlPath: 'lettings/property-to-rent', totalPages: 21, recordsPerPage: 10, isRental: true, label: 'LETTINGS' }
+    { urlPath: 'lettings/property-to-rent', totalPages: 21, recordsPerPage: 10, isRental: true, label: 'LETTINGS' }
 ];
 
 async function scrapeFineAndCountry() {
@@ -36,7 +38,61 @@ async function scrapeFineAndCountry() {
         },
 
         async requestHandler({ page, request }) {
-            const { pageNum, isRental, label } = request.userData;
+            const { pageNum, isRental, label, isDetailPage, propertyData } = request.userData;
+            if (isDetailPage) {
+                try {
+                    console.log("\n================ DETAIL PAGE ================");
+                    console.log("Opening URL:", page.url());
+
+                    // Wait for JS to fully load
+                    await page.waitForLoadState('networkidle');
+                    console.log("Page fully loaded");
+
+                    const coordinates = await page.evaluate(() => {
+                        const bodyText = document.body.innerHTML;
+
+                        console.log("Searching for latitude/longitude pattern...");
+
+                        const match = bodyText.match(/"latitude":\s*([0-9.-]+).*?"longitude":\s*([0-9.-]+)/);
+
+                        if (match) {
+                            console.log("Match found inside browser:", match[1], match[2]);
+                            return {
+                                latitude: parseFloat(match[1]),
+                                longitude: parseFloat(match[2])
+                            };
+                        }
+
+                        return null;
+                    });
+
+                    console.log("Extracted Coordinates:", coordinates);
+
+                    if (coordinates) {
+                        await updatePriceByPropertyURL(
+                            propertyData.link,
+                            propertyData.price,
+                            propertyData.title,
+                            propertyData.bedrooms,
+                            AGENT_ID,
+                            isRental,
+                            coordinates.latitude,
+                            coordinates.longitude
+                        );
+
+                        console.log("✅ Saved with coordinates:", coordinates.latitude, coordinates.longitude);
+                        totalSaved++;
+                    } else {
+                        console.log("⚠️ Coordinates NOT found for:", propertyData.link);
+                    }
+
+                } catch (err) {
+                    console.error("❌ Detail page error:", err.message);
+                }
+
+                console.log("=============================================\n");
+                return;
+            }
 
             // Processing listing page
             console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
@@ -68,7 +124,7 @@ async function scrapeFineAndCountry() {
                             const priceText = priceEl.textContent.trim();
                             const priceMatch = priceText.match(/£([\d,]+)/);
                             if (priceMatch) {
-                                price = priceMatch[1].replace(/,/g, '');
+                                price = priceMatch[1]; // DO NOT remove commas
                             }
                         }
 
@@ -95,130 +151,51 @@ async function scrapeFineAndCountry() {
             console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
 
             // Process properties in batches of 5
-            const batchSize = 5;
-            for (let i = 0; i < properties.length; i += batchSize) {
-                const batch = properties.slice(i, i + batchSize);
+            for (const property of properties) {
+                // ⏭ Skip sold properties
+                if (isSoldProperty(property.title)) {
+                    console.log(`⏭ Skipping sold: ${property.title}`);
+                    continue;
+                }
+                // Format UK price with commas
+                const formattedPrice = formatPriceUk(property.price);
+                if (!formattedPrice) continue;
 
-                // Process batch in parallel
-                await Promise.all(batch.map(async (property) => {
-                    // Create a new page for each property in the batch
-                    const detailPage = await page.context().newPage();
+                try {
+                    // Optimized DB update - checks if property exists and updates price in one step
+                    const result = await updatePriceByPropertyURLOptimized(
+                        property.link,
+                        formattedPrice,
+                        property.title,
+                        property.bedrooms,
+                        AGENT_ID,
+                        isRental
+                    );
 
-                    try {
-                        await detailPage.goto(property.link, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                        await detailPage.waitForTimeout(300);
-
-                        let coords = { latitude: null, longitude: null };
-
-                        // Extract coordinates from map element data attributes
-                        const geoData = await detailPage.evaluate(() => {
-                            const mapEl = document.querySelector('#locrating-map');
-                            if (mapEl) {
-                                const lat = mapEl.getAttribute('data-lat');
-                                const lng = mapEl.getAttribute('data-lang');
-                                if (lat && lng) {
-                                    return {
-                                        latitude: parseFloat(lat),
-                                        longitude: parseFloat(lng)
-                                    };
-                                }
-                            }
-                            return null;
-                        });
-
-                        if (geoData) {
-                            coords.latitude = geoData.latitude;
-                            coords.longitude = geoData.longitude;
-                        }
-
-                        // Debug log which table we're using
-                        const tableName = isRental ? "property_for_rent" : "property_for_sale";
-                        console.log(`🔍 Saving to table: ${tableName} | Rental: ${isRental} | URL: ${property.link.substring(0, 60)}...`);
-
-                        // Check if property already exists in database with this agent_id
-                        const [existingRows] = await promisePool.query(
-                            `SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
-                            [property.link.trim(), AGENT_ID]
-                        );
-
-                        // Also check if it exists with different agent_id
-                        const [otherAgentRows] = await promisePool.query(
-                            `SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id != ?`,
-                            [property.link.trim(), AGENT_ID]
-                        );
-
-                        if (existingRows.length > 0) {
-                            console.log(`🔍 Property exists with our agent_id: ${AGENT_ID} - will update`);
-
-                            // Update existing property with our agent_id
-                            await promisePool.query(
-                                `UPDATE ${tableName} SET price = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE property_url = ? AND agent_id = ?`,
-                                [property.price, coords.latitude, coords.longitude, property.link.trim(), AGENT_ID]
-                            );
-                            console.log(`✅ Updated: ${property.link.substring(0, 50)}... | Price: £${property.price} | Coords: ${coords.latitude}, ${coords.longitude}`);
-
-                        } else if (otherAgentRows.length > 0) {
-                            console.log(`🔍 Property exists with different agent_id: ${otherAgentRows[0].agent_id} - will create new entry for agent ${AGENT_ID}`);
-
-                            // Create new property for our agent_id
-                            const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-                            const logo = "property_for_sale/logo.png";
-                            const currentTime = new Date();
-
-                            await promisePool.query(insertQuery, [
-                                property.title,
-                                AGENT_ID,
-                                property.price,
-                                property.bedrooms,
-                                property.link.trim(),
-                                logo,
-                                coords.latitude,
-                                coords.longitude,
-                                currentTime,
-                                currentTime,
-                            ]);
-                            console.log(`✅ Created: ${property.link.substring(0, 50)}... | Price: £${property.price} | Coords: ${coords.latitude}, ${coords.longitude}`);
-
-                        } else {
-                            console.log(`🔍 Property does not exist - will create new`);
-
-                            // Create new property
-                            const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-                            const logo = "property_for_sale/logo.png";
-                            const currentTime = new Date();
-
-                            await promisePool.query(insertQuery, [
-                                property.title,
-                                AGENT_ID,
-                                property.price,
-                                property.bedrooms,
-                                property.link.trim(),
-                                logo,
-                                coords.latitude,
-                                coords.longitude,
-                                currentTime,
-                                currentTime,
-                            ]);
-                            console.log(`✅ Created: ${property.link.substring(0, 50)}... | Price: £${property.price} | Coords: ${coords.latitude}, ${coords.longitude}`);
-                        }
-
+                    // If property exists → price updated only
+                    if (result.updated) {
                         totalSaved++;
-                        totalScraped++;
-
-                        if (coords.latitude && coords.longitude) {
-                            console.log(`✅ ${property.title} - £${property.price} - ${coords.latitude}, ${coords.longitude}`);
-                        } else {
-                            console.log(`✅ ${property.title} - £${property.price} - No coords`);
-                        }
-                    } catch (error) {
-                        console.error(`❌ Error processing ${property.link}: ${error.message}`);
-                    } finally {
-                        await detailPage.close();
                     }
-                }));
 
-                // Delay between batches
-                await new Promise(resolve => setTimeout(resolve, 200));
+                    // If property is NEW → queue detail page
+                    if (!result.isExisting && !result.error) {
+                        await crawler.addRequests([
+                            {
+                                url: property.link,
+                                userData: {
+                                    isDetailPage: true,
+                                    propertyData: {
+                                        ...property,
+                                        price: formattedPrice,
+                                    },
+                                    isRental,
+                                },
+                            },
+                        ]);
+                    }
+                } catch (err) {
+                    console.error("❌ Optimization error:", err.message);
+                }
             }
         },
 

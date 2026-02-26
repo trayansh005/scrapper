@@ -38,12 +38,12 @@ const USER_AGENTS = [
 const TIMING = {
 	PAGE_DELAY_MIN: 500,
 	PAGE_DELAY_MAX: 1200,
-	DETAIL_DELAY_MIN: 800,
-	DETAIL_DELAY_MAX: 1800,
+	DETAIL_DELAY_MIN: 400,
+	DETAIL_DELAY_MAX: 900,
 	AFTER_GOTO: 2000,
 	COOKIE_BANNER: 1000,
-	STREETVIEW_LOAD: 8000,
-	STREETVIEW_RETRY: 3000,
+	STREETVIEW_LOAD: 4000,
+	STREETVIEW_RETRY: 1500,
 	RATE_LIMIT_BACKOFF: 60000,
 };
 
@@ -244,11 +244,9 @@ async function extractCoordinates(htmlContent, detailPage) {
 // ============================================================================
 
 function parsePrice(priceText) {
-	const priceMatch = priceText.match(/[0-9][0-9,\s]*/g);
-	if (!priceMatch) return null;
-
-	const priceClean = priceMatch.join("").replace(/[^0-9]/g, "");
-	return priceClean ? parseInt(priceClean) : null;
+	if (!priceText) return null;
+	const digits = priceText.replace(/[^0-9]/g, "");
+	return digits ? parseInt(digits) : null;
 }
 
 function parseBedrooms($card) {
@@ -351,6 +349,8 @@ async function scrapePropertyDetail(browserContext, property) {
 			AGENT_ID,
 			property.isRental,
 			htmlContent,
+			coords.latitude,
+			coords.longitude
 		);
 
 		stats.totalScraped++;
@@ -359,7 +359,9 @@ async function scrapePropertyDetail(browserContext, property) {
 		const coordsStr =
 			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
 
-		console.log(`✅ ${property.title} - ${formatPrice(property.price)} - ${coordsStr}`);
+		console.log(
+			`✅ Created: ${property.link} | Price: ${formatPrice(property.price)} | Coords: ${coordsStr}`
+		);
 	} finally {
 		await detailPage.close();
 	}
@@ -375,7 +377,7 @@ async function handleListingPage({ page, request }) {
 	console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
 	await setupPageHeaders(page);
-	await navigateToPage(request.url, page);
+	await navigateToPage(page, request.url);
 
 	// Wait for properties to load
 	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
@@ -417,7 +419,7 @@ async function handleListingPage({ page, request }) {
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
-		maxConcurrency: 1,
+		maxConcurrency: 2,
 		maxRequestRetries: 3,
 		requestHandlerTimeoutSecs: 120,
 		launchContext: {
@@ -451,7 +453,7 @@ function generatePageRequests(propertyType, startPage) {
 
 	const requests = [];
 
-	for (let page = validStartPage; page <= totalPages; page++) {
+	for (let page = validStartPage; page <= validStartPage; page++) {
 		// Romans uses /page-N/ format
 		const url = `${propertyType.urlBase}/page-${page}/`;
 		const uniqueKey = `${propertyType.label}_page_${page}`;

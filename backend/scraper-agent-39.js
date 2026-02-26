@@ -5,8 +5,9 @@
 // node backend/scraper-agent-39.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updateRemoveStatus } = require("./db.js");
-
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized,} = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty,} = require("./lib/property-helpers.js");
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 39;
@@ -50,23 +51,23 @@ const PROPERTY_TYPES = [
 		totalRecords: 887,
 		recordsPerPage: 30,
 	},
-	// {
-	// 	// Rent
-	// 	urlBase:
-	// 		"https://www.johndwood.co.uk/all-properties-to-rent/status-available/most-recent-first#/",
-	// 	isRental: true,
-	// 	label: "LETTINGS",
-	// 	// Provided: total 378 properties, 30 per page
-	// 	totalRecords: 378,
-	// 	recordsPerPage: 30,
-	// },
+	{
+		// Rent
+		urlBase:
+			"https://www.johndwood.co.uk/all-properties-to-rent/status-available/most-recent-first#/",
+		isRental: true,
+		label: "LETTINGS",
+		// Provided: total 378 properties, 30 per page
+		totalRecords: 378,
+		recordsPerPage: 30,
+	},
 ];
 
 async function scrapeJohnDWood() {
 	console.log(`\n🚀 Starting John D Wood scraper (Agent ${AGENT_ID})...\n`);
 
 	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
+		maxConcurrency: 3,
 		// increase retries to tolerate transient 429s/backoffs
 		maxRequestRetries: 5,
 		requestHandlerTimeoutSecs: 300,
@@ -79,11 +80,11 @@ async function scrapeJohnDWood() {
 
 		async requestHandler({ page, request, crawler }) {
 			// Small randomized delay at the start of each request to avoid bursts
-			await sleep(randBetween(1200, 3200));
-			// set a gentle accept-language header for the page
+			await sleep(randBetween(600, 1500));
+			// set a gentle accept-language h6der for the page
 			try {
 				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-			} catch (e) {}
+			} catch (e) { }
 			const { pageNum, isRental, label, isDetailPage, propertyData } = request.userData || {};
 
 			if (isDetailPage) {
@@ -121,7 +122,7 @@ async function scrapeJohnDWood() {
 								longitude = parseFloat(lonAny[1]);
 							}
 						}
-					} catch (e) {}
+					} catch (e) { }
 
 					// Try data-location attribute
 					if (!latitude || !longitude) {
@@ -136,7 +137,7 @@ async function scrapeJohnDWood() {
 									longitude = parseFloat(parts[1]);
 								}
 							}
-						} catch (e) {}
+						} catch (e) { }
 					}
 
 					// Fallback to JSON-LD
@@ -163,23 +164,21 @@ async function scrapeJohnDWood() {
 										}
 									}
 									if (latitude && longitude) break;
-								} catch (e) {}
+								} catch (e) { }
 							}
-						} catch (e) {}
+						} catch (e) { }
 					}
 
 					const tableName = isRental ? "property_for_rent" : "property_for_sale";
 
 					// DB checks
-					const [existingRows] = await promisePool.query(
-						`SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
-						[property.link.trim(), AGENT_ID]
+					const [rows] = await promisePool.query(
+						`SELECT agent_id FROM ${tableName} WHERE property_url = ?`,
+						[p.link.trim()]
 					);
 
-					const [otherAgentRows] = await promisePool.query(
-						`SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id != ?`,
-						[property.link.trim(), AGENT_ID]
-					);
+					const existingForThisAgent = rows.find(r => r.agent_id === AGENT_ID);
+					const existsForOtherAgent = rows.find(r => r.agent_id !== AGENT_ID);
 
 					if (existingRows.length > 0) {
 						await promisePool.query(
@@ -187,8 +186,7 @@ async function scrapeJohnDWood() {
 							[property.price, latitude, longitude, property.link.trim(), AGENT_ID]
 						);
 						console.log(
-							`✅ Updated: ${property.link.substring(0, 60)}... | Price: £${
-								property.price
+							`✅ Updated: ${property.link.substring(0, 60)}... | Price: £${property.price
 							} | Coords: ${latitude}, ${longitude}`
 						);
 					} else if (otherAgentRows.length > 0) {
@@ -208,8 +206,7 @@ async function scrapeJohnDWood() {
 							currentTime,
 						]);
 						console.log(
-							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${
-								property.price
+							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${property.price
 							} | Coords: ${latitude}, ${longitude}`
 						);
 					} else {
@@ -229,8 +226,7 @@ async function scrapeJohnDWood() {
 							currentTime,
 						]);
 						console.log(
-							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${
-								property.price
+							`✅ Created: ${property.link.substring(0, 60)}... | Price: £${property.price
 							} | Coords: ${latitude}, ${longitude}`
 						);
 					}
@@ -282,7 +278,7 @@ async function scrapeJohnDWood() {
 						const priceEl = c.querySelector(".card__heading");
 						if (priceEl) {
 							const txt = priceEl.textContent || "";
-							price = formatPrice(txt);
+							price = txt;
 						}
 
 						// Title / short description
@@ -317,197 +313,82 @@ async function scrapeJohnDWood() {
 
 			if (properties.length === 0) return;
 
-			const chunkSize = 1;
-			for (let start = 0; start < properties.length; start += chunkSize) {
-				const chunk = properties.slice(start, start + chunkSize);
-				await Promise.all(
-					chunk.map(async (p) => {
-						const newPage = await page.context().newPage();
-						try {
-							// rotate user-agent per detail page and add small delay
-							try {
-								const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-								await newPage.setUserAgent(ua);
-								await newPage.setExtraHTTPHeaders({
-									"accept-language": "en-GB,en;q=0.9",
-									referer: request.url,
-								});
-							} catch (e) {}
-							await sleep(randBetween(800, 1800));
-							const resp = await newPage.goto(p.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							// If blocked with 429, wait and let crawler retry
-							if (resp && resp.status && resp.status() === 429) {
-								console.warn(`⚠️ 429 on ${p.link} — backing off`);
-								await sleep(60000);
-								throw new Error("429");
-							}
-							await newPage.waitForTimeout(1000);
+			const chunkSize = 3;
+			for (const p of properties) {
 
-							// Queue detail handler logic via a synthetic request-like call to same handler
-							// We'll call the detail logic directly here by reusing the request handler flow
-							// by creating a small object and invoking the detail branch code above.
-							// Instead of duplicating code, navigate to the detail URL and then reuse logic by
-							// extracting coordinates and performing DB upsert here.
+				if (!p.link) continue;
 
-							// Try to extract coords from detail page (multiple patterns)
-							let latitude = null;
-							let longitude = null;
+				// Skip sold properties
+				if (isSoldProperty(p.title || "")) continue;
 
-							const html = await newPage.content();
-							try {
-								const latMatch =
-									html.match(/property-latitude\s*[:\"]\s*\"?([\d.-]+)\"?/i) ||
-									html.match(/propertyLatitude\s*[:=]\s*\"?([\d.-]+)\"?/i);
-								const lonMatch =
-									html.match(/property-longitude\s*[:\"]\s*\"?([\d.-]+)\"?/i) ||
-									html.match(/propertyLongitude\s*[:=]\s*\"?([\d.-]+)\"?/i);
-								if (latMatch) latitude = parseFloat(latMatch[1]);
-								if (lonMatch) longitude = parseFloat(lonMatch[1]);
+				const price = formatPriceUk(p.price);
+				if (!price) {
+					console.log(`⏭ Skipping property (no valid price): ${p.link}`);
+					continue;
+				}
 
-								// Generic latitude/longitude keys in JSON or scripts
-								if (!latitude || !longitude) {
-									const latAny = html.match(
-										/(?:\"latitude\"|\"lat\"|latitude\s*:)\s*[:=]?\s*\"?([\d]{1,3}\.\d+)\"?/i
-									);
-									const lonAny = html.match(
-										/(?:\"longitude\"|\"lng\"|\"lon\"|longitude\s*:)\s*[:=]?\s*\"?(-?\d{1,3}\.\d+)\"?/i
-									);
-									if (latAny && lonAny) {
-										latitude = parseFloat(latAny[1]);
-										longitude = parseFloat(lonAny[1]);
-									}
-								}
-							} catch (e) {}
-
-							if (!latitude || !longitude) {
-								try {
-									const dataLocation = await newPage
-										.$eval(".google-map-embed", (el) => el.getAttribute("data-location"))
-										.catch(() => null);
-									if (dataLocation) {
-										const parts = dataLocation.split(",").map((s) => s.trim());
-										if (parts.length >= 2) {
-											latitude = parseFloat(parts[0]);
-											longitude = parseFloat(parts[1]);
-										}
-									}
-								} catch (e) {}
-							}
-
-							if (!latitude || !longitude) {
-								try {
-									const jsonLdTags = await newPage.$$eval(
-										'script[type="application/ld+json"]',
-										(tags) => tags.map((t) => t.textContent)
-									);
-									for (const s of jsonLdTags) {
-										try {
-											const parsed = JSON.parse(s);
-											const items = Array.isArray(parsed) ? parsed : [parsed];
-											for (const item of items) {
-												if (!item) continue;
-												if (item.geo && item.geo.latitude && item.geo.longitude) {
-													latitude = parseFloat(item.geo.latitude);
-													longitude = parseFloat(item.geo.longitude);
-													break;
-												}
-												if (item.latitude && item.longitude) {
-													latitude = parseFloat(item.latitude);
-													longitude = parseFloat(item.longitude);
-													break;
-												}
-											}
-											if (latitude && longitude) break;
-										} catch (e) {}
-									}
-								} catch (e) {}
-							}
-
-							const tableName = isRental ? "property_for_rent" : "property_for_sale";
-
-							const [existingRows] = await promisePool.query(
-								`SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
-								[p.link.trim(), AGENT_ID]
-							);
-							const [otherAgentRows] = await promisePool.query(
-								`SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id != ?`,
-								[p.link.trim(), AGENT_ID]
-							);
-
-							if (existingRows.length > 0) {
-								await promisePool.query(
-									`UPDATE ${tableName} SET price = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE property_url = ? AND agent_id = ?`,
-									[p.price, latitude, longitude, p.link.trim(), AGENT_ID]
-								);
-								console.log(
-									`✅ Updated: ${p.link.substring(0, 60)}... | Price: £${
-										p.price
-									} | Coords: ${latitude}, ${longitude}`
-								);
-							} else if (otherAgentRows.length > 0) {
-								const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-								const logo = isRental ? "property_for_rent/logo.png" : "property_for_sale/logo.png";
-								const currentTime = new Date();
-								await promisePool.query(insertQuery, [
-									p.title,
-									AGENT_ID,
-									p.price,
-									p.bedrooms,
-									p.link.trim(),
-									logo,
-									latitude,
-									longitude,
-									currentTime,
-									currentTime,
-								]);
-								console.log(
-									`✅ Created: ${p.link.substring(0, 60)}... | Price: £${
-										p.price
-									} | Coords: ${latitude}, ${longitude}`
-								);
-							} else {
-								const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-								const logo = isRental ? "property_for_rent/logo.png" : "property_for_sale/logo.png";
-								const currentTime = new Date();
-								await promisePool.query(insertQuery, [
-									p.title,
-									AGENT_ID,
-									p.price,
-									p.bedrooms,
-									p.link.trim(),
-									logo,
-									latitude,
-									longitude,
-									currentTime,
-									currentTime,
-								]);
-								console.log(
-									`✅ Created: ${p.link.substring(0, 60)}... | Price: £${
-										p.price
-									} | Coords: ${latitude}, ${longitude}`
-								);
-							}
-
-							totalSaved++;
-							totalScraped++;
-
-							if (latitude && longitude) {
-								console.log(`✅ ${p.title} - £${p.price} - ${latitude}, ${longitude}`);
-							} else {
-								console.log(`✅ ${p.title} - £${p.price} - No coords`);
-							}
-						} catch (err) {
-							console.error(`❌ Error processing ${p.link}: ${err.message}`);
-						} finally {
-							await newPage.close();
-						}
-					})
+				const result = await updatePriceByPropertyURLOptimized(
+					p.link,
+					price,
+					p.title,
+					p.bedrooms,
+					AGENT_ID,
+					isRental
 				);
 
-				await new Promise((r) => setTimeout(r, 500));
+				if (result.updated) {
+					totalSaved++;
+				}
+
+				// Only open detail page if property is NEW
+				if (!result.isExisting && !result.error) {
+
+					const newPage = await page.context().newPage();
+
+					try {
+						await newPage.route("**/*", (route) => {
+							const type = route.request().resourceType();
+							if (["image", "font", "stylesheet", "media"].includes(type)) {
+								route.abort();
+							} else {
+								route.continue();
+							}
+						});
+
+						await newPage.goto(p.link, {
+							waitUntil: "domcontentloaded",
+							timeout: 60000,
+						});
+
+						await newPage.waitForTimeout(1200);
+
+						const html = await newPage.content();
+						const coords = await extractCoordinatesFromHTML(html);
+
+						await updatePriceByPropertyURL(
+							p.link.trim(),
+							price,
+							p.title,
+							p.bedrooms || null,
+							AGENT_ID,
+							isRental,
+							coords?.latitude || null,
+							coords?.longitude || null
+						);
+
+						totalSaved++;
+						totalScraped++;
+
+						console.log(`✅ Created: ${p.title} - £${price}`);
+
+					} catch (err) {
+						console.error(`❌ Detail error ${p.link}:`, err.message);
+					} finally {
+						await newPage.close();
+					}
+				}
+
+				await sleep(500); // rate-limit protection
 			}
 		},
 
