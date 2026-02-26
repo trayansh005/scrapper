@@ -1,25 +1,28 @@
 // Jackie Quinn scraper using Playwright with Crawlee
 // Agent ID: 8
 // Usage:
-// node backend/scraper-agent-8.js
+// node backend/scraper-agent-8.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, markAllPropertiesRemovedForAgent } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const {
-	formatPriceUk,
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
-} = require("./lib/db-helpers.js");
-const { isSoldProperty, extractBedroomsFromHTML } = require("./lib/property-helpers.js");
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	extractBedroomsFromHTML,
+} = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 8;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
 const processedUrls = new Set();
@@ -35,6 +38,16 @@ function sleep(ms) {
 function formatPriceDisplay(price, isRental) {
 	if (!price) return isRental ? "£0 pcm" : "£0";
 	return `£${price}${isRental ? " pcm" : ""}`;
+}
+
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
 }
 
 // ============================================================================
@@ -53,51 +66,26 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
+	await sleep(700);
 	const detailPage = await browserContext.newPage();
-
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
-
+		await blockNonEssentialResources(detailPage);
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 60000,
+			timeout: 90000,
 		});
-
-		// Trigger map click if needed, or wait for content
-		await detailPage
-			.evaluate(() => {
-				const mapLink = document.querySelector('a[href*="mapcontainer"]');
-				if (mapLink) mapLink.click();
-			})
-			.catch(() => {});
-
-		await detailPage.waitForTimeout(2000); // Wait for potential map load/transition
-
+		await detailPage.waitForTimeout(800);
 		const htmlContent = await detailPage.content();
-
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			htmlContent,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}`, error);
+		return null;
 	} finally {
 		await detailPage.close();
 	}
@@ -107,37 +95,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // PARSING LOGIC (Listing Page)
 // ============================================================================
 
-function parseListingPage(htmlContent) {
-	const $ = cheerio.load(htmlContent);
-	const results = [];
-
-	$(".propertyBox").each((_, el) => {
-		const $item = $(el);
-
-		const $linkEl = $item.find("h2.searchProName a");
-		const rawHref = $linkEl.attr("href");
-		if (!rawHref) return;
-
-		const link = rawHref.startsWith("http") ? rawHref : `https://www.jackiequinn.co.uk${rawHref}`;
-		const title = $linkEl.text().trim();
-
-		const priceText = $item.find("h3 div").text().trim();
-		if (isSoldProperty(priceText)) return;
-
-		const price = formatPriceUk(priceText);
-		if (!price) return;
-
-		const description = $item.find(".featuredDescriptions").text().trim();
-		const allText = $item.text();
-
-		// Use centralized helper for bedroom extraction
-		const bedrooms = extractBedroomsFromHTML(allText);
-
-		results.push({ link, title, price, bedrooms });
-	});
-
-	return results;
-}
+// Listing page parsing now done in browser context (see handleListingPage)
 
 // ============================================================================
 // REQUEST HANDLER
@@ -145,45 +103,82 @@ function parseListingPage(htmlContent) {
 
 async function handleListingPage({ page, request }) {
 	const { pageNum, isRental } = request.userData;
-	console.log(`📋 Page ${pageNum}/13 - ${request.url}`);
-
+	logger.page(pageNum, null, request.url);
 	await page.waitForTimeout(2000);
 	await page.waitForSelector(".propertyBox", { timeout: 30000 }).catch(() => {});
-
-	const htmlContent = await page.content();
-	const properties = parseListingPage(htmlContent);
-
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
+	// Parse listings in browser context for full DOM support
+	const properties = await page.evaluate(() => {
+		const results = [];
+		const propertyBoxes = document.querySelectorAll(".propertyBox");
+		for (const el of propertyBoxes) {
+			const linkEl = el.querySelector("h2.searchProName a");
+			if (!linkEl) continue;
+			const rawHref = linkEl.getAttribute("href");
+			if (!rawHref) continue;
+			const link = rawHref.startsWith("http") ? rawHref : `https://www.jackiequinn.co.uk${rawHref}`;
+			const title = linkEl.textContent.trim();
+			const priceText = el.querySelector("h3 div")?.textContent.trim() || "";
+			// Bedroom extraction and sold check will be done outside for helper reuse
+			results.push({ link, title, priceText, allText: el.textContent });
+		}
+		return results;
+	});
+	logger.page(pageNum, null, `Found ${properties.length} properties`);
 	for (const property of properties) {
 		if (!property.link) continue;
 		if (processedUrls.has(property.link)) continue;
 		processedUrls.add(property.link);
-
+		if (isSoldProperty(property.priceText)) continue;
+		const price = formatPriceUk(property.priceText);
+		if (!price) continue;
+		const bedrooms = extractBedroomsFromHTML(property.allText);
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
-			property.price,
+			price,
 			property.title,
-			property.bedrooms,
+			bedrooms,
 			AGENT_ID,
 			isRental,
 		);
-
+		let propertyAction = "SEEN";
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
-
 		if (!result.isExisting && !result.error) {
-			await scrapePropertyDetail(page.context(), property, isRental);
-		}
-
-		console.log(
-			`✅ ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-				property.price,
+			const detail = await scrapePropertyDetail(
+				page.context(),
+				{ ...property, price, bedrooms },
 				isRental,
-			)} - ${property.link}`,
+			);
+			await updatePriceByPropertyURL(
+				property.link.trim(),
+				price,
+				property.title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+				detail?.coords?.latitude || null,
+				detail?.coords?.longitude || null,
+			);
+			stats.totalSaved++;
+			stats.totalScraped++;
+			if (isRental) stats.savedRentals++;
+			else stats.savedSales++;
+			propertyAction = "CREATED";
+		} else if (result.error) {
+			propertyAction = "ERROR";
+		}
+		logger.property(
+			pageNum,
+			null,
+			property.title.substring(0, 40),
+			formatPriceDisplay(price, isRental),
+			property.link,
+			isRental,
+			null,
+			propertyAction,
 		);
-
 		await sleep(500);
 	}
 }
@@ -196,7 +191,13 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -206,7 +207,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -216,35 +217,40 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeJackieQuinn() {
-	console.log(`\n🚀 Starting Jackie Quinn scraper (Agent ${AGENT_ID})...\n`);
-
+	logger.step("Starting Jackie Quinn scraper...");
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const totalPages = 11;
 	const browserWSEndpoint = getBrowserlessEndpoint();
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 	const crawler = createCrawler(browserWSEndpoint);
-
-	const requests = [];
-	for (let pageNum = 1; pageNum <= 11; pageNum++) {
-		requests.push({
+	const allRequests = [];
+	for (let pageNum = Math.max(1, startPage); pageNum <= totalPages; pageNum++) {
+		allRequests.push({
 			url: `https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=${pageNum}`,
 			userData: { pageNum, isRental: false },
 		});
 	}
-
-	await crawler.addRequests(requests);
-	await crawler.run();
-
-	console.log(
-		`\n✅ Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	if (allRequests.length === 0) {
+		logger.step("No pages to scrape with current arguments.");
+		return;
+	}
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
+	logger.step(
+		`Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 (async () => {
 	try {
 		await scrapeJackieQuinn();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

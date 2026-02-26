@@ -4,7 +4,7 @@
 // node backend/scraper-agent-210.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { promisePool, updatePriceByPropertyURL, updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);

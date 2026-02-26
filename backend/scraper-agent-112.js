@@ -243,6 +243,8 @@ async function handleListingPage({ page, request }) {
 
 (async () => {
 	console.log(`\n Starting Agent ${AGENT_ID} - Emoov Scraper`);
+	await markAllPropertiesRemovedForAgent(AGENT_ID);
+
 
 	const crawler = new PlaywrightCrawler({
 		requestHandler: handleListingPage,

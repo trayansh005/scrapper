@@ -7,7 +7,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { logMemoryUsage } = require("./lib/scraper-utils.js");
 const {

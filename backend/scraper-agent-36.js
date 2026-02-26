@@ -6,7 +6,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
 

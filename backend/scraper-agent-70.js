@@ -5,7 +5,7 @@
 // node backend/scraper-agent-70.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL } = require("./db.js");
+const { updatePriceByPropertyURL, markAllPropertiesRemovedForAgent } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const {isSoldProperty } = require("./lib/property-helpers.js");
 
