@@ -5,7 +5,7 @@
 // node backend/scraper-agent-71.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -241,7 +241,6 @@ async function scrapeHawesAndCo() {
 		}
 	}
 
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 	await crawler.run(requests);
 
 	console.log(

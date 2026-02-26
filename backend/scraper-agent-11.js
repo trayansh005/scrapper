@@ -4,7 +4,7 @@
 // node backend/scraper-agent-11.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, markAllPropertiesRemovedForAgent } = require("./db.js");
+const { updatePriceByPropertyURL } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -300,7 +300,6 @@ function createCrawler(browserWSEndpoint) {
 
 async function scrapeVHHomes() {
 	logger.step("Starting VHHomes scraper...");
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 	const browserWSEndpoint = getBrowserlessEndpoint();

@@ -10,7 +10,6 @@ const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-h
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
-const { markAllPropertiesRemovedForAgent } = require("./db.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -257,7 +256,6 @@ async function scrapeBHHSLondon() {
 		}
 	}
 
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 	await crawler.run(requests);
 
 	logger.step(

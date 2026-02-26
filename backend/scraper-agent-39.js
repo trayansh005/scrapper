@@ -5,11 +5,7 @@
 // node backend/scraper-agent-39.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const {
-	updatePriceByPropertyURL,
-	updateRemoveStatus,
-	markAllPropertiesRemovedForAgent,
-} = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
@@ -398,7 +394,6 @@ async function scrapeJohnDWood() {
 
 	// Queue pages per property type (use totalRecords/recordsPerPage to compute pages)
 	// Mark existing properties removed for this agent before the run
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	for (const propertyType of PROPERTY_TYPES) {
 		const totalPages =

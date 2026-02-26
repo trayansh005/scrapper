@@ -4,11 +4,7 @@
 // node backend/scraper-agent-54.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const {
-	updatePriceByPropertyURL,
-	updateRemoveStatus,
-	markAllPropertiesRemovedForAgent,
-} = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -321,7 +317,7 @@ async function scrapeLeaders() {
 	}
 
 	// Mark all properties removed and run crawler with initial requests
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
+
 	if (allRequests.length > 0) {
 		await crawler.run(allRequests);
 	}

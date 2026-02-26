@@ -6,11 +6,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const {
-	updatePriceByPropertyURL,
-	updateRemoveStatus,
-	markAllPropertiesRemovedForAgent,
-} = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -279,7 +275,6 @@ async function scrapeStruttAndParker() {
 	const crawler = createCrawler(browserWSEndpoint);
 
 	// Mark existing properties as removed for this run
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const allRequests = [];
 

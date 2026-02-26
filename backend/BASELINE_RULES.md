@@ -43,6 +43,7 @@ Agent `4` is the baseline implementation style.
    - **Full Scrape**: Capture `scrapeStartTime` at the start of the execution.
    - **Safety Window**: Pass `scrapeStartTime` to `updateRemoveStatus(agentId, scrapeStartTime)`. This ensures only records NOT updated during THIS specific run are flagged as removed.
    - **Partial Run Protection**: Detect if the run is partial (e.g., `startPage > 1`). If so, **bypassing** `updateRemoveStatus` is MANDATORY to prevent accidental deletion of properties on pages not scraped.
+   - ~~`markAllPropertiesRemovedForAgent` is deprecated and removed. Do not use it.~~
 
 ## Combined Runner Rules (`backend/combined-scraper.js`)
 

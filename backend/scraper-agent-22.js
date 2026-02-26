@@ -6,7 +6,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
@@ -265,7 +265,6 @@ async function handleSearchPage({ page, request, browserController }) {
 
 async function scrapeAllsop() {
 	logger.step(`Starting Allsop scraper...`);
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);

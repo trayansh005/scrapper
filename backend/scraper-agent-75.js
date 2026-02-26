@@ -6,11 +6,7 @@
 // node backend/scraper-agent-75.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const {
-	updatePriceByPropertyURL,
-	updateRemoveStatus,
-	markAllPropertiesRemovedForAgent,
-} = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -288,7 +284,6 @@ async function scrapeKFH() {
 	});
 
 	// Enqueue all listing pages one by one
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	for (const propertyType of PROPERTY_TYPES) {
 		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages, 18 per page)`);

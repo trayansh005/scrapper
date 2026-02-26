@@ -6,11 +6,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const {
-	updatePriceByPropertyURL,
-	updateRemoveStatus,
-	markAllPropertiesRemovedForAgent,
-} = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
@@ -281,8 +277,6 @@ async function scrapeWinkworth() {
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
-
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const allRequests = [];
 

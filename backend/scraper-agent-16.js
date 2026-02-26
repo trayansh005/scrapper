@@ -7,7 +7,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
-const { updateRemoveStatus, markAllPropertiesRemovedForAgent } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { logMemoryUsage, blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const {
@@ -499,8 +499,6 @@ function generatePageRequests(propertyType, startPage) {
 async function scrapeRomans() {
 	logger.step(`Starting Romans scraper...`);
 	logMemoryUsage("START");
-
-	await markAllPropertiesRemovedForAgent(AGENT_ID);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
