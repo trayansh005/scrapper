@@ -210,7 +210,7 @@ async function scrapeFineAndCountry() {
 
         // Add all pages to the queue
         const requests = [];
-        for (let page = 1; page <= propertyType.totalPages; page++) {
+        for (let page = 295; page <= propertyType.totalPages; page++) {
             requests.push({
                 url: `https://www.fineandcountry.co.uk/${propertyType.urlPath}/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=${page}`,
                 userData: {

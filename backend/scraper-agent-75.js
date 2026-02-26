@@ -20,14 +20,14 @@ let totalSaved = 0;
 
 // Configuration for sales and rentals — full KFH URLs
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/",
-	// 	totalRecords: 1689,
-	// 	totalPages: 94,
-	// 	recordsPerPage: 18,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		urlBase: "https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/",
+		totalRecords: 1689,
+		totalPages: 94,
+		recordsPerPage: 18,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		urlBase: "https://www.kfh.co.uk/property/to-rent/in-london/exclude-let-agreed/",
 		totalRecords: 691,

@@ -1,29 +1,40 @@
 {
-  "requestsFinished": 61,
+  "requestsFinished": 87,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 11725,
-  "requestMaxDurationMillis": 37379,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 24705,
+  "requestMaxDurationMillis": 88644,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1362790,
-  "crawlerStartedAt": "2026-02-26T04:58:01.922Z",
+  "requestTotalFinishedDurationMillis": 3809925,
+  "crawlerStartedAt": "2026-02-26T11:07:30.736Z",
   "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-02-26T05:21:01.973Z",
-  "crawlerRuntimeMillis": 1381112,
-  "crawlerLastStartTimestamp": 1772081880861,
+  "statsPersistedAt": "2026-02-26T12:11:57.570Z",
+  "crawlerRuntimeMillis": 3867034,
+  "crawlerLastStartTimestamp": 1772104050536,
   "requestRetryHistogram": [
-    61
+    86,
+    1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 22341,
-  "requestTotalDurationMillis": 1362790,
-  "requestsTotal": 61,
+  "requestAvgFinishedDurationMillis": 43792,
+  "requestTotalDurationMillis": 3809925,
+  "requestsTotal": 87,
   "requestsWithStatusCode": {
-    "200": 62
+    "200": 87
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:166:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_NETWORK_IO_SUSPENDED at https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=344": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }

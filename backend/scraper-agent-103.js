@@ -5,14 +5,24 @@
 // node backend/scraper-agent-103.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 103;
-let totalScraped = 0;
-let totalSaved = 0;
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+const recentPageSignatures = new Map();
+const processedUrls = new Set();
 
 function formatPrice(price) {
 	if (!price && price !== 0) return "N/A";
@@ -21,15 +31,82 @@ function formatPrice(price) {
 	return "£" + num.toLocaleString("en-GB");
 }
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatPriceDisplay(price, isRental) {
+	if (!price) return isRental ? "£0 pcm" : "£0";
+	return `£${price}${isRental ? " pcm" : ""}`;
+}
+
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(700);
+	const detailPage = await browserContext.newPage();
+	try {
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		});
+
+		await detailPage.waitForTimeout(1500);
+
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
+	} catch (err) {
+		console.log(` Error scraping detail page ${property.link}: ${err.message}`);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// utility helpers added later (sleep, formatPriceDisplay, etc)
+
 // Configuration for sales and rentals
 const PROPERTY_TYPES = [
-	// {
-	// 	urlPath: "properties/sales/status-available/most-recent-first",
-	// 	totalRecords: 388,
-	// 	recordsPerPage: 10,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		urlPath: "properties/sales/status-available/most-recent-first",
+		totalRecords: 388,
+		recordsPerPage: 10,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		urlPath: "properties/lettings/status-available/most-recent-first",
 		totalRecords: 7,
@@ -39,198 +116,201 @@ const PROPERTY_TYPES = [
 	},
 ];
 
-async function scrapeAlanDeMaid() {
-	console.log(`\n🚀 Starting Alan de Maid scraper (Agent ${AGENT_ID})...\n`);
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label } = request.userData;
+	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+
+	try {
+		await page.waitForSelector(".card", { timeout: 30000 });
+	} catch (e) {
+		console.log(` Listing container not found on page ${pageNum}`);
+	}
+
+	const properties = await page.evaluate(() => {
+		const results = [];
+		const cards = Array.from(document.querySelectorAll(".card"));
+		for (const card of cards) {
+			try {
+				let linkEl = card.querySelector("a");
+				let link = linkEl ? linkEl.getAttribute("href") : null;
+				if (link && !link.startsWith("http")) {
+					link = "https://www.alandemaid.co.uk" + link;
+				}
+
+				const titleEl = card.querySelector(".card__text-content");
+				const title = titleEl ? titleEl.textContent.trim() : "";
+
+				let bedrooms = null;
+				const bedroomsEl = card.querySelector(".card-content__spec-list-number");
+				if (bedroomsEl) {
+					const bedsText = bedroomsEl.textContent.trim();
+					const m = bedsText.match(/\d+/);
+					if (m) bedrooms = m[0];
+				}
+
+				let price = null;
+				const priceEl = card.querySelector(".card__heading");
+				if (priceEl) {
+					const priceText = priceEl.textContent.trim();
+					price = priceText.replace(/[^0-9]/g, "");
+				}
+
+				if (link && price && title) {
+					results.push({ link, title, price, bedrooms });
+				}
+			} catch (err) {
+				// ignore
+			}
+		}
+		return results;
+	});
+
+	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+
+	const pageSignature = properties.map((p) => p.link).slice(0, 5).join("|");
+	const signatureKey = isRental ? "LETTINGS" : "SALES";
+	const previousSignature = recentPageSignatures.get(signatureKey);
+	if (pageSignature && previousSignature === pageSignature) {
+		console.log(
+			` Warning: ${signatureKey} page ${pageNum} has the same leading links as previous page.`,
+		);
+	}
+	recentPageSignatures.set(signatureKey, pageSignature);
+
+	const batchSize = 2;
+	for (let i = 0; i < properties.length; i += batchSize) {
+		const batch = properties.slice(i, i + batchSize);
+		await Promise.all(
+			batch.map(async (property) => {
+				if (!property.link) return;
+
+				if (processedUrls.has(property.link)) return;
+				processedUrls.add(property.link);
+
+				const numericPrice = Number(property.price.toString().replace(/,/g, ""));
+				const price = numericPrice.toLocaleString("en-GB"); let bedrooms = null;
+				if (property.bedrooms) {
+					const m = property.bedrooms.match(/\d+/);
+					if (m) bedrooms = parseInt(m[0]);
+				}
+
+				if (!price) {
+					console.log(` Skipping update (no price found): ${property.link}`);
+					return;
+				}
+
+				const result = await updatePriceByPropertyURLOptimized(
+					property.link,
+					price,
+					property.title,
+					bedrooms,
+					AGENT_ID,
+					isRental,
+				);
+
+				if (result.updated) {
+					stats.totalSaved++;
+				}
+
+				if (!result.isExisting && !result.error) {
+					const detail = await scrapePropertyDetail(page.context(), property);
+					await updatePriceByPropertyURL(
+						property.link.trim(),
+						price,
+						property.title,
+						bedrooms,
+						AGENT_ID,
+						isRental,
+						detail?.coords?.latitude || null,
+						detail?.coords?.longitude || null,
+					);
+					stats.totalSaved++;
+					stats.totalScraped++;
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
+				}
+
+				const categoryLabel = isRental ? "LETTINGS" : "SALES";
+				console.log(
+					` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+						price,
+						isRental,
+					)} - ${property.link}`,
+				);
+			}),
+		);
+		await sleep(500);
+	}
+}
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
-
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { isDetailPage, propertyData, pageNum, isRental, label } = request.userData;
-
-			if (isDetailPage) {
-				// Processing detail page to get coordinates
-				try {
-					await page.waitForTimeout(1000);
-
-					let coords = { latitude: null, longitude: null };
-
-					// Extract coordinates from script tags containing propertyObject
-					try {
-						const htmlContent = await page.content();
-
-						// Look for ga4_property_latitude and ga4_property_longitude in script tags
-						const latMatch = htmlContent.match(/ga4_property_latitude:\s*([0-9.-]+)/);
-						const lngMatch = htmlContent.match(/ga4_property_longitude:\s*([0-9.-]+)/);
-
-						if (latMatch && lngMatch) {
-							coords.latitude = parseFloat(latMatch[1]);
-							coords.longitude = parseFloat(lngMatch[1]);
-						}
-					} catch (err) {
-						// Coordinates not found
-					}
-
-					await updatePriceByPropertyURL(
-						propertyData.link,
-						propertyData.price,
-						propertyData.title,
-						propertyData.bedrooms,
-						AGENT_ID,
-						isRental,
-						coords.latitude,
-						coords.longitude
-					);
-
-					totalSaved++;
-					totalScraped++;
-
-					const coordsStr =
-						coords.latitude && coords.longitude
-							? `${coords.latitude}, ${coords.longitude}`
-							: "No coords";
-					console.log(
-						`✅ ${propertyData.title} - ${formatPrice(propertyData.price)} - ${coordsStr}`
-					);
-				} catch (error) {
-					console.error(`❌ Error saving property: ${error.message}`);
-				}
-			} else {
-				// Processing listing page
-				console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-				// Wait for properties to load
-				await page.waitForTimeout(3000);
-				await page.waitForSelector(".card", { timeout: 30000 }).catch(() => {
-					console.log(`⚠️ No properties found on page ${pageNum}`);
-				});
-
-				// Extract all properties from the page
-				const properties = await page.$$eval(".card", (cards) => {
-					const results = [];
-
-					cards.forEach((card) => {
-						try {
-							// Extract link from anchor tag
-							const linkEl = card.querySelector("a");
-							let link = linkEl ? linkEl.getAttribute("href") : null;
-							if (link && !link.startsWith("http")) {
-								link = "https://www.alandemaid.co.uk" + link;
-							}
-
-							// Extract title from .card__text-content
-							const titleEl = card.querySelector(".card__text-content");
-							const title = titleEl ? titleEl.textContent.trim() : null;
-
-							// Extract bedrooms from .card-content__spec-list-number (first occurrence)
-							const bedroomsEl = card.querySelector(".card-content__spec-list-number");
-							let bedrooms = null;
-							if (bedroomsEl) {
-								const bedroomsText = bedroomsEl.textContent.trim();
-								const bedroomsMatch = bedroomsText.match(/\d+/);
-								if (bedroomsMatch) {
-									bedrooms = bedroomsMatch[0];
-								}
-							}
-
-							// Extract price from .card__heading
-							const priceEl = card.querySelector(".card__heading");
-							let price = null;
-							if (priceEl) {
-								const priceText = priceEl.textContent.trim();
-								price = priceText.replace(/[^0-9]/g, "");
-							}
-
-							if (link && price && title) {
-								results.push({
-									link: link,
-									title: title,
-									price,
-									bedrooms,
-								});
-							}
-						} catch (err) {
-							// Skip this card if error
-						}
-					});
-
-					return results;
-				});
-
-				console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-				// Add detail page requests to the queue with delay
-				for (let i = 0; i < properties.length; i++) {
-					const property = properties[i];
-					await crawler.addRequests([
-						{
-							url: property.link,
-							userData: {
-								isDetailPage: true,
-								propertyData: property,
-								isRental,
-							},
-						},
-					]);
-
-					// Add delay between detail page requests to avoid rate limiting
-					if (i < properties.length - 1) {
-						await new Promise((resolve) => setTimeout(resolve, 500));
-					}
-				}
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			console.error(` Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Add initial listing page URLs for both sales and lettings
-	const requests = [];
+async function scrapeAlanDeMaid() {
+	console.log(`\n Starting Alan de Maid scraper (Agent ${AGENT_ID})...\n`);
 
-	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
-		console.log(
-			`🏠 Queueing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)`
-		);
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
-		for (let page = 1; page <= totalPages; page++) {
-			const url = propertyType.isRental
-				? `https://www.alandemaid.co.uk/${propertyType.urlPath}#/`
-				: `https://www.alandemaid.co.uk/${propertyType.urlPath}/page-${page}#/`;
+	const crawler = createCrawler(browserWSEndpoint);
 
-			requests.push({
-				url: url,
+	const allRequests = [];
+
+	for (const type of PROPERTY_TYPES) {
+		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+		const effectiveStartPage = 1;
+
+		for (let pg = effectiveStartPage; pg <= totalPages; pg++) {
+			const url = type.isRental
+				? `https://www.alandemaid.co.uk/${type.urlPath}#/`
+				: `https://www.alandemaid.co.uk/${type.urlPath}/page-${pg}#/`;
+
+			allRequests.push({
+				url,
 				userData: {
-					isDetailPage: false,
-					pageNum: page,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
+					pageNum: pg,
+					isRental: type.isRental,
+					label: `${type.label}_PAGE_${pg}`,
 				},
 			});
 
-			// For lettings, only scrape first page
-			if (propertyType.isRental) {
-				break;
-			}
+			if (type.isRental) break;
 		}
 	}
 
-	await crawler.addRequests(requests);
+	if (allRequests.length === 0) {
+		console.log(" No pages to scrape.");
+		return;
+	}
+
+	console.log(` Queueing ${allRequests.length} listing pages...`);
+	await crawler.addRequests(allRequests);
 	await crawler.run();
 
 	console.log(
-		`\n✅ Completed Alan de Maid - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+		`\n Completed Alan de Maid - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 
 // Main execution
