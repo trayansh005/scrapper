@@ -97,13 +97,10 @@ async function handleListingPage({ page, request }) {
 	const properties = await page.evaluate(() => {
 		function cleanPrice(raw) {
 			if (!raw) return null;
-			// Remove currency, spaces, commas, dashes, and nbsp
-			let cleaned = raw.replace(/£|\s|\u00a0|,/g, "").replace(/–|-/g, "");
-			// Remove trailing non-digits
-			cleaned = cleaned.replace(/[^\d.].*$/, "");
-			// Only keep digits
-			cleaned = cleaned.match(/\d+/) ? cleaned.match(/\d+/)[0] : null;
-			return cleaned;
+			// Extract the first number with commas (UK style)
+			const match = raw.match(/£?\s*([\d,]+)/);
+			if (!match) return null;
+			return match[1];
 		}
 		try {
 			const results = [];
