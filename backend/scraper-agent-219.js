@@ -1,231 +1,226 @@
-// Entwistle Green scraper using Playwright with Crawlee
+// Entwistle Green scraper refactor using Playwright with Crawlee
 // Agent ID: 219
 // Website: entwistlegreen.co.uk
 // Usage:
-// node backend/scraper-agent-219.js
+// node backend/scraper-agent-219.refactored.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus, updatePriceByPropertyURL } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 219;
-let totalScraped = 0;
-let totalSaved = 0;
+const logger = createAgentLogger(AGENT_ID);
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	const num = Number(price);
-	if (isNaN(num)) return "N/A";
-	return "£" + num.toLocaleString("en-GB");
-}
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
 
-// Configuration for sales and lettings
+const processedUrls = new Set();
+
+// Configuration for lettings (Entwistle Green)
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://www.entwistlegreen.co.uk/properties/sales/status-available/most-recent-first",
-	// 	totalPages: 141, // 1403 properties / 10 per page = 141 pages
-	// 	recordsPerPage: 10,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
 	{
 		urlBase:
 			"https://www.entwistlegreen.co.uk/properties/lettings/status-available/most-recent-first",
 		totalPages: 18, // 173 properties / 10 per page = 18 pages
-		recordsPerPage: 10,
 		isRental: true,
 		label: "RENTALS",
 	},
 ];
 
-async function scrapeEntwistleGreen() {
-	console.log(`\n🚀 Starting Entwistle Green scraper (Agent ${AGENT_ID})...\n`);
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
 
-	const crawler = new PlaywrightCrawler({
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 600,
-
+		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			logger.error(`Failed listing page: ${request.url}`);
+		},
+	});
+}
 
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, `Processing ${request.url}`, totalPages);
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+	try {
+		await page.waitForTimeout(1500);
+		await page.waitForSelector(".results-page", { timeout: 20000 }).catch(() => {
+			logger.page(pageNum, label, "No listing container found");
+		});
 
-			// Wait for page content to populate
-			await page.waitForTimeout(1500);
-			await page.waitForSelector(".results-page", { timeout: 20000 }).catch(() => {
-				console.log(`⚠️ No listing container found on page ${pageNum}`);
-			});
+		const properties = await page.evaluate(() => {
+			try {
+				const container = document.querySelector('.results-page');
+				if (!container) return [];
+				const cards = Array.from(container.querySelectorAll('.card'));
+				return cards
+					.map(card => {
+						const linkEl = card.querySelector('a.card__link');
+						const href = linkEl ? linkEl.getAttribute('href') : null;
+						const link = href ? (href.startsWith('http') ? href : 'https://www.entwistlegreen.co.uk' + href) : null;
+						const priceEl = card.querySelector('a.card__link span');
+						const price = priceEl ? priceEl.textContent.trim() : '';
+						const titleEl = card.querySelector('p.card__text-content');
+						const title = titleEl ? titleEl.textContent.trim() : '';
+						const spec1 = card.querySelector('.card-content__spec-list li:nth-child(1) .card-content__spec-list-number')?.textContent.trim() || null;
+						const spec2 = card.querySelector('.card-content__spec-list li:nth-child(2) .card-content__spec-list-number')?.textContent.trim() || null;
+						const spec3 = card.querySelector('.card-content__spec-list li:nth-child(3) .card-content__spec-list-number')?.textContent.trim() || null;
+						const statusText = card.innerText || '';
+						return { link, title, price, bedrooms: spec1, reception: spec3, bathrooms: spec2, statusText };
+					})
+					.filter(p => p && p.link);
+			} catch (e) {
+				console.log('Error extracting properties:', e);
+				return [];
+			}
+		});
 
-			// Extract properties from the DOM
-			const properties = await page.evaluate(() => {
-				try {
-					const container = document.querySelector(".results-page");
-					if (!container) return [];
-					const cards = Array.from(container.querySelectorAll(".card"));
-					return cards
-						.map((card) => {
-							const linkEl = card.querySelector("a.card__link");
-							const href = linkEl ? linkEl.getAttribute("href") : null;
-							const link = href
-								? href.startsWith("http")
-									? href
-									: "https://www.entwistlegreen.co.uk" + href
-								: null;
-							const priceEl = card.querySelector("a.card__link span");
-							const price = priceEl ? priceEl.textContent.trim() : "";
-							const titleEl = card.querySelector("p.card__text-content");
-							const title = titleEl ? titleEl.textContent.trim() : "";
-							const bedrooms =
-								card
-									.querySelector(
-										".card-content__spec-list li:nth-child(1) .card-content__spec-list-number"
-									)
-									?.textContent.trim() || null;
-							const bathrooms =
-								card
-									.querySelector(
-										".card-content__spec-list li:nth-child(2) .card-content__spec-list-number"
-									)
-									?.textContent.trim() || null;
-							const reception =
-								card
-									.querySelector(
-										".card-content__spec-list li:nth-child(3) .card-content__spec-list-number"
-									)
-									?.textContent.trim() || null;
-							return { link, price, title, bedrooms, bathrooms, reception };
-						})
-						.filter((p) => p.link);
-				} catch (e) {
-					console.log("Error extracting properties:", e);
-					return [];
-				}
-			});
+		logger.page(pageNum, label, `Found ${properties.length} properties`);
+		stats.totalScraped += properties.length;
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			// Process properties one by one with delays to avoid rate limiting
-			for (const property of properties) {
-				// Ensure absolute URL
+		const batchSize = 2;
+		for (let i = 0; i < properties.length; i += batchSize) {
+			const batch = properties.slice(i, i + batchSize);
+			await Promise.all(batch.map(async (property) => {
 				if (!property.link) return;
+				if (processedUrls.has(property.link)) return;
+				if (isSoldProperty(property.statusText || '')) return;
+
+				processedUrls.add(property.link);
 
 				let coords = { latitude: null, longitude: null };
-
-				// Visit detail page to extract coordinates from comments
-				if (!coords.latitude || !coords.longitude) {
+				let detailHtml = null;
+				try {
 					const detailPage = await page.context().newPage();
 					try {
-						await detailPage.goto(property.link, {
-							waitUntil: "domcontentloaded",
-							timeout: 30000,
-						});
+						await detailPage.goto(property.link, { waitUntil: 'domcontentloaded', timeout: 30000 });
 						await detailPage.waitForTimeout(500);
-
-						const detailCoords = await detailPage.evaluate(() => {
-							try {
-								const html = document.documentElement.outerHTML;
-								const latMatch = html.match(/<!--property-latitude:"([^"]+)"-->/);
-								const lngMatch = html.match(/<!--property-longitude:"([^"]+)"-->/);
-								if (latMatch && lngMatch) {
-									return { lat: parseFloat(latMatch[1]), lng: parseFloat(lngMatch[1]) };
-								}
-								return null;
-							} catch (e) {
-								return null;
-							}
-						});
-
-						if (detailCoords) {
-							coords.latitude = detailCoords.lat;
-							coords.longitude = detailCoords.lng;
+						detailHtml = await detailPage.content();
+						const extracted = extractCoordinatesFromHTML(detailHtml);
+						if (extracted) {
+							coords.latitude = extracted.latitude;
+							coords.longitude = extracted.longitude;
 						}
 					} catch (err) {
 						// ignore detail page errors
 					} finally {
 						await detailPage.close();
 					}
+				} catch (e) {
+					// ignore
 				}
 
 				try {
-					// Format price: extract only digits
-					const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
+					const priceClean = property.price ? property.price.replace(/[^0-9.]/g, '') : null;
+					const priceNum = priceClean ? parseFloat(priceClean) : null;
+					if (!priceNum) {
+						logger.property(pageNum, label, property.title, 'N/A', property.link, true, totalPages, 'ERROR');
+						return;
+					}
 
-					await updatePriceByPropertyURL(
-						property.link,
-						priceClean,
+					const dbPrice = Number(priceNum).toLocaleString("en-GB");// already returns formatted string without currency symbol
+					const updateResult = await updatePriceByPropertyURLOptimized(
+						property.link.trim(),
+						dbPrice,
 						property.title,
 						property.bedrooms,
 						AGENT_ID,
 						isRental,
-						coords.latitude,
-						coords.longitude
 					);
 
-					totalSaved++;
-					totalScraped++;
+					let persisted = !!updateResult.updated;
+					if (!updateResult.isExisting) {
+						// New property - use helper to process with coordinates and bedrooms
+						await processPropertyWithCoordinates(
+							property.link.trim(),
+							dbPrice,
+							property.title,
+							property.bedrooms,
+							AGENT_ID,
+							isRental,
+							detailHtml,
+							coords.latitude,
+							coords.longitude,
+						);
+						persisted = true;
+					}
 
-					console.log(
-						`✅ ${property.title} - ${formatPrice(priceClean)} - ${
-							coords.latitude && coords.longitude
-								? `${coords.latitude}, ${coords.longitude}`
-								: "No coords"
-						}`
-					);
+					if (persisted) {
+						stats.totalSaved++;
+						if (isRental) stats.savedRentals++; else stats.savedSales++;
+						logger.property(pageNum, label, property.title, `£${dbPrice}`, property.link, isRental, totalPages, 'CREATED');
+					}
 				} catch (dbErr) {
-					console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
+					logger.error('DB error', dbErr, pageNum, label);
 				}
+			}));
 
-				// Delay between properties to avoid rate limiting
-				await new Promise((resolve) => setTimeout(resolve, 2000));
-			}
-		},
+			await page.waitForTimeout(500);
+		}
+	} catch (error) {
+		logger.error(`Error in ${label} page ${pageNum}`, error, pageNum, label);
+	}
+}
 
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
-		},
-	});
+async function scrapeEntwistleGreen() {
+	logger.step(`Starting Entwistle Green scraper (Agent ${AGENT_ID})`);
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split('?')[0]}`);
 
-	// Enqueue all listing pages per property type
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
-
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		const crawler = createCrawler(browserWSEndpoint);
 		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			// Construct page URL
 			const url = pg === 1 ? `${propertyType.urlBase}#/` : `${propertyType.urlBase}/page-${pg}#/`;
-			requests.push({
-				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
+			requests.push({ url, userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label, totalPages: propertyType.totalPages } });
 		}
 
 		await crawler.addRequests(requests);
 		await crawler.run();
 	}
 
-	console.log(
-		`\n✅ Completed Entwistle Green - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
-	);
+	logger.step(`Scraping complete. Total scraped: ${stats.totalScraped}, total saved: ${stats.totalSaved}`);
 }
 
 (async () => {
 	try {
 		await scrapeEntwistleGreen();
 		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step('All done!');
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error('Fatal error', err);
 		process.exit(1);
 	}
 })();
