@@ -115,7 +115,18 @@ async function handleListingPage({ page, request }) {
 					title = title.substring(0, 100);
 				}
 				const container = link.closest("div, li") || link;
-				const containerText = container.innerText || "";
+				const priceElement = container.querySelector("span._property-price");
+				const priceText = priceElement ? priceElement.textContent : containerText;
+				let price = priceText;
+				if (!price) {
+					logger.page(
+						pageNum,
+						label,
+						`Skipping update (no price found): ${property.link}`,
+						totalPages,
+					);
+					continue;
+				}
 				let bedrooms = null;
 				const roomContainer =
 					container.querySelector("._property-rooms-container") ||
@@ -159,6 +170,7 @@ async function handleListingPage({ page, request }) {
 					title,
 					bedrooms,
 					statusText: containerText,
+					price: priceText,
 				});
 			}
 			return results;
@@ -185,16 +197,16 @@ async function handleListingPage({ page, request }) {
 		processedUrls.add(property.link);
 
 		// Extract price and bedrooms from listing
-		const price = formatPriceUk(property.statusText);
+		const formattedPrice = formatPriceUk(property.price);
 		let bedrooms = property.bedrooms;
-		if (!price) {
+		if (!formattedPrice) {
 			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
 			continue;
 		}
 
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
-			price,
+			formattedPrice,
 			property.title,
 			bedrooms,
 			AGENT_ID,
@@ -212,7 +224,7 @@ async function handleListingPage({ page, request }) {
 			const detail = await scrapePropertyDetail(page.context(), property);
 			await updatePriceByPropertyURL(
 				property.link.trim(),
-				price,
+				formattedPrice,
 				property.title,
 				bedrooms,
 				AGENT_ID,
@@ -237,7 +249,7 @@ async function handleListingPage({ page, request }) {
 			pageNum,
 			label,
 			property.title.substring(0, 40),
-			formatPriceDisplay(price, isRental),
+			formatPriceDisplay(formattedPrice, isRental),
 			property.link,
 			isRental,
 			totalPages,
