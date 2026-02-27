@@ -205,21 +205,25 @@ async function extractCoordinatesFromHTML(html) {
  */
 
 function formatPriceUk(value) {
-	if (!value) return null;
+	if (value === null || value === undefined) return null;
 	const text = value.toString();
-	const match = text.match(/£?\s?[\d,]+/);
+	const match = text.match(/£?\s*[\d,]+/);
 	if (!match) return null;
-	let clean = match[0].replace("£", "").replace(/\s/g, "");
-	// ensure only digits remain before formatting
-	clean = clean.match(/\d+/) ? clean.match(/\d+/)[0] : clean;
 	// remove currency and spaces
-	let clean = match[0].replace("£", "").replace(/\s/g, "");
-	// remove any non-digit characters except commas, then strip commas to get raw digits
-	const digitsOnly = clean.replace(/[^\d,]/g, "").replace(/,/g, "");
-	if (!digitsOnly) return null;
+	const cleaned = match[0].replace(/£/g, "").replace(/\s/g, "");
+	// remove any non-digit characters except commas
+	const digitsWithCommas = cleaned.replace(/[^\d,]/g, "");
+	// strip commas to get raw digits, validate
+	const digitsOnly = digitsWithCommas.replace(/,/g, "");
+	if (!digitsOnly || !/\d+/.test(digitsOnly)) return null;
 	// format with UK commas
 	const formatted = digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 	return formatted;
+}
+
+/**
+ * Extract bedroom count from text or HTML
+ * @param {string} text - Text to extract from
  * @returns {number|null} - Number of bedrooms or null
  */
 function extractBedroomsFromHTML(text) {
