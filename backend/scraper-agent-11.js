@@ -97,80 +97,52 @@ async function handleListingPage({ page, request }) {
 	const properties = await page.evaluate(() => {
 		try {
 			const results = [];
-			const seenLinks = new Set();
-			const propertyLinks = Array.from(
-				document.querySelectorAll('a[href*="/buy/"], a[href*="/rent/"]'),
-			).filter((link) => {
-				const href = link.getAttribute("href") || "";
-				return !href.includes("#") && !href.includes("property-maintenance");
-			});
-			for (const link of propertyLinks) {
-				const href = link.getAttribute("href");
+			const cards = Array.from(document.querySelectorAll("._property"));
+			for (const card of cards) {
+				// Link
+				const linkElem = card.querySelector(
+					'._property-address a, a[href*="/buy/"], a[href*="/rent/"]',
+				);
+				const href = linkElem ? linkElem.getAttribute("href") : null;
 				if (!href) continue;
 				const fullUrl = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
-				if (seenLinks.has(fullUrl)) continue;
-				seenLinks.add(fullUrl);
-				let title = link.textContent?.trim() || "Property";
-				if (title.length > 200) {
-					title = title.substring(0, 100);
-				}
-				const container = link.closest("div, li") || link;
-				const priceElement = container.querySelector("span._property-price");
-				const priceText = priceElement ? priceElement.textContent : containerText;
-				let price = priceText;
-				if (!price) {
-					logger.page(
-						pageNum,
-						label,
-						`Skipping update (no price found): ${property.link}`,
-						totalPages,
-					);
-					continue;
-				}
+				// Title/Address
+				const titleElem = card.querySelector("._property-address a");
+				const title = titleElem ? titleElem.textContent.trim() : "Property";
+				// Price
+				const priceElem = card.querySelector("span._property-price");
+				const priceText = priceElem
+					? priceElem.textContent.replace(/\s|\u00a0|,/g, "").replace("£", "")
+					: null;
+				// Status (e.g. For Sale, Let)
+				const statusElem = card.querySelector("span._property-availability");
+				const statusText = statusElem ? statusElem.textContent.trim() : "";
+				// Bedrooms (from rooms container)
 				let bedrooms = null;
-				const roomContainer =
-					container.querySelector("._property-rooms-container") ||
-					container.querySelector("[class*='rooms-container']");
-				if (roomContainer) {
-					const spans = Array.from(roomContainer.querySelectorAll("span"));
+				const roomsContainer = card.querySelector("._property-rooms-container");
+				if (roomsContainer) {
+					const spans = Array.from(roomsContainer.querySelectorAll("span"));
 					for (const span of spans) {
-						const titleText =
-							span.querySelector("svg title")?.textContent?.trim()?.toLowerCase() ||
-							span.querySelector("img")?.getAttribute("alt")?.trim()?.toLowerCase() ||
-							"";
-						if (!titleText || titleText.includes("bath")) continue;
-						if (!titleText.includes("room")) continue;
-						const numberMatch = (span.textContent || "").match(/\d+/);
-						if (numberMatch) {
-							bedrooms = parseInt(numberMatch[0], 10);
-							break;
-						}
-					}
-				}
-				if (bedrooms == null) {
-					const infoRows = Array.from(container.querySelectorAll("div"));
-					for (const row of infoRows) {
-						const roomImg = row.querySelector('img[alt*="room" i], img[src*="room" i]');
-						const bathImg = row.querySelector('img[alt*="bath" i], img[src*="bath" i]');
-						if (roomImg && !bathImg) {
-							const numberMatch = (row.textContent || "").match(/\d+/);
-							if (numberMatch) {
-								bedrooms = parseInt(numberMatch[0], 10);
+						const svgTitle = span.querySelector("svg title");
+						if (svgTitle && svgTitle.textContent.toLowerCase().includes("room")) {
+							const numMatch = (span.textContent || "").match(/\d+/);
+							if (numMatch) {
+								bedrooms = parseInt(numMatch[0], 10);
 								break;
 							}
 						}
 					}
 				}
-				if (bedrooms == null) {
-					const bedWordMatch = `${title} ${containerText}`.match(/(\d+)\s*bed(room)?/i);
-					if (bedWordMatch) bedrooms = parseInt(bedWordMatch[1], 10);
-				}
+				// Summary
+				const summaryElem = card.querySelector("._property-summary-container");
+				const summary = summaryElem ? summaryElem.textContent.trim() : "";
 				results.push({
 					link: fullUrl,
 					title,
 					bedrooms,
-					statusText: containerText,
+					statusText,
 					price: priceText,
+					summary,
 				});
 			}
 			return results;
