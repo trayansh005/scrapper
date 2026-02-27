@@ -95,6 +95,16 @@ async function handleListingPage({ page, request }) {
 	}
 
 	const properties = await page.evaluate(() => {
+		function cleanPrice(raw) {
+			if (!raw) return null;
+			// Remove currency, spaces, commas, dashes, and nbsp
+			let cleaned = raw.replace(/£|\s|\u00a0|,/g, "").replace(/–|-/g, "");
+			// Remove trailing non-digits
+			cleaned = cleaned.replace(/[^\d.].*$/, "");
+			// Only keep digits
+			cleaned = cleaned.match(/\d+/) ? cleaned.match(/\d+/)[0] : null;
+			return cleaned;
+		}
 		try {
 			const results = [];
 			const cards = Array.from(document.querySelectorAll("._property"));
@@ -111,9 +121,9 @@ async function handleListingPage({ page, request }) {
 				const title = titleElem ? titleElem.textContent.trim() : "Property";
 				// Price
 				const priceElem = card.querySelector("span._property-price");
-				const priceText = priceElem
-					? priceElem.textContent.replace(/\s|\u00a0|,/g, "").replace("£", "")
-					: null;
+				const priceTextRaw = priceElem ? priceElem.textContent : null;
+				const priceText = cleanPrice(priceTextRaw);
+				if (!priceText) continue; // skip if price is not valid
 				// Status (e.g. For Sale, Let)
 				const statusElem = card.querySelector("span._property-availability");
 				const statusText = statusElem ? statusElem.textContent.trim() : "";

@@ -204,15 +204,16 @@ async function extractCoordinatesFromHTML(html) {
  * @returns {string|null} - The formatted price string, or null if invalid
  */
 
-
 function formatPriceUk(value) {
 	if (!value) return null;
 	const text = value.toString();
 	const match = text.match(/£?\s?[\d,]+/);
 	if (!match) return null;
-	const clean = match[0]
-		.replace("£", "")
-		.replace(/\s/g, "");
+	let clean = match[0].replace("£", "").replace(/\s/g, "");
+	// ensure only digits remain before formatting
+	clean = clean.match(/\d+/) ? clean.match(/\d+/)[0] : clean;
+	// insert UK-style commas for thousands
+	clean = clean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 	return clean;
 }
