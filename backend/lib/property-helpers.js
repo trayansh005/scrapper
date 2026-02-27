@@ -212,15 +212,14 @@ function formatPriceUk(value) {
 	let clean = match[0].replace("£", "").replace(/\s/g, "");
 	// ensure only digits remain before formatting
 	clean = clean.match(/\d+/) ? clean.match(/\d+/)[0] : clean;
-	// insert UK-style commas for thousands
-	clean = clean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-	return clean;
-}
-
-/**
- * Extract bedroom count from text or HTML
- * @param {string} text - Text to extract from
+	// remove currency and spaces
+	let clean = match[0].replace("£", "").replace(/\s/g, "");
+	// remove any non-digit characters except commas, then strip commas to get raw digits
+	const digitsOnly = clean.replace(/[^\d,]/g, "").replace(/,/g, "");
+	if (!digitsOnly) return null;
+	// format with UK commas
+	const formatted = digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	return formatted;
  * @returns {number|null} - Number of bedrooms or null
  */
 function extractBedroomsFromHTML(text) {
