@@ -22,7 +22,24 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 4;
 const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const PROPERTY_TYPES = [
+	{
+		baseUrl:
+			"https://www.marshandparsons.co.uk/properties-for-sale/london/?filters=exclude_sold%2Cexclude_under_offer",
+		totalPages: 31,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		baseUrl:
+			"https://www.marshandparsons.co.uk/properties-to-rent/london/?filters=exclude_sold%2Cexclude_under_offer",
+		totalPages: 22, // Default estimate, will be queued below
+		isRental: true,
+		label: "RENTALS",
+	},
+];
+
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
@@ -133,8 +150,17 @@ async function handleListingPage({ page, request }) {
 				// Extract title from h3
 				const title = linkEl.querySelector("h3")?.textContent?.trim() || "Property";
 
-				// Extract price - it's in a generic with £ symbol
-				const priceRaw = linkEl.innerText || "";
+				// Extract price - specifically look for the price span first
+				let priceRaw = "";
+				const priceEl = linkEl.querySelector(".text-MAP_teal, [class*='price']");
+				if (priceEl) {
+					priceRaw = priceEl.textContent.trim();
+				} else {
+					// Fallback: search all spans for £ symbol
+					const spans = Array.from(linkEl.querySelectorAll("span"));
+					const poundSpan = spans.find((s) => s.textContent.includes("£"));
+					priceRaw = poundSpan ? poundSpan.textContent.trim() : linkEl.textContent;
+				}
 
 				// Extract bedrooms - text after bed icon
 				let bedText = "";
@@ -185,7 +211,7 @@ async function handleListingPage({ page, request }) {
 		let propertyAction = "UNCHANGED";
 
 		if (result.updated) {
-			stats.totalSaved++;
+			counts.totalSaved++;
 			propertyAction = "UPDATED";
 		}
 
@@ -204,10 +230,10 @@ async function handleListingPage({ page, request }) {
 				detail?.coords?.longitude || null,
 			);
 
-			stats.totalSaved++;
-			stats.totalScraped++;
-			if (isRental) stats.savedRentals++;
-			else stats.savedSales++;
+			counts.totalSaved++;
+			counts.totalScraped++;
+			if (isRental) counts.savedRentals++;
+			else counts.savedSales++;
 			propertyAction = "CREATED";
 		} else if (result.error) {
 			propertyAction = "ERROR";
@@ -248,6 +274,7 @@ function createCrawler(browserWSEndpoint) {
 			launchOptions: {
 				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				viewport: { width: 1920, height: 1080 },
 			},
 		},
 		requestHandler: handleListingPage,
@@ -269,42 +296,37 @@ async function scrapeMarshParsons() {
 	const isPartialRun = startPage > 1;
 	const scrapeStartTime = new Date();
 
-	const totalSalesPages = 30; // Based on original script
-
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
 	const allRequests = [];
-
-	// Build Sales requests
-	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url = `https://www.marshandparsons.co.uk/properties-for-sale/london/?filters=exclude_sold%2Cexclude_under_offer&page=${pg}`;
-
-		allRequests.push({
-			url,
-			userData: {
-				pageNum: pg,
-				totalPages: totalSalesPages,
-				isRental: false,
-				label: `SALES_PAGE_${pg}`,
-			},
-		});
+	for (const type of PROPERTY_TYPES) {
+		logger.step(`Queueing ${type.label} (${type.totalPages} pages)`);
+		for (let pg = Math.max(1, startPage); pg <= type.totalPages; pg++) {
+			allRequests.push({
+				url: `${type.baseUrl}&page=${pg}`,
+				userData: {
+					pageNum: pg,
+					isRental: type.isRental,
+					label: type.label,
+					totalPages: type.totalPages,
+				},
+			});
+		}
 	}
 
-	if (allRequests.length === 0) {
-		logger.step("No pages to scrape with current arguments.");
-		return;
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	} else {
+		logger.warn("No requests to process.");
 	}
-
-	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.run(allRequests);
 
 	logger.step(
-		`Completed Marsh & Parsons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Marsh & Parsons - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`,
 	);
-	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Breakdown - SALES: ${counts.savedSales}, LETTINGS: ${counts.savedRentals}`);
 
 	if (!isPartialRun) {
 		logger.step("Updating remove status...");
