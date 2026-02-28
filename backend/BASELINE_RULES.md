@@ -60,7 +60,7 @@ Agent `4` is the baseline implementation style.
 ## Shared Helper Usage Rules
 
 1. Prefer `isSoldProperty`, `formatPriceUk`, and coordinate extraction helpers from `property-helpers` over inline reimplementation.
-2. Prefer `updatePriceByPropertyURLOptimized` + fallback `updatePriceByPropertyURL` pattern for listing persistence.
+2. Prefer `updatePriceByPropertyURLOptimized` + fallback `processPropertyWithCoordinates` pattern for listing persistence.
 3. Keep DB helper return shape stable (`isExisting`, `updated`, optional `error`) for compatibility across agents.
 4. Keep expensive/verbose per-property DB logging behind `DB_VERBOSE_LOGS=1`.
 5. Use `logger-helpers` for all scraper runtime logs (step/page/property/error).
@@ -68,15 +68,15 @@ Agent `4` is the baseline implementation style.
 ## Logging Rules
 
 1. Use only shared logger from `backend/lib/logger-helpers.js`.
-2. Include page progress using `totalPages` in `request.userData`.
-3. **Verbose Status Logging**:
+2. **Mandatory Logging Methods**: Use `logger.step()`, `logger.page()`, `logger.property()`, and `logger.error()`. Avoid using `console.log` directly or non-standard methods like `logger.info`.
+3. Include page progress using `totalPages` in `request.userData`.
+4. **Verbose Status Logging**:
    - Log skip reasons clearly (e.g., `Skipped: Sold`, `Skipped: Already Processed`).
    - Log detail page progress (`[Detail] Scraping coordinates...`, `[Detail] Found coordinates`).
-4. **Final Summary**: Every agent should output a final summary block showing:
-   - Total Collected
-   - Total Saved to DB
-   - Breakdown (Sales vs Rentals)
-5. Avoid duplicate DB-level per-property noise:
+5. **Final Summary & Maintenance**:
+   - Every agent should output a final summary block of stats.
+   - **Mandatory**: Call `await updateRemoveStatus(AGENT_ID)` at the very end of every successful `run()`.
+6. Avoid duplicate DB-level per-property noise:
    - Keep DB verbose logs behind `DB_VERBOSE_LOGS=1`.
 
 ## Request Metadata Standard

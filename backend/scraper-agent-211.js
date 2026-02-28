@@ -1,323 +1,348 @@
 // Bourne Estate Agents scraper using Playwright with Crawlee
 // Agent ID: 211
+// Website: bourneestateagents.com
 // Usage:
-// node backend/scraper-agent-211.js
+// node backend/scraper-agent-211.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 211;
-let totalScraped = 0;
-let totalSaved = 0;
+const logger = createAgentLogger(AGENT_ID);
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
 }
 
-// Configuration for Bourne Estate Agents
-// 12 properties per page; sales 406 -> 34 pages, rent 117 -> 10 pages
-const PROPERTY_TYPES = [
-	// {
-	// 	urlBase:
-	// 		"https://bourneestateagents.com/search/?address_keyword&property_type&minimum_price&maximum_price&minimum_rent&maximum_rent&availability=2&minimum_bedrooms&department=residential-sales",
-	// 	totalPages: 34,
-	// 	recordsPerPage: 12,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
-	{
-		urlBase:
-			"https://bourneestateagents.com/search/?address_keyword=&property_type=&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&availability=6&minimum_bedrooms=&department=residential-lettings",
-		totalPages: 10,
-		recordsPerPage: 12,
-		isRental: true,
-		label: "RENTALS",
-	},
-];
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
 
-async function scrapeBourne() {
-	console.log(`\n🚀 Starting Bourne Estate Agents scraper (Agent ${AGENT_ID})...\n`);
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	const detailPage = await browserContext.newPage();
 
-		launchContext: {
-			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
+	try {
+		await blockNonEssentialResources(detailPage);
 
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+		await new Promise((r) => setTimeout(r, 1000));
 
-			// Allow extra time for client-side rendering
-			await page.waitForTimeout(1800);
-
-			// Wait for listing container
-			await page
-				.waitForSelector(".archive-grid", { timeout: 20000 })
-				.catch(() => console.log(`⚠️ No archive-grid found on page ${pageNum}`));
-
-			const properties = await page.evaluate(() => {
-				try {
-					const container = document.querySelector(".archive-grid");
-					if (!container) return [];
-
-					// Find anchors within the container that look like property links
-					const anchors = Array.from(container.querySelectorAll("a[href]"));
-					const seen = new Set();
-					const results = [];
-
-					for (const a of anchors) {
-						const href = a.getAttribute("href");
-						if (!href) continue;
-						// property detail URLs typically contain '/property/' or '/property-for-sale/' or '/property-to-rent/'
-						if (!/\/property\b|property-for-sale|property-to-rent|property-for-rent/i.test(href))
-							continue;
-
-						// normalize absolute/relative
-						const link = href.startsWith("http") ? href : "https://bourneestateagents.com" + href;
-						if (seen.has(link)) continue;
-						seen.add(link);
-
-						// try to find surrounding card element to get price/title/bedrooms
-						const card =
-							a.closest(".properties-block") ||
-							a.closest(".grid-box") ||
-							a.closest(".grid-box-card") ||
-							a.closest("article") ||
-							a.parentElement;
-
-						const title =
-							(card &&
-								(card.querySelector(".property-archive-title h4")?.textContent ||
-									card.querySelector("h4")?.textContent)) ||
-							a.getAttribute("title") ||
-							a.querySelector("img")?.alt ||
-							"";
-						const description =
-							card && (card.querySelector(".property-single-description")?.textContent || "");
-						const price =
-							(card && card.querySelector(".property-archive-price")?.textContent) || "";
-
-						let bedrooms = null;
-						const bt = card && card.querySelector(".property-types li span");
-						if (bt) bedrooms = bt.textContent.trim();
-
-						results.push({
-							link,
-							price: price ? price.trim() : "",
-							title: (title || description || "").trim(),
-							bedrooms,
-							lat: null,
-							lng: null,
-						});
+		const detailData = await detailPage.evaluate(() => {
+			try {
+				const yoast = document.querySelector("script.yoast-schema-graph");
+				if (yoast) {
+					const raw = JSON.parse(yoast.textContent);
+					const items = raw["@graph"] || [raw];
+					for (const node of items) {
+						if (node && node.latitude && node.longitude)
+							return {
+								lat: parseFloat(node.latitude),
+								lng: parseFloat(node.longitude),
+								html: document.documentElement.innerHTML,
+							};
+						if (node && node.geo)
+							return {
+								lat: parseFloat(node.geo.latitude || node.geo.lat),
+								lng: parseFloat(node.geo.longitude || node.geo.long),
+								html: document.documentElement.innerHTML,
+							};
 					}
-
-					return results;
-				} catch (e) {
-					return [];
 				}
-			});
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			const batchSize = 5;
-			for (let i = 0; i < properties.length; i += batchSize) {
-				const batch = properties.slice(i, i + batchSize);
-
-				await Promise.all(
-					batch.map(async (property) => {
-						if (!property.link) return;
-
-						let coords = { latitude: property.lat || null, longitude: property.lng || null };
-
-						// If no coords, visit detail page and try to extract from script.yoast-schema-graph or JSON-LD
-						if (!coords.latitude || !coords.longitude) {
-							const detailPage = await page.context().newPage();
-							try {
-								await detailPage.goto(property.link, {
-									waitUntil: "domcontentloaded",
-									timeout: 30000,
-								});
-								await detailPage.waitForTimeout(500);
-
-								const detailCoords = await detailPage.evaluate(() => {
-									try {
-										// Yoast schema JSON-LD often lives in a script with class 'yoast-schema-graph'
-										const yoast = document.querySelector("script.yoast-schema-graph");
-										if (yoast) {
-											try {
-												const raw = JSON.parse(yoast.textContent || yoast.innerText);
-												// raw can be an object with @graph array
-												const graph = raw["@graph"] || (Array.isArray(raw) ? raw : null);
-												const items = graph || (Array.isArray(raw) ? raw : [raw]);
-												for (const node of items) {
-													if (node && node.latitude && node.longitude) {
-														return {
-															lat: parseFloat(node.latitude),
-															lng: parseFloat(node.longitude),
-														};
-													}
-													if (
-														node &&
-														node.geo &&
-														(node.geo.latitude || node.geo.lat || node.geo.latitude === 0)
-													) {
-														const lat =
-															node.geo.latitude ||
-															node.geo.lat ||
-															(node.geo.latitude === 0 ? 0 : null);
-														const lng = node.geo.longitude || node.geo.long || node.geo.lng || null;
-														if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
-													}
-												}
-											} catch (e) {
-												// fallthrough
-											}
-										}
-
-										// Fallback: check application/ld+json scripts
-										const scripts = Array.from(
-											document.querySelectorAll('script[type="application/ld+json"]')
-										);
-										for (const s of scripts) {
-											try {
-												const data = JSON.parse(s.textContent);
-												if (data && data.geo && (data.geo.latitude || data.geo.latitude === 0)) {
-													return { lat: data.geo.latitude, lng: data.geo.longitude };
-												}
-												// handle nested @graph
-												const graph = data["@graph"] || (Array.isArray(data) ? data : null);
-												if (graph) {
-													for (const node of graph) {
-														if (
-															node &&
-															node.geo &&
-															(node.geo.latitude || node.geo.latitude === 0)
-														) {
-															return { lat: node.geo.latitude, lng: node.geo.longitude };
-														}
-													}
-												}
-											} catch (e) {
-												// continue
-											}
-										}
-
-										// Last resort: regex search for latitude/longitude pairs in inline scripts
-										const allScripts = Array.from(document.querySelectorAll("script"))
-											.map((s) => s.textContent)
-											.join("\n");
-										const latMatch =
-											allScripts.match(/"latitude"\s*:\s*([0-9.+-]+)/i) ||
-											allScripts.match(/"lat"\s*:\s*([0-9.+-]+)/i);
-										const lngMatch =
-											allScripts.match(/"longitude"\s*:\s*([0-9.+-]+)/i) ||
-											allScripts.match(/"lng"\s*:\s*([0-9.+-]+)/i);
-										if (latMatch && lngMatch)
-											return { lat: parseFloat(latMatch[1]), lng: parseFloat(lngMatch[1]) };
-
-										return null;
-									} catch (e) {
-										return null;
-									}
-								});
-
-								if (detailCoords) {
-									coords.latitude = detailCoords.lat;
-									coords.longitude = detailCoords.lng;
-								}
-							} catch (err) {
-								// ignore detail page errors
-							} finally {
-								await detailPage.close();
+				const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+				for (const s of scripts) {
+					try {
+						const data = JSON.parse(s.textContent);
+						if (data && data.geo)
+							return {
+								lat: parseFloat(data.geo.latitude),
+								lng: parseFloat(data.geo.longitude),
+								html: document.documentElement.innerHTML,
+							};
+						const graph = data["@graph"];
+						if (graph) {
+							for (const node of graph) {
+								if (node && node.geo)
+									return {
+										lat: parseFloat(node.geo.latitude),
+										lng: parseFloat(node.geo.longitude),
+										html: document.documentElement.innerHTML,
+									};
 							}
 						}
+					} catch (e) {}
+				}
+			} catch (e) {}
+			return { lat: null, lng: null, html: document.documentElement.innerHTML };
+		});
 
-						try {
-							const priceClean = (property.price || "")
-								.toString()
-								.replace(/[£,\s]/g, "")
-								.trim();
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+			detailData.html,
+			detailData.lat,
+			detailData.lng,
+		);
 
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude
-							);
+		stats.totalScraped++;
+		stats.totalSaved++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+	} finally {
+		await detailPage.close();
+	}
+}
 
-							totalSaved++;
-							totalScraped++;
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
 
-							const coordsStr =
-								coords.latitude && coords.longitude
-									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords";
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
-						}
-					})
-				);
+async function handleListingPage({ page, request }) {
+	const { isRental, label, pageNumber, totalPages } = request.userData;
+	logger.page(pageNumber, label, request.url, totalPages);
 
-				// Small delay between batches
-				await new Promise((resolve) => setTimeout(resolve, 300));
+	try {
+		await page.waitForSelector(".archive-grid", { timeout: 30000 }).catch(() => {
+			logger.error(`No archive-grid found on page ${pageNumber}`, null, pageNumber, label);
+		});
+
+		const properties = await page.evaluate(() => {
+			const results = [];
+			const container = document.querySelector(".archive-grid");
+			if (!container) return results;
+
+			const anchors = Array.from(container.querySelectorAll("a[href]"));
+			const seen = new Set();
+
+			for (const a of anchors) {
+				const href = a.getAttribute("href");
+				if (
+					!href ||
+					!/\/property\b|property-for-sale|property-to-rent|property-for-rent/i.test(href)
+				)
+					continue;
+
+				const link = href.startsWith("http") ? href : "https://bourneestateagents.com" + href;
+				if (seen.has(link)) continue;
+				seen.add(link);
+
+				const card =
+					a.closest(".properties-block, .grid-box, .grid-box-card, article") || a.parentElement;
+				const title = (
+					card?.querySelector(".property-archive-title h4")?.textContent ||
+					card?.querySelector("h4")?.textContent ||
+					a.getAttribute("title") ||
+					""
+				).trim();
+				const priceText = card?.querySelector(".property-archive-price")?.textContent?.trim() || "";
+				const bedEl = card?.querySelector(".property-types li span");
+				const bedrooms = bedEl ? parseInt(bedEl.textContent.trim()) : null;
+
+				const statusText = card?.innerText || "";
+
+				results.push({ link, title, priceText, bedrooms, statusText });
 			}
-		},
+			return results;
+		});
 
+		logger.page(pageNumber, label, `Found ${properties.length} properties`, totalPages);
+
+		for (const property of properties) {
+			if (!property.link || !property.priceText) continue;
+
+			if (isSoldProperty(property.statusText)) continue;
+
+			const price = parsePrice(property.priceText);
+			if (!price) continue;
+
+			const updateResult = await updatePriceByPropertyURLOptimized(
+				property.link,
+				price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			let action = "SEEN";
+			if (updateResult.updated) {
+				stats.totalSaved++;
+				action = "UPDATED";
+			}
+
+			if (!updateResult.isExisting && !updateResult.error) {
+				action = "CREATED";
+				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				await new Promise((r) => setTimeout(r, 1000));
+			} else if (updateResult.error) {
+				action = "ERROR";
+			}
+
+			logger.property(
+				pageNumber,
+				label,
+				property.title.substring(0, 40),
+				`£${price}`,
+				property.link,
+				isRental,
+				totalPages,
+				action,
+			);
+		}
+	} catch (error) {
+		logger.error(`Error in handleListingPage: ${error.message}`, error, pageNumber, label);
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+				await page.setExtraHTTPHeaders({
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+				});
+			},
+		],
+		launchContext: {
+			launcher: undefined,
+			launchOptions: { browserWSEndpoint, args: ["--no-sandbox", "--disable-setuid-sandbox"] },
+		},
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Enqueue pages
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
+async function scrapeBourne() {
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const scrapeStartTime = new Date();
+
+	logger.step(`Starting Bourne Estate Agents Scraper (Agent ${AGENT_ID})...`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const AREAS = [
+		{
+			label: "SALES",
+			isRental: false,
+			baseUrl:
+				"https://bourneestateagents.com/search/?address_keyword&property_type&minimum_price&maximum_price&minimum_rent&maximum_rent&availability=2&minimum_bedrooms&department=residential-sales",
+			totalPages: 34,
+		},
+		{
+			label: "RENTALS",
+			isRental: true,
+			baseUrl:
+				"https://bourneestateagents.com/search/?address_keyword=&property_type=&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&availability=6&minimum_bedrooms=&department=residential-lettings",
+			totalPages: 10,
+		},
+	];
+
+	for (const area of AREAS) {
 		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			// Page 1 uses base; subsequent pages use /search/page/{pg}/?query
-			let url = propertyType.urlBase;
-			if (pg > 1) {
-				// replace /search/ with /search/page/{pg}/
-				url = propertyType.urlBase.replace("/search/", `/search/page/${pg}/`);
-			}
+		for (let pg = Math.max(1, startPage); pg <= area.totalPages; pg++) {
+			let url = area.baseUrl;
+			if (pg > 1) url = area.baseUrl.replace("/search/", `/search/page/${pg}/`);
 			requests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNumber: pg,
+					isRental: area.isRental,
+					label: area.label,
+					totalPages: area.totalPages,
+				},
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
+		if (requests.length > 0) {
+			logger.step(`Queueing ${requests.length} ${area.label} listing pages...`);
+			await crawler.addRequests(requests);
+		}
 	}
 
-	console.log(`\n✅ Completed Bourne - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`);
+	await crawler.run();
+
+	logger.step(
+		`Finished Bourne - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, RENTALS: ${stats.savedRentals}`);
+
+	if (startPage === 1) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	}
 }
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
 
 (async () => {
 	try {
 		await scrapeBourne();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

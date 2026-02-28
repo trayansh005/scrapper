@@ -6,7 +6,7 @@ Follow `backend/AGENT4_BASELINE_RULES.md` as the primary engineering standard.
 
 - Use `backend/scraper-agent-4.js` as implementation baseline for scraper refactors.
 - Keep scraper behavior stable unless user requests a behavior change.
-- Prefer shared helpers over duplicate inline logic.
+- Prefer shared helpers (e.g., `processPropertyWithCoordinates`) over duplicate inline logic.
 - Treat `backend/combined-scraper.js` as the default orchestration contract.
 
 ## Before every code change or answer

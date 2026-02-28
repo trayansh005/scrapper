@@ -26,7 +26,7 @@ function createAgentLogger(agentId) {
 		console.log(`📄 ${prefix(pageNum, label, totalPages)} ┃ ${message}`);
 	}
 
-	function actionBadge(action = "SEEN") {
+	function actionBadge(action = "UNCHANGED") {
 		switch (action) {
 			case "CREATED":
 				return "🆕 CREATED";
@@ -34,9 +34,9 @@ function createAgentLogger(agentId) {
 				return "✏️ UPDATED";
 			case "ERROR":
 				return "⚠️ ERROR";
-			case "SEEN":
+			case "UNCHANGED":
 			default:
-				return "👀 SEEN";
+				return "⚪ UNCHANGED";
 		}
 	}
 
@@ -48,7 +48,7 @@ function createAgentLogger(agentId) {
 		url,
 		isRental = false,
 		totalPages = null,
-		action = "SEEN",
+		action = "UNCHANGED",
 	) {
 		const icon = isRental ? "🏢" : "🏡";
 		console.log(
@@ -62,11 +62,21 @@ function createAgentLogger(agentId) {
 		console.error(`🚨 ${prefix(pageNum, label)} ${message}${suffix}`);
 	}
 
+	function warn(message, pageNum = null, label = null) {
+		console.log(`⚠️ ${prefix(pageNum, label)} ${message}`);
+	}
+
 	return {
 		step,
 		page,
 		property,
 		error,
+		warn,
+		// Aliases for transition/compatibility
+		info: step,
+		pageInfo: (pageNum, msg) => page(pageNum, "", msg),
+		propertyInfo: (url, msg) => console.log(`ℹ️ ${prefix()} ${msg} 🔗 ${url}`),
+		propertyError: (url, msg) => error(`${msg} 🔗 ${url}`),
 	};
 }
 

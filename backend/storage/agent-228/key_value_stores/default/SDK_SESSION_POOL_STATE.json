@@ -1,0 +1,97 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_FbveM138kT",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-28T07:44:15.256Z",
+      "createdAt": "2026-02-28T06:54:15.256Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_8xUVWglSeS",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "PHPSESSID",
+            "value": "05m9vdq47k2kn6de3v33b5j2d1",
+            "expires": "2026-02-28T07:44:30.335Z",
+            "domain": "www.starkingsandwatson.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-02-28T06:54:30.338Z",
+            "lastAccessed": "2026-02-28T06:54:30.338Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.3.521247186.1772261666",
+            "expires": "2027-04-04T06:54:25.800Z",
+            "domain": "starkingsandwatson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T06:54:30.339Z",
+            "lastAccessed": "2026-02-28T06:54:30.339Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.434511840.1772261666",
+            "expires": "2026-03-01T06:54:25.000Z",
+            "domain": "starkingsandwatson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T06:54:30.345Z",
+            "lastAccessed": "2026-02-28T06:54:30.345Z"
+          },
+          {
+            "key": "_gat",
+            "value": "1",
+            "expires": "2026-02-28T06:55:25.000Z",
+            "domain": "starkingsandwatson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T06:54:30.347Z",
+            "lastAccessed": "2026-02-28T06:54:30.347Z"
+          },
+          {
+            "key": "_ga_8XV6E8FFFS",
+            "value": "GS2.3.s1772261666$o1$g0$t1772261666$j60$l0$h0",
+            "expires": "2027-04-04T06:54:26.268Z",
+            "domain": "starkingsandwatson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T06:54:30.348Z",
+            "lastAccessed": "2026-02-28T06:54:30.348Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-28T07:44:15.262Z",
+      "createdAt": "2026-02-28T06:54:15.262Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

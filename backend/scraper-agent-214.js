@@ -1,320 +1,331 @@
 // Mortimers scraper using Playwright with Crawlee
 // Agent ID: 214
+// Website: mortimers-property.co.uk
 // Usage:
-// node backend/scraper-agent-214.js
+// node backend/scraper-agent-214.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
-const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
-const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 214;
 const logger = createAgentLogger(AGENT_ID);
-let totalScraped = 0;
-let totalSaved = 0;
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
 }
 
-// Configuration for Mortimers
-// 10 properties per page; sales 21 pages, rent 2 pages
-const PROPERTY_TYPES = [
-	{
-		// Sales
-		urlBase: "https://mortimers-property.co.uk/properties-for-sale/All?excludeSstc=1",
-		totalPages: 21,
-		recordsPerPage: 10,
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		// Rentals
-		urlBase: "https://mortimers-property.co.uk/properties-to-rent/All?excludeSstc=1",
-		totalPages: 2,
-		recordsPerPage: 10,
-		isRental: true,
-		label: "RENTALS",
-	},
-];
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
 
-async function scrapeMortimers() {
-	console.log(`\n🚀 Starting Mortimers scraper (Agent ${AGENT_ID})...\n`);
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await blockNonEssentialResources(detailPage);
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
+
+		await new Promise((r) => setTimeout(r, 1000));
+
+		const detailData = await detailPage.evaluate(() => {
+			try {
+				const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+				for (const s of scripts) {
+					try {
+						const data = JSON.parse(s.textContent);
+						if (data && data.geo)
+							return {
+								lat: parseFloat(data.geo.latitude),
+								lng: parseFloat(data.geo.longitude),
+								html: document.documentElement.innerHTML,
+							};
+						const graph = data["@graph"];
+						if (graph) {
+							for (const node of graph) {
+								if (node && node.geo)
+									return {
+										lat: parseFloat(node.geo.latitude),
+										lng: parseFloat(node.geo.longitude),
+										html: document.documentElement.innerHTML,
+									};
+							}
+						}
+					} catch (e) {}
+				}
+
+				const all = document.documentElement.innerHTML;
+				const latM = all.match(/"latitude"\s*:\s*([0-9.+-]+)/i);
+				const lngM = all.match(/"longitude"\s*:\s*([0-9.+-]+)/i);
+				if (latM && lngM) return { lat: parseFloat(latM[1]), lng: parseFloat(lngM[1]), html: all };
+			} catch (e) {}
+			return { lat: null, lng: null, html: document.documentElement.innerHTML };
+		});
+
+		// Coordinate inversion heuristic for Mortimers (likely same as Ryder & Dutton)
+		let lat = detailData.lat;
+		let lng = detailData.lng;
+		if (lat !== null && lng !== null) {
+			if (
+				Math.abs(lat) <= 10 &&
+				lng >= 49 &&
+				lng <= 61 &&
+				!(lat >= 49 && lat <= 61 && Math.abs(lng) <= 10)
+			) {
+				const t = lat;
+				lat = lng;
+				lng = t;
+			}
+		}
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+			detailData.html,
+			lat,
+			lng,
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { isRental, label, pageNumber, totalPages } = request.userData;
+	logger.page(pageNumber, label, request.url, totalPages);
+
+	try {
+		await page.waitForSelector('[class*="searchItem"]', { timeout: 30000 }).catch(() => {
+			logger.error(`No property cards found on page ${pageNumber}`, null, pageNumber, label);
+		});
+
+		const properties = await page.evaluate(() => {
+			const items = Array.from(document.querySelectorAll('[class*="searchItem"]'));
+			return items.map((el) => {
+				const linkEl = el.querySelector("a[href]");
+				const href = linkEl ? linkEl.getAttribute("href") : null;
+				const link = href
+					? href.startsWith("http")
+						? href
+						: "https://mortimers-property.co.uk" + href
+					: null;
+
+				const title = el.querySelector("h3")?.textContent?.trim() || "";
+				const address = el.querySelector('[class*="address"]')?.textContent?.trim() || "";
+				const priceText = el.querySelector('[class*="price"]')?.textContent?.trim() || "";
+
+				const bedLi = el.querySelector(".htype1");
+				const bedrooms = bedLi ? parseInt(bedLi.textContent.replace(/\D+/g, "")) : null;
+
+				const statusText = el.innerText || "";
+
+				return { link, title: title || address, priceText, bedrooms, statusText };
+			});
+		});
+
+		logger.page(pageNumber, label, `Found ${properties.length} properties`, totalPages);
+
+		for (const property of properties) {
+			if (!property.link || !property.priceText) continue;
+
+			if (isSoldProperty(property.statusText)) continue;
+
+			const price = parsePrice(property.priceText);
+			if (!price) continue;
+
+			const updateResult = await updatePriceByPropertyURLOptimized(
+				property.link,
+				price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			let action = "SEEN";
+			if (updateResult.updated) {
+				stats.totalSaved++;
+				action = "UPDATED";
+			}
+
+			if (!updateResult.isExisting && !updateResult.error) {
+				action = "CREATED";
+				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				await new Promise((r) => setTimeout(r, 1000));
+			} else if (updateResult.error) {
+				action = "ERROR";
+			}
+
+			logger.property(
+				pageNumber,
+				label,
+				property.title.substring(0, 40),
+				`£${price}`,
+				property.link,
+				isRental,
+				totalPages,
+				action,
+			);
+		}
+	} catch (error) {
+		logger.error(`Error in handleListingPage: ${error.message}`, error, pageNumber, label);
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-
-		launchContext: {
-			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
-
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
 		preNavigationHooks: [
 			async ({ page }) => {
 				await blockNonEssentialResources(page);
+				await page.setExtraHTTPHeaders({
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+				});
 			},
 		],
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
-
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			await page.waitForTimeout(800);
-
-			await page
-				.waitForSelector('[class*="col div div"]', { timeout: 20000 })
-				.catch(() => console.log(`⚠️ No search result cards found on page ${pageNum}`));
-
-			const properties = await page.evaluate(() => {
-				try {
-					const items = Array.from(
-						document.querySelectorAll('[class*="SearchResultCard-module-scss-module__e3OfBW__searchItem"]'),
-					);
-					return items
-						.map((el) => {
-							const linkEl = el.querySelector("a[href]");
-							const href = linkEl ? linkEl.getAttribute("href") : null;
-							const link = href
-								? href.startsWith("http")
-									? href
-									: "https://mortimers-property.co.uk" + href
-								: null;
-
-							const title =
-								el.querySelector(".SearchResultCard-module-scss-module__e3OfBW__searchItem h3")?.textContent?.trim() ||
-								el.querySelector("h3")?.textContent?.trim() ||
-								"";
-							const address =
-								el.querySelector(".SearchResultCard-module-scss-module__e3OfBW__address")?.textContent?.trim() || "";
-							const price =
-								el.querySelector('[class*="SearchResultCard-module-scss-module__e3OfBW__price"]')?.textContent?.trim() || "";
-
-							let bedrooms = null;
-							const bedLi = el.querySelector(".htype1");
-							if (bedLi) bedrooms = bedLi.textContent.replace(/\D+/g, "").trim();
-
-							return { link, price, title: title || address || "", bedrooms, lat: null, lng: null };
-						})
-						.filter((p) => p.link);
-				} catch (e) {
-					return [];
-				}
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			const batchSize = 5;
-			for (let i = 0; i < properties.length; i += batchSize) {
-				const batch = properties.slice(i, i + batchSize);
-
-				await Promise.all(
-					batch.map(async (property) => {
-						if (!property.link) return;
-
-						let coords = { latitude: property.lat || null, longitude: property.lng || null };
-
-						if (!coords.latitude || !coords.longitude) {
-							const detailPage = await page.context().newPage();
-							try {
-								await detailPage.goto(property.link, {
-									waitUntil: "domcontentloaded",
-									timeout: 30000,
-								});
-								await detailPage.waitForTimeout(400);
-
-								const detailCoords = await detailPage.evaluate(() => {
-									try {
-										const scripts = Array.from(
-											document.querySelectorAll('script[type="application/ld+json"]'),
-										);
-										for (const s of scripts) {
-											try {
-												const data = JSON.parse(s.textContent);
-												// geolocation or geo inside object
-												if (
-													data &&
-													data.geolocation &&
-													(data.geolocation.latitude || data.geolocation.longitude)
-												) {
-													let lat = parseFloat(data.geolocation.latitude);
-													let lng = parseFloat(data.geolocation.longitude);
-													if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-												}
-												if (data && data.geo && (data.geo.latitude || data.geo.longitude)) {
-													let lat = parseFloat(data.geo.latitude);
-													let lng = parseFloat(data.geo.longitude);
-													if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-												}
-												const graph = data["@graph"] || (Array.isArray(data) ? data : null);
-												if (graph) {
-													for (const node of graph) {
-														if (
-															node &&
-															node.geolocation &&
-															(node.geolocation.latitude || node.geolocation.longitude)
-														) {
-															const lat = parseFloat(node.geolocation.latitude);
-															const lng = parseFloat(node.geolocation.longitude);
-															if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-														}
-														if (node && node.geo && (node.geo.latitude || node.geo.longitude)) {
-															const lat = parseFloat(node.geo.latitude);
-															const lng = parseFloat(node.geo.longitude);
-															if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-														}
-													}
-												}
-											} catch (e) {
-												// continue
-											}
-										}
-
-										// Fallback to searching all scripts for lat/lng pairs
-										const all = Array.from(document.querySelectorAll("script"))
-											.map((s) => s.textContent)
-											.join("\n");
-										const latMatch =
-											all.match(/"latitude"\s*:\s*([0-9.+-]+)/i) ||
-											all.match(/"lat"\s*:\s*([0-9.+-]+)/i);
-										const lngMatch =
-											all.match(/"longitude"\s*:\s*([0-9.+-]+)/i) ||
-											all.match(/"lng"\s*:\s*([0-9.+-]+)/i);
-										if (latMatch && lngMatch) {
-											let lat = parseFloat(latMatch[1]);
-											let lng = parseFloat(lngMatch[1]);
-											// Heuristic: some sites invert lat/lng for UK values (example: latitude:-2.15, longitude:53.55)
-											if (
-												Math.abs(lat) <= 10 &&
-												lng >= 49 &&
-												lng <= 61 &&
-												!(lat >= 49 && lat <= 61 && Math.abs(lng) <= 10)
-											) {
-												const t = lat;
-												lat = lng;
-												lng = t;
-											}
-											return { lat, lng };
-										}
-
-										return null;
-									} catch (e) {
-										return null;
-									}
-								});
-
-								if (detailCoords) {
-									let lat = detailCoords.lat;
-									let lng = detailCoords.lng;
-									// Heuristic for inverted coordinates
-									if (
-										Math.abs(lat) <= 10 &&
-										lng >= 49 &&
-										lng <= 61 &&
-										!(lat >= 49 && lat <= 61 && Math.abs(lng) <= 10)
-									) {
-										const t = lat;
-										lat = lng;
-										lng = t;
-									}
-									coords.latitude = lat;
-									coords.longitude = lng;
-								}
-							} catch (err) {
-								// ignore detail page errors
-							} finally {
-								await detailPage.close();
-							}
-						}
-
-						try {
-							const rawPrice = (property.price || "").toString();
-							const numMatch = rawPrice.match(/[0-9][0-9,\.\s]*/);
-							const priceClean = numMatch ? numMatch[0].replace(/[^0-9]/g, "") : "";
-
-							await updatePriceByPropertyURL(
-								property.link,
-								priceClean,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude,
-							);
-
-							totalSaved++;
-							totalScraped++;
-
-							const coordsStr =
-								coords.latitude && coords.longitude
-									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords";
-							console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
-						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
-						}
-					}),
-				);
-
-				await new Promise((resolve) => setTimeout(resolve, 300));
-			}
+		launchContext: {
+			launcher: undefined,
+			launchOptions: { browserWSEndpoint, args: ["--no-sandbox", "--disable-setuid-sandbox"] },
 		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			logger.failed(request.url);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	// Enqueue pages
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
+async function scrapeMortimers() {
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const scrapeStartTime = new Date();
+
+	logger.step(`Starting Mortimers Scraper (Agent ${AGENT_ID})...`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const AREAS = [
+		{
+			label: "SALES",
+			isRental: false,
+			baseUrl: "https://mortimers-property.co.uk/properties-for-sale/All?excludeSstc=1",
+			totalPages: 21,
+		},
+		{
+			label: "RENTALS",
+			isRental: true,
+			baseUrl: "https://mortimers-property.co.uk/properties-to-rent/All?excludeSstc=1",
+			totalPages: 2,
+		},
+	];
+
+	for (const area of AREAS) {
 		const requests = [];
-
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url =
-				pg === 1
-					? propertyType.urlBase
-					: `${propertyType.urlBase}&pageNumber=${pg}`;
-
+		for (let pg = Math.max(1, startPage); pg <= area.totalPages; pg++) {
+			const url = pg === 1 ? area.baseUrl : `${area.baseUrl}&pageNumber=${pg}`;
 			requests.push({
 				url,
 				userData: {
-					pageNum: pg,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
+					pageNumber: pg,
+					isRental: area.isRental,
+					label: area.label,
+					totalPages: area.totalPages,
 				},
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
+		if (requests.length > 0) {
+			logger.step(`Queueing ${requests.length} ${area.label} listing pages...`);
+			await crawler.addRequests(requests);
+		}
 	}
 
-	console.log(
-		`\n✅ Completed Mortimers - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+	await crawler.run();
+
+	logger.step(
+		`Finished Mortimers - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, RENTALS: ${stats.savedRentals}`);
+
+	if (startPage === 1) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	}
 }
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
 
 (async () => {
 	try {
 		await scrapeMortimers();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

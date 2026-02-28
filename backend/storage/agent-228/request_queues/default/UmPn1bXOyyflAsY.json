@@ -1,0 +1,9 @@
+{
+	"id": "UmPn1bXOyyflAsY",
+	"json": "{\"id\":\"UmPn1bXOyyflAsY\",\"url\":\"https://www.starkingsandwatson.co.uk/buying/property-search/page/1/?department=sales&location&lat&lng&radius=3&min-price&max-price&bedrooms\",\"loadedUrl\":\"https://www.starkingsandwatson.co.uk/buying/property-search/?department=sales&location&lat&lng&radius=3&min-price&max-price&bedrooms\",\"uniqueKey\":\"https://www.starkingsandwatson.co.uk/buying/property-search/page/1?bedrooms=&department=sales&lat=&lng=&location=&max-price=&min-price=&radius=3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":57,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-02-28T06:55:33.723Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.starkingsandwatson.co.uk/buying/property-search/page/1?bedrooms=&department=sales&lat=&lng=&location=&max-price=&min-price=&radius=3",
+	"url": "https://www.starkingsandwatson.co.uk/buying/property-search/page/1/?department=sales&location&lat&lng&radius=3&min-price&max-price&bedrooms"
+}

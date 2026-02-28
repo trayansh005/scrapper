@@ -4,8 +4,12 @@
 // node backend/scraper-agent-4.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
@@ -194,13 +198,14 @@ async function handleListingPage({ page, request }) {
 		if (!result.isExisting && !result.error) {
 			const detail = await scrapePropertyDetail(page.context(), property);
 
-			await updatePriceByPropertyURL(
+			await processPropertyWithCoordinates(
 				property.link.trim(),
 				price,
 				property.title,
 				bedrooms,
 				AGENT_ID,
 				isRental,
+				null, // HTML not needed if we already have coords
 				detail?.coords?.latitude || null,
 				detail?.coords?.longitude || null,
 			);
@@ -266,7 +271,9 @@ async function scrapeMarshParsons() {
 	logger.step("Starting Marsh & Parsons scraper...");
 
 	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
 	const totalSalesPages = 30; // Based on original script
 
@@ -304,6 +311,13 @@ async function scrapeMarshParsons() {
 		`Completed Marsh & Parsons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================

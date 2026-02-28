@@ -1,0 +1,9 @@
+{
+	"id": "36LvzbIzZR3cTJ7",
+	"json": "{\"id\":\"36LvzbIzZR3cTJ7\",\"url\":\"https://www.darlows.co.uk/search/?IsPurchase=True&Location=Wales%2C+UK&SearchDistance=50&Latitude=52.1306607&Longitude=-3.7837117&NumberOfResults=50&Page=3\",\"uniqueKey\":\"https://www.darlows.co.uk/search?IsPurchase=True&Latitude=52.1306607&Location=Wales%2C+UK&Longitude=-3.7837117&NumberOfResults=50&Page=3&SearchDistance=50\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":8}}",
+	"method": "GET",
+	"orderNo": 1772261093442,
+	"retryCount": 0,
+	"uniqueKey": "https://www.darlows.co.uk/search?IsPurchase=True&Latitude=52.1306607&Location=Wales%2C+UK&Longitude=-3.7837117&NumberOfResults=50&Page=3&SearchDistance=50",
+	"url": "https://www.darlows.co.uk/search/?IsPurchase=True&Location=Wales%2C+UK&SearchDistance=50&Latitude=52.1306607&Longitude=-3.7837117&NumberOfResults=50&Page=3"
+}

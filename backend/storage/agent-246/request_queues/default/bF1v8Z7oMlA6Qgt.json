@@ -1,0 +1,9 @@
+{
+	"id": "bF1v8Z7oMlA6Qgt",
+	"json": "{\"id\":\"bF1v8Z7oMlA6Qgt\",\"url\":\"https://www.simonblyth.co.uk/properties/?radius=1&pagen=1&sort=-created_at&type=buy\",\"uniqueKey\":\"https://www.simonblyth.co.uk/properties?pagen=1&radius=1&sort=-created_at&type=buy\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":22}}",
+	"method": "GET",
+	"orderNo": 1772261463407,
+	"retryCount": 0,
+	"uniqueKey": "https://www.simonblyth.co.uk/properties?pagen=1&radius=1&sort=-created_at&type=buy",
+	"url": "https://www.simonblyth.co.uk/properties/?radius=1&pagen=1&sort=-created_at&type=buy"
+}

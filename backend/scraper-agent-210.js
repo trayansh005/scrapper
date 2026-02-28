@@ -1,282 +1,332 @@
 // Jacksons scraper using Playwright with Crawlee
 // Agent ID: 210
+// Website: jacksonsestateagents.com
 // Usage:
-// node backend/scraper-agent-210.js
+// node backend/scraper-agent-210.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 210;
-let totalScraped = 0;
-let totalSaved = 0;
+const logger = createAgentLogger(AGENT_ID);
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function blockNonEssentialResources(page) {
+	return page.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			return route.abort();
+		}
+		return route.continue();
+	});
 }
 
-// Helper delay utilities to avoid site rate limits
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
 }
 
-function rand(min, max) {
-	return Math.floor(Math.random() * (max - min + 1)) + min;
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await blockNonEssentialResources(detailPage);
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
+
+		// small pause for dynamic scripts
+		await new Promise((r) => setTimeout(r, 1000));
+
+		const detailData = await detailPage.evaluate(() => {
+			try {
+				const map = document.querySelector("#propertyShowMap");
+				if (map) {
+					const lat = map.getAttribute("data-lat");
+					const lng = map.getAttribute("data-lng");
+					if (lat && lng)
+						return {
+							lat: parseFloat(lat),
+							lng: parseFloat(lng),
+							html: document.documentElement.innerHTML,
+						};
+				}
+
+				const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+				for (const s of scripts) {
+					try {
+						const data = JSON.parse(s.textContent);
+						if (data && data.geo && data.geo.latitude && data.geo.longitude) {
+							return {
+								lat: data.geo.latitude,
+								lng: data.geo.longitude,
+								html: document.documentElement.innerHTML,
+							};
+						}
+					} catch (e) {}
+				}
+			} catch (e) {}
+			return { lat: null, lng: null, html: document.documentElement.innerHTML };
+		});
+
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			isRental,
+			detailData.html,
+			detailData.lat,
+			detailData.lng,
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+	} finally {
+		await detailPage.close();
+	}
 }
 
-function randomDelay(minMs, maxMs) {
-	return sleep(rand(minMs, maxMs));
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { isRental, label, pageNumber, totalPages } = request.userData;
+	logger.page(pageNumber, label, request.url, totalPages);
+
+	try {
+		await page
+			.waitForSelector(".col-xs-12.col-sm-6.col-md-4.col-lg-3", { timeout: 30000 })
+			.catch(() => {
+				logger.error(`No property columns found on page ${pageNumber}`, null, pageNumber, label);
+			});
+
+		const properties = await page.evaluate(() => {
+			const items = Array.from(document.querySelectorAll(".col-xs-12.col-sm-6.col-md-4.col-lg-3"));
+			return items.map((el) => {
+				const linkEl = el.querySelector("article.property-card a");
+				const href = linkEl ? linkEl.getAttribute("href") : null;
+				const link = href
+					? href.startsWith("http")
+						? href
+						: "https://www.jacksonsestateagents.com" + href
+					: null;
+
+				const title = el.querySelector("h1")?.textContent?.trim() || "";
+				const location = el.querySelector("h2")?.textContent?.trim() || "";
+
+				const money = el.querySelector("data.money");
+				const priceText = money
+					? money.textContent.trim()
+					: el.querySelector(".price")?.textContent?.trim() || "";
+
+				const bedEl = el.querySelector(".bed-bath-icons__number");
+				const bedrooms = bedEl ? parseInt(bedEl.textContent.trim()) : null;
+
+				const statusText = el.innerText || "";
+
+				return {
+					link,
+					title: title + (location ? ", " + location : ""),
+					priceText,
+					bedrooms,
+					statusText,
+				};
+			});
+		});
+
+		logger.page(pageNumber, label, `Found ${properties.length} properties`, totalPages);
+
+		for (const property of properties) {
+			if (!property.link || !property.priceText) continue;
+
+			if (isSoldProperty(property.statusText)) {
+				continue;
+			}
+
+			const price = parsePrice(property.priceText);
+			if (!price) continue;
+
+			const updateResult = await updatePriceByPropertyURLOptimized(
+				property.link,
+				price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			let action = "SEEN";
+
+			if (updateResult.updated) {
+				stats.totalSaved++;
+				action = "UPDATED";
+			}
+
+			if (!updateResult.isExisting && !updateResult.error) {
+				action = "CREATED";
+				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				await new Promise((r) => setTimeout(r, 1000));
+			} else if (updateResult.error) {
+				action = "ERROR";
+			}
+
+			logger.property(
+				pageNumber,
+				label,
+				property.title.substring(0, 40),
+				`£${price}`,
+				property.link,
+				isRental,
+				totalPages,
+				action,
+			);
+		}
+	} catch (error) {
+		logger.error(`Error in handleListingPage: ${error.message}`, error, pageNumber, label);
+	}
 }
 
-// Configuration for Jacksons sales and lettings
-const PROPERTY_TYPES = [
-	// {
-	// 	// Sales
-	// 	urlBase: "https://www.jacksonsestateagents.com/properties/sales/status-available",
-	// 	totalPages: 33,
-	// 	recordsPerPage: 12,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
-	{
-		// Lettings
-		urlBase: "https://www.jacksonsestateagents.com/properties/lettings/status-available",
-		totalPages: 8,
-		recordsPerPage: 12,
-		isRental: true,
-		label: "RENTALS",
-	},
-];
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
 
-async function scrapeJacksons() {
-	console.log(`\n🚀 Starting Jacksons scraper (Agent ${AGENT_ID})...\n`);
-
-	const crawler = new PlaywrightCrawler({
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+				await page.setExtraHTTPHeaders({
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+				});
+			},
+		],
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
-
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
-
-			await page.waitForTimeout(1200);
-			// Prefer waiting for the actual property columns which are the real listing items
-			await page
-				.waitForSelector(".col-xs-12.col-sm-6.col-md-4.col-lg-3", { timeout: 20000 })
-				.catch(() => {
-					console.log(`⚠️ No property columns found on page ${pageNum}`);
-				});
-
-			const properties = await page.evaluate(() => {
-				try {
-					const items = Array.from(
-						document.querySelectorAll(".col-xs-12.col-sm-6.col-md-4.col-lg-3")
-					);
-					if (!items || items.length === 0) return [];
-					return items
-						.map((el) => {
-							const linkEl = el.querySelector(
-								"article.property-card a.no-decoration, article.property-card a"
-							);
-							const href = linkEl ? linkEl.getAttribute("href") : null;
-							const link = href
-								? href.startsWith("http")
-									? href
-									: "https://www.jacksonsestateagents.com" + href
-								: null;
-
-							const title = el.querySelector("h1")?.textContent?.trim() || "";
-							const location = el.querySelector("h2")?.textContent?.trim() || "";
-
-							// price - prefer data.money value or text
-							const money = el.querySelector("data.money");
-							const price = money
-								? money.getAttribute("value") || money.textContent.trim()
-								: el.querySelector(".price")?.textContent?.trim() || "";
-
-							const bedrooms =
-								el.querySelector(".bed-bath-icons__number")?.textContent?.trim() || null;
-
-							return {
-								link,
-								price,
-								title: title + (location ? ", " + location : ""),
-								bedrooms,
-								lat: null,
-								lng: null,
-							};
-						})
-						.filter((p) => p.link);
-				} catch (e) {
-					return [];
-				}
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			const batchSize = 5;
-			for (let i = 0; i < properties.length; i += batchSize) {
-				const batch = properties.slice(i, i + batchSize);
-
-				// Process sequentially to avoid rate-limits (site blocks aggressive parallel requests)
-				for (const property of batch) {
-					if (!property.link) continue;
-
-					// Gentle random delay before visiting detail page
-					await randomDelay(800, 2000);
-
-					let coords = { latitude: property.lat || null, longitude: property.lng || null };
-
-					if (!coords.latitude || !coords.longitude) {
-						const detailPage = await page.context().newPage();
-						try {
-							await detailPage.goto(property.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							// small pause for dynamic scripts to populate map container
-							await randomDelay(500, 1200);
-
-							const detailCoords = await detailPage.evaluate(() => {
-								try {
-									const map = document.querySelector("#propertyShowMap");
-									if (map) {
-										const lat = map.getAttribute("data-lat");
-										const lng = map.getAttribute("data-lng");
-										if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
-									}
-
-									const scripts = Array.from(
-										document.querySelectorAll('script[type="application/ld+json"]')
-									);
-									for (const s of scripts) {
-										try {
-											const data = JSON.parse(s.textContent);
-											if (data && data.geo && data.geo.latitude && data.geo.longitude) {
-												return { lat: data.geo.latitude, lng: data.geo.longitude };
-											}
-										} catch (e) {
-											// continue
-										}
-									}
-
-									const allScripts = Array.from(document.querySelectorAll("script"))
-										.map((s) => s.textContent)
-										.join("\n");
-									const latMatch =
-										allScripts.match(/data-lat\s*=\s*"?([0-9.+-]+)"?/i) ||
-										allScripts.match(/"latitude"\s*:\s*"?([0-9.+-]+)"?/i);
-									const lngMatch =
-										allScripts.match(/data-lng\s*=\s*"?([0-9.+-]+)"?/i) ||
-										allScripts.match(/"longitude"\s*:\s*"?([0-9.+-]+)"?/i);
-									if (latMatch && lngMatch)
-										return { lat: parseFloat(latMatch[1]), lng: parseFloat(lngMatch[1]) };
-
-									return null;
-								} catch (e) {
-									return null;
-								}
-							});
-
-							if (detailCoords) {
-								coords.latitude = detailCoords.lat;
-								coords.longitude = detailCoords.lng;
-							}
-						} catch (err) {
-							// ignore detail page errors
-						} finally {
-							await detailPage.close();
-						}
-					}
-
-					try {
-						const priceClean = (property.price || "")
-							.toString()
-							.replace(/[£,\spcm\(\)pw]/gi, "")
-							.trim();
-
-						await updatePriceByPropertyURL(
-							property.link,
-							priceClean,
-							property.title,
-							property.bedrooms,
-							AGENT_ID,
-							isRental,
-							coords.latitude,
-							coords.longitude
-						);
-
-						totalSaved++;
-						totalScraped++;
-
-						const coordsStr =
-							coords.latitude && coords.longitude
-								? `${coords.latitude}, ${coords.longitude}`
-								: "No coords";
-						console.log(`✅ ${property.title} - ${formatPrice(priceClean)} - ${coordsStr}`);
-					} catch (dbErr) {
-						console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
-					}
-
-					// Short randomized pause between property processing
-					await randomDelay(300, 900);
-				}
-
-				// Pause between batches
-				await randomDelay(1000, 2500);
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
+}
 
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
+async function scrapeJacksons() {
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const scrapeStartTime = new Date();
+
+	logger.step(`Starting Jacksons Scraper (Agent ${AGENT_ID})...`);
+
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const AREAS = [
+		{
+			label: "SALES",
+			isRental: false,
+			baseUrl: "https://www.jacksonsestateagents.com/properties/sales/status-available",
+			totalPages: 33,
+		},
+		{
+			label: "RENTALS",
+			isRental: true,
+			baseUrl: "https://www.jacksonsestateagents.com/properties/lettings/status-available",
+			totalPages: 8,
+		},
+	];
+
+	for (const area of AREAS) {
 		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			let url = propertyType.urlBase;
-			if (pg > 1) url = `${propertyType.urlBase}/page-${pg}`;
+		for (let pg = Math.max(1, startPage); pg <= area.totalPages; pg++) {
+			let url = area.baseUrl;
+			if (pg > 1) url = `${area.baseUrl}/page-${pg}`;
 			requests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNumber: pg,
+					isRental: area.isRental,
+					label: area.label,
+					totalPages: area.totalPages,
+				},
 			});
 		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
-
-		// Pause between property type runs to reduce chances of being rate-limited
-		await randomDelay(2000, 6000);
+		if (requests.length > 0) {
+			logger.step(`Queueing ${requests.length} ${area.label} listing pages...`);
+			await crawler.addRequests(requests);
+		}
 	}
 
-	console.log(
-		`\n✅ Completed Jacksons - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+	await crawler.run();
+
+	logger.step(
+		`Finished Jacksons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, RENTALS: ${stats.savedRentals}`);
+
+	if (startPage === 1) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	}
 }
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
 
 (async () => {
 	try {
 		await scrapeJacksons();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();
