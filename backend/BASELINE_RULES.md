@@ -35,15 +35,25 @@ Agent `4` is the baseline implementation style.
    - Reuse in detail pages.
 3. **Timeouts**
    - Keep explicit `navigationTimeoutSecs` and `requestHandlerTimeoutSecs` on crawler.
-4. **Data flow**
+4. **Conditional Loop Sleep (Performance Optimization)**:
+   - When processing property lists (especially large API payloads), only apply `await sleep(ms)` if the property was actually `CREATED` or `UPDATED`.
+   - Skip the sleep for `UNCHANGED` records to allow the scraper to rapidly skip through thousands of known properties while remaining polite during write operations.
+5. **Data flow**
    - For each listing:
      - Call `updatePriceByPropertyURLOptimized(...)` first.
      - If not existing, scrape detail and call `updatePriceByPropertyURL(...)`.
-5. **Enhanced Remove-Status Strategy**
+6. **Enhanced Remove-Status Strategy**
    - **Full Scrape**: Capture `scrapeStartTime` at the start of the execution.
    - **Safety Window**: Pass `scrapeStartTime` to `updateRemoveStatus(agentId, scrapeStartTime)`. This ensures only records NOT updated during THIS specific run are flagged as removed.
    - **Partial Run Protection**: Detect if the run is partial (e.g., `startPage > 1`). If so, **bypassing** `updateRemoveStatus` is MANDATORY to prevent accidental deletion of properties on pages not scraped.
    - ~~`markAllPropertiesRemovedForAgent` is deprecated and removed. Do not use it.~~
+
+## API Scraper Architecture Pattern (Preferred over HTML/Playwright)
+
+1. **Always Search for JSON APIs First**: Use browser network tools to find `.json`, `.ljson` (Homeflow), or GraphQL endpoints that provide raw property data before relying on HTML page parsing.
+2. **Prioritize Native `fetch`**: If a JSON API is available and not protected by bot-management, completely remove `crawlee`/`playwright` dependencies. Use lightweight native Node.js `fetch` loops for massive speedups.
+3. **Bypass Cloudflare via In-Browser Fetch**: If native `fetch` is blocked (e.g., 403 "Just a moment..."), use Crawlee to navigate to a standard HTML search page to clear the Cloudflare challenge. Then, execute `fetch` natively _inside_ the established browser context using `page.evaluate()` to seamlessly retrieve the JSON payload.
+4. **Eliminate Detail Page Scraping**: Whenever possible, extract coordinates (`lat`/`lon`), numeric prices, and bedroom counts directly from the API payload (or map data) to completely eliminate the overhead of loading individual property detail pages.
 
 ## Combined Runner Rules (`backend/combined-scraper.js`)
 

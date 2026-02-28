@@ -180,11 +180,11 @@ async function handleListingPage({ page, request }) {
 	for (let i = 0; i < properties.length; i += batchSize) {
 		const batch = properties.slice(i, i + batchSize);
 
-		await Promise.all(
+		const batchActions = await Promise.all(
 			batch.map(async (property) => {
-				if (!property.link) return;
+				if (!property.link) return "UNCHANGED";
 
-				if (processedUrls.has(property.link)) return;
+				if (processedUrls.has(property.link)) return "UNCHANGED";
 				processedUrls.add(property.link);
 
 				const price = formatPriceUk(property.price);
@@ -194,7 +194,7 @@ async function handleListingPage({ page, request }) {
 
 				if (!price) {
 					console.log(` Skipping update (no price found): ${property.link}`);
-					return;
+					return "UNCHANGED";
 				}
 
 				const result = await updatePriceByPropertyURLOptimized(
@@ -206,8 +206,10 @@ async function handleListingPage({ page, request }) {
 					isRental,
 				);
 
+				let action = "UNCHANGED";
 				if (result.updated) {
 					stats.totalSaved++;
+					action = "UPDATED";
 				}
 
 				if (!result.isExisting && !result.error) {
@@ -228,18 +230,23 @@ async function handleListingPage({ page, request }) {
 					stats.totalScraped++;
 					if (isRental) stats.savedRentals++;
 					else stats.savedSales++;
+					action = "CREATED";
 				}
 
 				const categoryLabel = isRental ? "LETTINGS" : "SALES";
 				console.log(
-					` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+					` [${categoryLabel}] [${action}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
 						price,
 						isRental,
 					)} - ${property.link}`,
 				);
+				return action;
 			}),
 		);
-		await sleep(500);
+
+		if (batchActions.some((a) => a !== "UNCHANGED")) {
+			await sleep(500);
+		}
 	}
 }
 

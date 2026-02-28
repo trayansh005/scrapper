@@ -254,7 +254,9 @@ async function handleListingPage({ page, request }) {
 			propertyAction,
 		);
 
-		await sleep(500);
+		if (propertyAction !== "UNCHANGED") {
+			await sleep(500);
+		}
 	}
 }
 

@@ -162,21 +162,81 @@ async function handleListingPage({ request, page, crawler, log }) {
 		const bedroomsMatch = attrText.match(/(\d+)\s*Bed/);
 		const bedrooms = bedroomsMatch ? bedroomsMatch[1] : null;
 
-		if (link && price) {
-			stats.totalScraped++;
-			const result = await updatePriceByPropertyURLOptimized(
-				link,
-				price,
-				title,
-				bedrooms,
-				AGENT_ID,
-				isRental,
-			);
+		batch.push({
+			link,
+			price,
+			title,
+			bedrooms,
+			statusText,
+		});
+	}
 
-			if (!result.isExisting || result.updated) {
-				await scrapePropertyDetail(page.context(), { link, price, title, bedrooms }, isRental);
-				await sleep(500);
-			}
+	if (batch.length > 0) {
+		const batchResults = await Promise.all(
+			batch.map(async (property) => {
+				if (!property.link) return "UNCHANGED";
+				if (isSoldProperty(property.statusText || "")) return "UNCHANGED";
+
+				if (processedUrls.has(property.link)) {
+					log.info(` Skipping duplicate URL: ${property.link.substring(0, 60)}...`);
+					return "UNCHANGED";
+				}
+				processedUrls.add(property.link);
+
+				const detail = await scrapePropertyDetail(page.context(), property, isRental);
+
+				if (!detail || !detail.price) {
+					log.warn(` No price found: ${property.link}`);
+					return "UNCHANGED";
+				}
+
+				const result = await updatePriceByPropertyURLOptimized(
+					property.link.trim(),
+					detail.price,
+					detail.title,
+					detail.bedrooms,
+					AGENT_ID,
+					isRental,
+				);
+
+				let action = "UNCHANGED";
+				if (result.updated) {
+					stats.totalSaved++;
+					action = "UPDATED";
+				}
+
+				if (!result.isExisting && !result.error) {
+					await updatePriceByPropertyURL(
+						property.link.trim(),
+						detail.price,
+						detail.title,
+						detail.bedrooms,
+						AGENT_ID,
+						isRental,
+						detail.coords.latitude,
+						detail.coords.longitude,
+					);
+
+					stats.totalSaved++;
+					stats.totalScraped++;
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
+					action = "CREATED";
+				}
+
+				const categoryLabel = isRental ? "LETTINGS" : "SALES";
+				console.log(
+					` [${categoryLabel}] [${action}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
+						detail.price,
+						isRental,
+					)} - ${property.link}`,
+				);
+				return action;
+			}),
+		);
+
+		if (batchResults.some((a) => a !== "UNCHANGED")) {
+			await sleep(500);
 		}
 	}
 

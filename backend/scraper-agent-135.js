@@ -77,7 +77,7 @@ async function scrapePropertyDetail(browserContext, property) {
 		// first try generic extractor
 		let coords = genericExtractCoords(htmlContent);
 		// fallback to Taylors-specific script
-		if ((!coords.latitude && !coords.longitude)) {
+		if (!coords.latitude && !coords.longitude) {
 			const latMatch = htmlContent.match(/ga4_property_latitude:\s*([0-9.-]+)/);
 			const lngMatch = htmlContent.match(/ga4_property_longitude:\s*([0-9.-]+)/);
 			if (latMatch && lngMatch) {
@@ -132,14 +132,18 @@ async function handleListingPage({ page, request }) {
 
 	const properties = await page.evaluate(() => {
 		const results = [];
-		const cards = Array.from(document.querySelectorAll(".card--list .card, .hf-property-results .card"));
+		const cards = Array.from(
+			document.querySelectorAll(".card--list .card, .hf-property-results .card"),
+		);
 		for (const card of cards) {
 			try {
 				let linkEl = card.querySelector("a.card__link");
 				if (!linkEl) linkEl = card.querySelector("a");
 				let link = linkEl ? linkEl.getAttribute("href") : null;
 				if (!link) continue;
-				const fullLink = link.startsWith("http") ? link : "https://www.taylorsestateagents.co.uk" + link;
+				const fullLink = link.startsWith("http")
+					? link
+					: "https://www.taylorsestateagents.co.uk" + link;
 
 				let title = "";
 				let titleEl = card.querySelector(".card__text-title");
@@ -171,7 +175,10 @@ async function handleListingPage({ page, request }) {
 
 	console.log(` Found ${properties.length} properties on page ${pageNum}`);
 
-	const pageSignature = properties.map((p) => p.link).slice(0, 5).join("|");
+	const pageSignature = properties
+		.map((p) => p.link)
+		.slice(0, 5)
+		.join("|");
 	const signatureKey = isRental ? "LETTINGS" : "SALES";
 	const previousSignature = recentPageSignatures.get(signatureKey);
 	if (pageSignature && previousSignature === pageSignature) {
@@ -184,11 +191,11 @@ async function handleListingPage({ page, request }) {
 	const batchSize = 2;
 	for (let i = 0; i < properties.length; i += batchSize) {
 		const batch = properties.slice(i, i + batchSize);
-		await Promise.all(
+		const batchActions = await Promise.all(
 			batch.map(async (property) => {
-				if (!property.link) return;
+				if (!property.link) return "UNCHANGED";
 
-				if (processedUrls.has(property.link)) return;
+				if (processedUrls.has(property.link)) return "UNCHANGED";
 				processedUrls.add(property.link);
 
 				const numericPrice = Number(property.price.toString().replace(/,/g, ""));
@@ -201,7 +208,7 @@ async function handleListingPage({ page, request }) {
 
 				if (!price) {
 					console.log(` Skipping update (no price found): ${property.link}`);
-					return;
+					return "UNCHANGED";
 				}
 
 				const result = await updatePriceByPropertyURLOptimized(
@@ -213,7 +220,11 @@ async function handleListingPage({ page, request }) {
 					isRental,
 				);
 
-				if (result.updated) stats.totalSaved++;
+				let action = "UNCHANGED";
+				if (result.updated) {
+					stats.totalSaved++;
+					action = "UPDATED";
+				}
 
 				if (!result.isExisting && !result.error) {
 					const detail = await scrapePropertyDetail(page.context(), property);
@@ -231,18 +242,22 @@ async function handleListingPage({ page, request }) {
 					stats.totalScraped++;
 					if (isRental) stats.savedRentals++;
 					else stats.savedSales++;
+					action = "CREATED";
 				}
 
 				const categoryLabel = isRental ? "LETTINGS" : "SALES";
 				console.log(
-					` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+					` [${categoryLabel}] [${action}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
 						price,
 						isRental,
 					)} - ${property.link}`,
 				);
+				return action;
 			}),
 		);
-		await sleep(500);
+		if (batchActions.some((a) => a !== "UNCHANGED")) {
+			await sleep(500);
+		}
 	}
 }
 
@@ -306,8 +321,6 @@ async function scrapeTaylors() {
 	);
 	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
-
-
 
 // Main execution
 (async () => {

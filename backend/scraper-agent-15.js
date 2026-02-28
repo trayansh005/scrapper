@@ -237,9 +237,11 @@ async function handleListingPage({ page, request }) {
 			propertyAction,
 		);
 
-		// Randomize delay between processing properties (1.5s - 3.5s)
-		const propertyJitter = Math.floor(Math.random() * 2000) + 1500;
-		await sleep(propertyJitter);
+		if (propertyAction !== "UNCHANGED") {
+			// Randomize delay between processing properties (1.5s - 3.5s)
+			const propertyJitter = Math.floor(Math.random() * 2000) + 1500;
+			await sleep(propertyJitter);
+		}
 	}
 }
 

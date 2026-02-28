@@ -318,8 +318,10 @@ async function handleListingPage({ page, request }) {
 					isRental,
 				);
 
+				let propertyAction = "UNCHANGED";
 				if (result.updated) {
 					stats.totalSaved++;
+					propertyAction = "UPDATED";
 				}
 
 				if (!result.isExisting && !result.error) {
@@ -338,19 +340,22 @@ async function handleListingPage({ page, request }) {
 					stats.totalScraped++;
 					if (isRental) stats.savedRentals++;
 					else stats.savedSales++;
+					propertyAction = "CREATED";
 				}
 
 				const categoryLabel = isRental ? "LETTINGS" : "SALES";
 				console.log(
-					` [${categoryLabel}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
+					` [${categoryLabel}] [${propertyAction}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
 						detail.price,
 						isRental,
 					)} - ${property.link}`,
 				);
+
+				if (propertyAction !== "UNCHANGED") {
+					await sleep(500);
+				}
 			}),
 		);
-
-		await sleep(500);
 	}
 }
 

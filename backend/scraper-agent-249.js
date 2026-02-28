@@ -175,9 +175,7 @@ async function scrapePropertyDetail(browserContext, property) {
 					}
 				}
 
-				const scripts = Array.from(
-					document.querySelectorAll("script[type='application/ld+json']"),
-				);
+				const scripts = Array.from(document.querySelectorAll("script[type='application/ld+json']"));
 				for (const script of scripts) {
 					try {
 						const json = JSON.parse(script.textContent);
@@ -198,8 +196,7 @@ async function scrapePropertyDetail(browserContext, property) {
 							}
 						}
 						if (
-							(json["@type"] === "Residence" ||
-								json["@type"] === "SingleFamilyResidence") &&
+							(json["@type"] === "Residence" || json["@type"] === "SingleFamilyResidence") &&
 							json.name
 						) {
 							if (!data.address) data.address = json.name;
@@ -247,9 +244,7 @@ async function scrapePropertyDetail(browserContext, property) {
 						if (pcmMatch) {
 							data.price = pcmMatch[1].replace(/,/g, "");
 						} else {
-							const rawMatches = bodyText.matchAll(
-								/(?:^|\s|>)£\s*([\d,]+)(?:\s|<|$)/g,
-							);
+							const rawMatches = bodyText.matchAll(/(?:^|\s|>)£\s*([\d,]+)(?:\s|<|$)/g);
 							for (const m of rawMatches) {
 								const val = parseInt(m[1].replace(/,/g, ""));
 								if (val > 300 && val < 20000) {
@@ -319,27 +314,31 @@ async function handleListingPage({ page, request }) {
 		try {
 			const results = [];
 			const seenLinks = new Set();
-			
+
 			// Select all items that look like property links
-			const anchors = Array.from(document.querySelectorAll("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']"));
-			
+			const anchors = Array.from(
+				document.querySelectorAll("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']"),
+			);
+
 			for (const anchor of anchors) {
 				const href = anchor.getAttribute("href");
-				if (!href || href.includes("/book-a-viewing/") || href.includes("/request-a-valuation/")) continue;
-				
+				if (!href || href.includes("/book-a-viewing/") || href.includes("/request-a-valuation/"))
+					continue;
+
 				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
 				if (seenLinks.has(link)) continue;
 				seenLinks.add(link);
 
 				// Find the closest container that holds this property's info
 				const container = anchor.closest("li") || anchor.closest("div > div") || anchor;
-				
-				const title = container.querySelector("h3")?.textContent?.trim() || 
-							 anchor.textContent?.trim() || 
-							 "Property";
-				
+
+				const title =
+					container.querySelector("h3")?.textContent?.trim() ||
+					anchor.textContent?.trim() ||
+					"Property";
+
 				const statusText = container.innerText || "";
-				
+
 				results.push({ link, title, statusText });
 			}
 			return results;
@@ -376,8 +375,10 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
+		let propertyAction = "UNCHANGED";
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
 		if (!result.isExisting && !result.error) {
@@ -396,17 +397,20 @@ async function handleListingPage({ page, request }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+			propertyAction = "CREATED";
 		}
 
 		const categoryLabel = isRental ? "LETTINGS" : "SALES";
 		console.log(
-			` [${categoryLabel}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
+			` [${categoryLabel}] [${propertyAction}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
 				detail.price,
 				isRental,
 			)} - ${property.link}`,
 		);
 
-		await sleep(500);
+		if (propertyAction !== "UNCHANGED") {
+			await sleep(500);
+		}
 	}
 }
 

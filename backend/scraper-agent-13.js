@@ -159,7 +159,9 @@ async function handleListingPage({ page, request }) {
 				propertyAction,
 			);
 
-			await sleep(500); // DB politeness delay
+			if (propertyAction !== "UNCHANGED") {
+				await sleep(500); // DB politeness delay for writes
+			}
 		}
 	} catch (error) {
 		logger.error(`Error processing page ${pageNum} for ${label}`, error);

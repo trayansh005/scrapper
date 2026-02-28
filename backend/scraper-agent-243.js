@@ -178,8 +178,10 @@ async function handleListingPage({ page, request, crawler }) {
 			isRental,
 		);
 
+		let propertyAction = "UNCHANGED";
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
 		if (!result.isExisting && !result.error) {
@@ -198,17 +200,20 @@ async function handleListingPage({ page, request, crawler }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+			propertyAction = "CREATED";
 		}
 
 		const categoryLabel = isRental ? "LETTINGS" : "SALES";
 		console.log(
-			` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+			` [${categoryLabel}] [${propertyAction}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
 				price,
 				isRental,
 			)} - ${property.link}`,
 		);
 
-		await sleep(500);
+		if (propertyAction !== "UNCHANGED") {
+			await sleep(500);
+		}
 	}
 
 	// Pagination: keep incrementing until a page returns no items

@@ -315,18 +315,20 @@ async function handleListingPage({ page, request }) {
 			stats.totalSaved++;
 		}
 
-		if (!result.isExisting && !result.error) {
-			await scrapePropertyDetail(page.context(), property, isRental);
-		}
+		let propertyAction = "UNCHANGED";
+		if (result.updated) propertyAction = "UPDATED";
+		if (!result.isExisting && !result.error) propertyAction = "CREATED";
 
 		console.log(
-			`Saved: ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+			`✅ [${propertyAction}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
 				property.price,
 				isRental,
 			)} - ${property.link}`,
 		);
 
-		await sleep(300);
+		if (propertyAction !== "UNCHANGED") {
+			await sleep(300);
+		}
 	}
 }
 

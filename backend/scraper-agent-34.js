@@ -208,10 +208,15 @@ async function scrapeStruttAndParker() {
 						totalPages,
 						propertyAction,
 					);
+
+					if (propertyAction !== "UNCHANGED") {
+						await sleep(500);
+					}
 				}
 
 				currentPage++;
-				await sleep(1000); // Politeness delay
+				// If we had any updates/creates, sleep longer between pages
+				await sleep(1000);
 			}
 		}
 	}

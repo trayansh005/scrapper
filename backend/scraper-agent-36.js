@@ -185,6 +185,10 @@ async function scrapeWinkworth() {
 					"?", // Total pages unknown from map API
 					propertyAction,
 				);
+
+				if (propertyAction !== "UNCHANGED") {
+					await sleep(500);
+				}
 			}
 
 			currentPage++;

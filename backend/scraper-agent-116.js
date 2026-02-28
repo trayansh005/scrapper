@@ -87,7 +87,7 @@ async function scrapePropertyDetail(browserContext, property) {
 		let coords = await extractCoordinatesFromHTML(htmlContent);
 
 		// if extractor failed, fallback to Gascoigne-specific comment regex
-		if ((!coords || (!coords.latitude && !coords.longitude))) {
+		if (!coords || (!coords.latitude && !coords.longitude)) {
 			const latMatch = htmlContent.match(/<!--property-latitude:"([0-9.\-]+)"-->/);
 			const lngMatch = htmlContent.match(/<!--property-longitude:"([0-9.\-]+)"-->/);
 			if (latMatch && lngMatch) {
@@ -181,7 +181,10 @@ async function handleListingPage({ page, request }) {
 
 	console.log(` Found ${properties.length} properties on page ${pageNum}`);
 
-	const pageSignature = properties.map((p) => p.link).slice(0, 5).join("|");
+	const pageSignature = properties
+		.map((p) => p.link)
+		.slice(0, 5)
+		.join("|");
 	const signatureKey = isRental ? "LETTINGS" : "SALES";
 	const previousSignature = recentPageSignatures.get(signatureKey);
 	if (pageSignature && previousSignature === pageSignature) {
@@ -194,15 +197,16 @@ async function handleListingPage({ page, request }) {
 	const batchSize = 2;
 	for (let i = 0; i < properties.length; i += batchSize) {
 		const batch = properties.slice(i, i + batchSize);
-		await Promise.all(
+		const batchActions = await Promise.all(
 			batch.map(async (property) => {
-				if (!property.link) return;
+				if (!property.link) return "UNCHANGED";
 
-				if (processedUrls.has(property.link)) return;
+				if (processedUrls.has(property.link)) return "UNCHANGED";
 				processedUrls.add(property.link);
 
 				const numericPrice = Number(property.price.toString().replace(/,/g, ""));
-				const price = numericPrice.toLocaleString("en-GB"); let bedrooms = null;
+				const price = numericPrice.toLocaleString("en-GB");
+				let bedrooms = null;
 				if (property.bedrooms) {
 					const m = property.bedrooms.match(/\d+/);
 					if (m) bedrooms = parseInt(m[0]);
@@ -210,7 +214,7 @@ async function handleListingPage({ page, request }) {
 
 				if (!price) {
 					console.log(` Skipping update (no price found): ${property.link}`);
-					return;
+					return "UNCHANGED";
 				}
 
 				const result = await updatePriceByPropertyURLOptimized(
@@ -222,8 +226,10 @@ async function handleListingPage({ page, request }) {
 					isRental,
 				);
 
+				let action = "UNCHANGED";
 				if (result.updated) {
 					stats.totalSaved++;
+					action = "UPDATED";
 				}
 
 				if (!result.isExisting && !result.error) {
@@ -242,18 +248,22 @@ async function handleListingPage({ page, request }) {
 					stats.totalScraped++;
 					if (isRental) stats.savedRentals++;
 					else stats.savedSales++;
+					action = "CREATED";
 				}
 
 				const categoryLabel = isRental ? "LETTINGS" : "SALES";
 				console.log(
-					` [${categoryLabel}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
+					` [${categoryLabel}] [${action}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
 						price,
 						isRental,
 					)} - ${property.link}`,
 				);
+				return action;
 			}),
 		);
-		await sleep(500);
+		if (batchActions.some((a) => a !== "UNCHANGED")) {
+			await sleep(500);
+		}
 	}
 }
 
@@ -305,7 +315,7 @@ async function scrapeGascoignePees() {
 	}
 
 	console.log(
-		`\n Completed Gascoigne Pees - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`
+		`\n Completed Gascoigne Pees - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
 	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }

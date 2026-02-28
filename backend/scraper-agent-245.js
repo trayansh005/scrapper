@@ -220,7 +220,8 @@ async function handleListingPage({ page, request }) {
 				if (!link.includes("/property/")) continue;
 
 				const container = el.closest(".property-card") || el.closest("div") || el;
-				const title = container.querySelector("h2, h3, .address")?.textContent?.trim() || "Property";
+				const title =
+					container.querySelector("h2, h3, .address")?.textContent?.trim() || "Property";
 				const statusText = container.innerText || "";
 
 				results.push({ link, title, statusText });
@@ -256,8 +257,10 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
+		let propertyAction = "UNCHANGED";
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
 		if (!result.isExisting && !result.error) {
@@ -276,17 +279,20 @@ async function handleListingPage({ page, request }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+			propertyAction = "CREATED";
 		}
 
 		const categoryLabel = isRental ? "LETTINGS" : "SALES";
 		console.log(
-			` [${categoryLabel}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
+			` [${categoryLabel}] [${propertyAction}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
 				detail.price,
 				isRental,
 			)} - ${property.link}`,
 		);
 
-		await sleep(500);
+		if (propertyAction !== "UNCHANGED") {
+			await sleep(500);
+		}
 	}
 }
 

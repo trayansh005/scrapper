@@ -340,12 +340,15 @@ async function scrapeJohnDWood() {
 					isRental,
 				);
 
+				let propertyAction = "UNCHANGED";
 				if (result.updated) {
 					totalSaved++;
+					propertyAction = "UPDATED";
 				}
 
 				// Only open detail page if property is NEW
 				if (!result.isExisting && !result.error) {
+					propertyAction = "CREATED";
 					const newPage = await page.context().newPage();
 
 					try {
@@ -375,15 +378,21 @@ async function scrapeJohnDWood() {
 						totalSaved++;
 						totalScraped++;
 
-						console.log(`✅ Created: ${p.title} - £${price}`);
+						console.log(`✅ [CREATED] ${p.title} - £${price}`);
 					} catch (err) {
 						console.error(`❌ Detail error ${p.link}:`, err.message);
 					} finally {
 						await newPage.close();
 					}
+				} else if (propertyAction === "UNCHANGED") {
+					console.log(`✅ [UNCHANGED] ${p.title} - £${price}`);
+				} else if (propertyAction === "UPDATED") {
+					console.log(`✅ [UPDATED] ${p.title} - £${price}`);
 				}
 
-				await sleep(500); // rate-limit protection
+				if (propertyAction !== "UNCHANGED") {
+					await sleep(500); // rate-limit protection
+				}
 			}
 		},
 
