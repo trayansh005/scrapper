@@ -1,4 +1,4 @@
-﻿// Rook Matthews Sayer scraper using Playwright with Crawlee
+// Rook Matthews Sayer scraper using Playwright with Crawlee
 // Agent ID: 220
 // Website: rookmatthewssayer.co.uk
 // Usage:
@@ -7,17 +7,28 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus, updatePriceByPropertyURL } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+} = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 220;
+const logger = createAgentLogger(AGENT_ID);
+
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
 	savedRentals: 0,
 };
+
+const recentPageSignatures = new Map();
+const processedUrls = new Set();
 
 function getBrowserlessEndpoint() {
 	return (
@@ -47,6 +58,7 @@ function createCrawler(browserWSEndpoint) {
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -56,7 +68,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			log.error(`Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -120,7 +132,15 @@ async function handleListingPage({ page, request }) {
 							bathrooms = text.split(/\s+/).pop();
 						}
 
-						return { link, title, price, bedrooms, reception, bathrooms };
+						return {
+							link,
+							title,
+							price,
+							bedrooms,
+							reception,
+							bathrooms,
+							statusText: card.innerText || "",
+						};
 					})
 					.filter((p) => p); // Remove null entries
 			} catch (e) {
@@ -141,6 +161,9 @@ async function handleListingPage({ page, request }) {
 					// Ensure absolute URL
 					if (!property.link) return;
 
+					if (isSoldProperty(property.statusText || "")) {
+						return;
+					}
 					let coords = { latitude: null, longitude: null };
 
 					// Visit detail page to extract coordinates from comments
@@ -152,24 +175,14 @@ async function handleListingPage({ page, request }) {
 						});
 						await detailPage.waitForTimeout(500);
 
-						const detailCoords = await detailPage.evaluate(() => {
-							try {
-								const html = document.documentElement.outerHTML;
-								const latMatch = html.match(/<!--property-latitude:"([^"]+)"-->/);
-								const lngMatch = html.match(/<!--property-longitude:"([^"]+)"-->/);
-								if (latMatch && lngMatch) {
-									return { lat: parseFloat(latMatch[1]), lng: parseFloat(lngMatch[1]) };
-								}
-								return null;
-							} catch (e) {
-								return null;
-							}
-						});
+						const html = await detailPage.content();
+						const detailCoords = extractCoordinatesFromHTML(html);
 
 						if (detailCoords) {
-							coords.latitude = detailCoords.lat;
-							coords.longitude = detailCoords.lng;
+							coords.latitude = detailCoords.latitude;
+							coords.longitude = detailCoords.longitude;
 						}
+
 					} catch (err) {
 						// ignore detail page errors
 					} finally {
@@ -178,17 +191,23 @@ async function handleListingPage({ page, request }) {
 
 					try {
 						// Format price: extract only digits
-						const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
+						const priceClean = property.price
+							? property.price.replace(/[^0-9.]/g, "")
+							: null;
+
 						const priceNum = priceClean ? parseFloat(priceClean) : null;
 
-						if (priceNum === null) {
+						if (!priceNum) {
 							console.log(` No price found: ${property.title}`);
 							return;
 						}
 
+						const formattedPrice = formatPriceUk(priceNum);
+						const dbPrice = Number(priceNum).toLocaleString("en-GB");
+
 						const updateResult = await updatePriceByPropertyURLOptimized(
 							property.link.trim(),
-							priceNum,
+							dbPrice,
 							property.title,
 							property.bedrooms,
 							AGENT_ID,
@@ -200,7 +219,7 @@ async function handleListingPage({ page, request }) {
 						if (!updateResult.isExisting) {
 							await updatePriceByPropertyURL(
 								property.link.trim(),
-								formatPriceUk(priceNum),
+								dbPrice,
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
@@ -218,10 +237,9 @@ async function handleListingPage({ page, request }) {
 						}
 
 						console.log(
-							` ${property.title} - ${formatPriceUk(priceNum)} - ${
-								coords.latitude && coords.longitude
-									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords"
+							` ${property.title} - ${dbPrice} - ${coords.latitude && coords.longitude
+								? `${coords.latitude}, ${coords.longitude}`
+								: "No coords"
 							}`,
 						);
 					} catch (dbErr) {

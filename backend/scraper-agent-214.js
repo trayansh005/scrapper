@@ -4,12 +4,17 @@
 // node backend/scraper-agent-214.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 214;
+const logger = createAgentLogger(AGENT_ID);
 let totalScraped = 0;
 let totalSaved = 0;
 
@@ -21,14 +26,14 @@ function formatPrice(price) {
 // Configuration for Mortimers
 // 10 properties per page; sales 21 pages, rent 2 pages
 const PROPERTY_TYPES = [
-	// {
-	// 	// Sales
-	// 	urlBase: "https://mortimers-property.co.uk/properties-for-sale/All?excludeSstc=1",
-	// 	totalPages: 21,
-	// 	recordsPerPage: 10,
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		// Sales
+		urlBase: "https://mortimers-property.co.uk/properties-for-sale/All?excludeSstc=1",
+		totalPages: 21,
+		recordsPerPage: 10,
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		// Rentals
 		urlBase: "https://mortimers-property.co.uk/properties-to-rent/All?excludeSstc=1",
@@ -54,6 +59,12 @@ async function scrapeMortimers() {
 			},
 		},
 
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
+
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label } = request.userData;
 
@@ -62,13 +73,13 @@ async function scrapeMortimers() {
 			await page.waitForTimeout(800);
 
 			await page
-				.waitForSelector('[class*="SearchResultCard_searchItem"]', { timeout: 20000 })
+				.waitForSelector('[class*="col div div"]', { timeout: 20000 })
 				.catch(() => console.log(`⚠️ No search result cards found on page ${pageNum}`));
 
 			const properties = await page.evaluate(() => {
 				try {
 					const items = Array.from(
-						document.querySelectorAll('[class*="SearchResultCard_searchItem"]')
+						document.querySelectorAll('[class*="SearchResultCard-module-scss-module__e3OfBW__searchItem"]'),
 					);
 					return items
 						.map((el) => {
@@ -81,13 +92,13 @@ async function scrapeMortimers() {
 								: null;
 
 							const title =
-								el.querySelector(".SearchResultCard_title__STErD h3")?.textContent?.trim() ||
+								el.querySelector(".SearchResultCard-module-scss-module__e3OfBW__searchItem h3")?.textContent?.trim() ||
 								el.querySelector("h3")?.textContent?.trim() ||
 								"";
 							const address =
-								el.querySelector(".SearchResultCard_address__NMzbh")?.textContent?.trim() || "";
+								el.querySelector(".SearchResultCard-module-scss-module__e3OfBW__address")?.textContent?.trim() || "";
 							const price =
-								el.querySelector('[class*="SearchResultCard_price"]')?.textContent?.trim() || "";
+								el.querySelector('[class*="SearchResultCard-module-scss-module__e3OfBW__price"]')?.textContent?.trim() || "";
 
 							let bedrooms = null;
 							const bedLi = el.querySelector(".htype1");
@@ -125,7 +136,7 @@ async function scrapeMortimers() {
 								const detailCoords = await detailPage.evaluate(() => {
 									try {
 										const scripts = Array.from(
-											document.querySelectorAll('script[type="application/ld+json"]')
+											document.querySelectorAll('script[type="application/ld+json"]'),
 										);
 										for (const s of scripts) {
 											try {
@@ -239,7 +250,7 @@ async function scrapeMortimers() {
 								AGENT_ID,
 								isRental,
 								coords.latitude,
-								coords.longitude
+								coords.longitude,
 							);
 
 							totalSaved++;
@@ -253,7 +264,7 @@ async function scrapeMortimers() {
 						} catch (dbErr) {
 							console.error(`❌ DB error for ${property.link}: ${dbErr.message}`);
 						}
-					})
+					}),
 				);
 
 				await new Promise((resolve) => setTimeout(resolve, 300));
@@ -261,7 +272,7 @@ async function scrapeMortimers() {
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.failed(request.url);
 		},
 	});
 
@@ -270,11 +281,20 @@ async function scrapeMortimers() {
 		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
 		const requests = [];
+
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url = `${propertyType.urlBase}&page=${pg}`;
+			const url =
+				pg === 1
+					? propertyType.urlBase
+					: `${propertyType.urlBase}&pageNumber=${pg}`;
+
 			requests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNum: pg,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
 			});
 		}
 

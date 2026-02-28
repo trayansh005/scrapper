@@ -4,20 +4,19 @@
 // node backend/scraper-agent-217.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 217;
+const logger = createAgentLogger(AGENT_ID);
 let totalScraped = 0;
 let totalSaved = 0;
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	const num = Number(price);
-	if (isNaN(num)) return "N/A";
-	return "£" + num.toLocaleString("en-GB");
-}
 
 // Homesea: 167 properties, 9 per page => 19 pages
 const PROPERTY_TYPES = [
@@ -45,6 +44,11 @@ async function scrapeHomesea() {
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label } = request.userData;
@@ -100,34 +104,22 @@ async function scrapeHomesea() {
 
 			for (const property of properties) {
 				if (!property.link) continue;
-
+				// open detail page to extract JSON-LD
 				let coords = { latitude: null, longitude: null };
 
-				// open detail page to extract JSON-LD
-				const detailPage = await page.context().newPage();
 				try {
-					await detailPage.goto(property.link, { waitUntil: "domcontentloaded", timeout: 30000 });
-					await detailPage.waitForTimeout(500);
+					const detailPage = await page.context().newPage();
+					await blockNonEssentialResources(detailPage);
 
-					// Find any inline script that initializes the google maps with LatLng
-					const scriptText = await detailPage.evaluate(() => {
-						const scripts = Array.from(document.querySelectorAll("script"));
-						for (const s of scripts) {
-							const t = s.textContent || "";
-							if (t.includes("google.maps.LatLng") || t.includes("initialize_property_map"))
-								return t;
-						}
-						return null;
+					await detailPage.goto(property.link, {
+						waitUntil: "domcontentloaded",
+						timeout: 30000,
 					});
 
-					if (scriptText) {
-						const m = scriptText.match(
-							/google\.maps\.LatLng\(\s*([\-0-9.]+)\s*,\s*([\-0-9.]+)\s*\)/
-						);
-						if (m) {
-							coords = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-						}
-					}
+					const html = await detailPage.content();
+					coords = extractCoordinatesFromHTML(html);
+
+					await detailPage.close();
 				} catch (err) {
 					// ignore detail errors
 				} finally {
@@ -135,31 +127,49 @@ async function scrapeHomesea() {
 				}
 
 				try {
-					const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
+					const priceClean = property.price
+						? property.price.replace(/[^0-9.]/g, "")
+						: null;
 
-					await updatePriceByPropertyURL(
-						property.link,
-						priceClean,
+					const priceNum = priceClean ? parseFloat(priceClean) : null;
+
+					if (!priceNum) {
+						logger.info(`No valid price for ${property.title}`);
+						continue;
+					}
+
+					const sold = isSoldProperty(property.price, property.title);
+					const formattedPrice = formatPriceUk(priceNum);
+
+					await updatePriceByPropertyURLOptimized(
+						property.link.trim(),
+						formattedPrice,
 						property.title,
 						property.bedrooms,
 						AGENT_ID,
 						isRental,
 						coords.latitude,
-						coords.longitude
+						coords.longitude,
+						sold
 					);
 
 					totalSaved++;
 					totalScraped++;
 
+					// ✅ NEW CLEAN DEBUG CONSOLE
 					console.log(
-						`✅ ${property.title} - ${formatPrice(priceClean)} - ${
-							coords.latitude && coords.longitude
-								? `${coords.latitude}, ${coords.longitude}`
-								: "No coords"
-						}`
+						`✅ [${isRental ? "RENTALS" : "SALES"}]`,
+						"\n Title:      ", property.title,
+						"\n PriceText:  ", formattedPrice,
+						"\n Bedrooms:   ", property.bedrooms,
+						"\n Latitude:   ", coords.latitude,
+						"\n Longitude:  ", coords.longitude,
+						"\n Link:       ", property.link,
+						"\n------------------------------------------------"
 					);
+
 				} catch (dbErr) {
-					console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+					logger.error(`DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 				}
 			}
 		},

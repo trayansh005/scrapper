@@ -1,36 +1,43 @@
 {
-  "requestsFinished": 110,
+  "requestsFinished": 0,
   "requestsFailed": 0,
-  "requestsRetries": 1,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 24390,
-  "requestMaxDurationMillis": 88644,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 4408523,
-  "crawlerStartedAt": "2026-02-26T11:07:30.736Z",
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-02-27T12:23:00.705Z",
   "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-02-26T12:21:57.749Z",
-  "crawlerRuntimeMillis": 4467213,
-  "crawlerLastStartTimestamp": 1772104050536,
-  "requestRetryHistogram": [
-    109,
-    1
-  ],
+  "statsPersistedAt": "2026-02-27T12:37:01.157Z",
+  "crawlerRuntimeMillis": 840786,
+  "crawlerLastStartTimestamp": 1772194980371,
+  "requestRetryHistogram": [],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 40077,
-  "requestTotalDurationMillis": 4408523,
-  "requestsTotal": 110,
-  "requestsWithStatusCode": {
-    "200": 110
-  },
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 0,
+  "requestsTotal": 0,
+  "requestsWithStatusCode": {},
   "errors": {},
   "retryErrors": {
     "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:166:17": {
       "missing error code": {
         "Error": {
-          "page.goto: net::ERR_NETWORK_IO_SUSPENDED at https://www.fineandcountry.co.uk/sales/property-for-sale/united-kingdom?currency=GBP&addOptions=sold&sortBy=price-high&country=GB&address=United%20Kingdom&page=344": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 9
+          },
+          "page.goto: net::ERR_TIMED_OUT at _": {
+            "count": 15
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 60 seconds.": {
             "count": 1
           }
         }
