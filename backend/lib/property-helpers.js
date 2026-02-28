@@ -205,20 +205,42 @@ async function extractCoordinatesFromHTML(html) {
  */
 
 function formatPriceUk(value) {
-	if (value === null || value === undefined) return null;
+	if (value === null || value === undefined || value === "") return null;
+
+	// If it's already a number, format it directly
+	if (typeof value === "number") {
+		// Round to nearest integer if needed (database usually stores as int)
+		return Math.round(value)
+			.toString()
+			.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	}
+
 	const text = value.toString();
-	const match = text.match(/£?\s*[\d,]+/);
+	const match = text.match(/£?\s*[\d,]+(\.\d+)?/);
 	if (!match) return null;
-	// remove currency and spaces
-	const cleaned = match[0].replace(/£/g, "").replace(/\s/g, "");
-	// remove any non-digit characters except commas
-	const digitsWithCommas = cleaned.replace(/[^\d,]/g, "");
-	// strip commas to get raw digits, validate
-	const digitsOnly = digitsWithCommas.replace(/,/g, "");
-	if (!digitsOnly || !/\d+/.test(digitsOnly)) return null;
-	// format with UK commas
-	const formatted = digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-	return formatted;
+
+	// Remove currency, spaces and commas to get raw digits
+	const cleaned = match[0].replace(/[£\s,]/g, "");
+
+	// Parse as float to handle decimals, then format as integer string with commas
+	const num = parseFloat(cleaned);
+	if (isNaN(num)) return null;
+
+	return Math.round(num)
+		.toString()
+		.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/**
+ * Formats a price for display with currency symbol and rental suffix
+ * @param {number|string} price - The price value
+ * @param {boolean} isRental - Whether it's a rental property
+ * @returns {string} - Formatted display string
+ */
+function formatPriceDisplay(price, isRental) {
+	const formatted = formatPriceUk(price);
+	if (!formatted) return isRental ? "£0 pcm" : "£0";
+	return `£${formatted}${isRental ? " pcm" : ""}`;
 }
 
 /**
@@ -269,6 +291,7 @@ module.exports = {
 	isSoldProperty,
 	parsePrice,
 	formatPriceUk,
+	formatPriceDisplay,
 	extractCoordinatesFromHTML,
 	extractBedroomsFromHTML,
 };

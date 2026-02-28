@@ -29,6 +29,7 @@ async function updatePriceByPropertyURLOptimized(
 			}
 
 			const linkTrimmed = link.trim();
+			const formattedPrice = formatPriceUk(price);
 
 			// Check if property exists for THIS agent and get current price
 			const [propertiesUrlRows] = await promisePool.query(
@@ -38,7 +39,6 @@ async function updatePriceByPropertyURLOptimized(
 
 			if (propertiesUrlRows.length > 0) {
 				const currentPrice = propertiesUrlRows[0].price;
-				const formattedPrice = formatPriceUk(price);
 
 				// UPDATE existing property - always update updated_at, but only log if price changed
 				const [result] = await promisePool.query(
@@ -110,9 +110,11 @@ async function processPropertyWithCoordinates(
 			finalBedrooms = extractBedroomsFromHTML(html);
 		}
 
+		const formattedPrice = formatPriceUk(price);
+
 		await updatePriceByPropertyURL(
 			url,
-			formatPriceUk(price),
+			formattedPrice,
 			title,
 			finalBedrooms,
 			agentId,
@@ -123,7 +125,7 @@ async function processPropertyWithCoordinates(
 
 		if (DB_VERBOSE_LOGS) {
 			console.log(
-				`✅ New property: ${title} (£${formatPriceUk(price)}) - Coords: ${latitude}, ${longitude}${
+				`✅ New property: ${title} (£${formattedPrice}) - Coords: ${latitude}, ${longitude}${
 					finalBedrooms ? `, Beds: ${finalBedrooms}` : ""
 				}`,
 			);

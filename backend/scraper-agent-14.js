@@ -5,8 +5,16 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -36,11 +44,6 @@ function sleep(ms) {
 function buildPagedUrl(urlBase, pageNum) {
 	if (pageNum <= 1) return urlBase;
 	return `${urlBase}?page=${pageNum}`;
-}
-
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "£0 pcm" : "£0";
-	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
 // ============================================================================
@@ -195,7 +198,7 @@ async function handleListingPage({ page, request }) {
 				if (processedUrls.has(property.link)) return;
 				processedUrls.add(property.link);
 
-				const price = formatPriceUk(property.priceRaw);
+				const price = parsePrice(property.priceRaw);
 				let bedrooms = null;
 				const bedMatch = property.bedText.match(/\d+/);
 				if (bedMatch) bedrooms = parseInt(bedMatch[0]);
@@ -221,13 +224,14 @@ async function handleListingPage({ page, request }) {
 				if (!result.isExisting && !result.error) {
 					const detail = await scrapePropertyDetail(page.context(), property);
 
-					await updatePriceByPropertyURL(
+					await processPropertyWithCoordinates(
 						property.link.trim(),
 						price,
 						property.title,
 						bedrooms,
 						AGENT_ID,
 						isRental,
+						null, // HTML not needed if we have coords
 						detail?.coords?.latitude || null,
 						detail?.coords?.longitude || null,
 					);

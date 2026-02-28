@@ -6,11 +6,15 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
-	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
@@ -33,11 +37,6 @@ const processedUrls = new Set();
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "£0 pcm" : "£0";
-	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
 function blockNonEssentialResources(page) {
@@ -135,12 +134,7 @@ async function handleListingPage({ page, request }) {
 				const title = linkEl.querySelector("h3")?.textContent?.trim() || "Property";
 
 				// Extract price - it's in a generic with £ symbol
-				let priceRaw = "";
-				const allText = linkEl.innerText;
-				const priceMatch = allText.match(/£[\d,]+(?:,\d{3})*/);
-				if (priceMatch) {
-					priceRaw = priceMatch[0];
-				}
+				const priceRaw = linkEl.innerText || "";
 
 				// Extract bedrooms - text after bed icon
 				let bedText = "";
@@ -169,7 +163,7 @@ async function handleListingPage({ page, request }) {
 		if (processedUrls.has(property.link)) continue;
 		processedUrls.add(property.link);
 
-		const price = formatPriceUk(property.priceRaw);
+		const price = parsePrice(property.priceRaw);
 		let bedrooms = null;
 		const bedMatch = property.bedText.match(/\d+/);
 		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
@@ -188,7 +182,7 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
-		let propertyAction = "SEEN";
+		let propertyAction = "UNCHANGED";
 
 		if (result.updated) {
 			stats.totalSaved++;

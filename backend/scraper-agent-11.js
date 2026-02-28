@@ -4,9 +4,17 @@
 // node backend/scraper-agent-11.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -30,11 +38,6 @@ const processedUrls = new Set();
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "£0 pcm" : "£0";
-	return `£${price}${isRental ? " pcm" : ""}`;
 }
 
 // using shared blockNonEssentialResources from lib/scraper-utils.js
@@ -95,13 +98,6 @@ async function handleListingPage({ page, request }) {
 	}
 
 	const properties = await page.evaluate(() => {
-		function cleanPrice(raw) {
-			if (!raw) return null;
-			// Extract the first number with commas (UK style)
-			const match = raw.match(/£?\s*([\d,]+)/);
-			if (!match) return null;
-			return match[1];
-		}
 		try {
 			const results = [];
 			const cards = Array.from(document.querySelectorAll("._property"));
@@ -117,10 +113,8 @@ async function handleListingPage({ page, request }) {
 				const titleElem = card.querySelector("._property-address a");
 				const title = titleElem ? titleElem.textContent.trim() : "Property";
 				// Price
-				const priceElem = card.querySelector("span._property-price");
-				const priceTextRaw = priceElem ? priceElem.textContent : null;
-				const priceText = cleanPrice(priceTextRaw);
-				if (!priceText) continue; // skip if price is not valid
+				const priceRaw = priceElem ? priceElem.textContent : "";
+				if (!priceRaw) continue; // skip if price is not valid
 				// Status (e.g. For Sale, Let)
 				const statusElem = card.querySelector("span._property-availability");
 				const statusText = statusElem ? statusElem.textContent.trim() : "";
@@ -148,7 +142,7 @@ async function handleListingPage({ page, request }) {
 					title,
 					bedrooms,
 					statusText,
-					price: priceText,
+					priceRaw,
 					summary,
 				});
 			}
@@ -176,16 +170,16 @@ async function handleListingPage({ page, request }) {
 		processedUrls.add(property.link);
 
 		// Extract price and bedrooms from listing
-		const formattedPrice = formatPriceUk(property.price);
+		const price = parsePrice(property.priceRaw);
 		let bedrooms = property.bedrooms;
-		if (!formattedPrice) {
+		if (!price) {
 			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
 			continue;
 		}
 
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
-			formattedPrice,
+			price,
 			property.title,
 			bedrooms,
 			AGENT_ID,
@@ -201,13 +195,14 @@ async function handleListingPage({ page, request }) {
 
 		if (!result.isExisting && !result.error) {
 			const detail = await scrapePropertyDetail(page.context(), property);
-			await updatePriceByPropertyURL(
+			await processPropertyWithCoordinates(
 				property.link.trim(),
-				formattedPrice,
+				price,
 				property.title,
 				bedrooms,
 				AGENT_ID,
 				isRental,
+				null, // HTML not needed if we have coords
 				detail?.coords?.latitude || null,
 				detail?.coords?.longitude || null,
 			);
@@ -228,7 +223,7 @@ async function handleListingPage({ page, request }) {
 			pageNum,
 			label,
 			property.title.substring(0, 40),
-			formatPriceDisplay(formattedPrice, isRental),
+			formatPriceDisplay(price, isRental),
 			property.link,
 			isRental,
 			totalPages,

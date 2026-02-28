@@ -3,9 +3,8 @@ const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
-	formatPriceUk,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -40,7 +39,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		await processPropertyWithCoordinates(
 			property.link.trim(),
-			formatPriceUk(property.price),
+			property.price,
 			property.title,
 			property.bedrooms,
 			AGENT_ID,
@@ -136,7 +135,7 @@ async function handleListingPage({ page, request }) {
 					pageNum,
 					label,
 					property.title,
-					formatPriceUk(priceNum),
+					formatPriceDisplay(priceNum, isRental),
 					property.link,
 					isRental,
 					totalPages,

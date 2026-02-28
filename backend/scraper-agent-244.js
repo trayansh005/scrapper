@@ -1,14 +1,13 @@
 const { PlaywrightCrawler } = require("crawlee");
 const { updateRemoveStatus } = require("./db");
 const {
-	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 
 const AGENT_ID = 244;
 const logger = createAgentLogger(AGENT_ID);
@@ -34,7 +33,7 @@ const PROPERTY_TYPES = [
 /**
  * Scrapes detail page coordinates and property information
  */
-async function scrapePropertyDetail(browserContext, property, isRental) {
+async function scrapePropertyDetail(browserContext, property, isRental, price) {
 	const detailPage = await browserContext.newPage();
 	try {
 		await detailPage.goto(property.propertyUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
@@ -48,7 +47,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		await processPropertyWithCoordinates(
 			property.propertyUrl,
-			property.price,
+			price,
 			property.address,
 			property.bedrooms,
 			AGENT_ID,
@@ -146,15 +145,14 @@ async function handleListingPage({ page, request }) {
 						`New property, scraping details: ${property.propertyUrl}`,
 						totalPages,
 					);
-					property.price = formatPriceUk(priceNum);
-					await scrapePropertyDetail(page.context(), property, isRental);
+					await scrapePropertyDetail(page.context(), property, isRental, priceNum);
 				}
 
 				logger.property(
 					pageNum,
 					label,
 					property.address,
-					formatPriceUk(priceNum) || "Price TBD",
+					formatPriceDisplay(priceNum, isRental) || "Price TBD",
 					property.propertyUrl,
 					isRental,
 					totalPages,
