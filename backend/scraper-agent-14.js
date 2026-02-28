@@ -198,14 +198,14 @@ async function scrapeChestertons() {
 	const scrapeStartTime = new Date();
 
 	const PROPERTY_TYPES = [
-		// {
-		// 	channel: "sales",
-		// 	urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
-		// 	isRental: false,
-		// 	label: "SALES",
-		// 	totalRecords: 1747,
-		// 	recordsPerPage: 50,
-		// },
+		{
+			channel: "sales",
+			urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
+			isRental: false,
+			label: "SALES",
+			totalRecords: 1747,
+			recordsPerPage: 50,
+		},
 		{
 			channel: "lettings",
 			urlBase: "https://www.chestertons.co.uk/properties/lettings/status-available",
