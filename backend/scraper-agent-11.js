@@ -4,7 +4,7 @@
 // node backend/scraper-agent-11.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
@@ -23,12 +23,29 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 11;
 const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
 	savedRentals: 0,
 };
+
+const PROPERTY_TYPES = [
+	{
+		baseUrl:
+			"https://vhhomes.co.uk/search?type=buy&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394",
+		totalPages: 5,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		baseUrl:
+			"https://vhhomes.co.uk/search?type=rent&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394",
+		totalPages: 1,
+		isRental: true,
+		label: "LETTINGS",
+	},
+];
 
 const processedUrls = new Set();
 
@@ -92,9 +109,9 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
-		await page.waitForSelector("a", { timeout: 15000 });
+		await page.waitForSelector("._property", { timeout: 15000 });
 	} catch (e) {
-		logger.error("Page load issue", e, pageNum, label);
+		logger.warn("No properties found with current selectors", pageNum, label);
 	}
 
 	const properties = await page.evaluate(() => {
@@ -113,7 +130,8 @@ async function handleListingPage({ page, request }) {
 				const titleElem = card.querySelector("._property-address a");
 				const title = titleElem ? titleElem.textContent.trim() : "Property";
 				// Price
-				const priceRaw = priceElem ? priceElem.textContent : "";
+				const priceElem = card.querySelector("._property-price");
+				const priceRaw = priceElem ? priceElem.textContent.trim() : "";
 				if (!priceRaw) continue; // skip if price is not valid
 				// Status (e.g. For Sale, Let)
 				const statusElem = card.querySelector("span._property-availability");
@@ -124,8 +142,14 @@ async function handleListingPage({ page, request }) {
 				if (roomsContainer) {
 					const spans = Array.from(roomsContainer.querySelectorAll("span"));
 					for (const span of spans) {
-						const svgTitle = span.querySelector("svg title");
-						if (svgTitle && svgTitle.textContent.toLowerCase().includes("room")) {
+						const svgTitle = span.querySelector("svg title")?.textContent?.toLowerCase() || "";
+						if (
+							svgTitle.includes("room") ||
+							span
+								.querySelector("svg[viewBox='0 0 100 100'] title")
+								?.textContent?.toLowerCase()
+								?.includes("room")
+						) {
 							const numMatch = (span.textContent || "").match(/\d+/);
 							if (numMatch) {
 								bedrooms = parseInt(numMatch[0], 10);
@@ -186,10 +210,10 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
-		let propertyAction = "SEEN";
+		let propertyAction = "UNCHANGED";
 
 		if (result.updated) {
-			stats.totalSaved++;
+			counts.totalSaved++;
 			propertyAction = "UPDATED";
 		}
 
@@ -206,15 +230,15 @@ async function handleListingPage({ page, request }) {
 				detail?.coords?.latitude || null,
 				detail?.coords?.longitude || null,
 			);
-			stats.totalSaved++;
-			stats.totalScraped++;
-			if (isRental) stats.savedRentals++;
-			else stats.savedSales++;
+			counts.totalSaved++;
+			counts.totalScraped++;
+			if (isRental) counts.savedRentals++;
+			else counts.savedSales++;
 			propertyAction = "CREATED";
 		} else if (result.isExisting && result.updated) {
-			stats.totalScraped++;
-			if (isRental) stats.savedRentals++;
-			else stats.savedSales++;
+			counts.totalScraped++;
+			if (isRental) counts.savedRentals++;
+			else counts.savedSales++;
 		} else if (result.error) {
 			propertyAction = "ERROR";
 		}
@@ -232,28 +256,11 @@ async function handleListingPage({ page, request }) {
 
 		await sleep(500);
 	}
-
-	// Check for next page and queue it
-	const nextPageNum = pageNum + 1;
-	const nextPageUrl = isRental
-		? `https://vhhomes.co.uk/search?type=rent&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=${nextPageNum}`
-		: `https://vhhomes.co.uk/search?type=buy&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=${nextPageNum}`;
-	if (properties.length >= 10 && pageNum < 50) {
-		logger.page(pageNum, label, `Queuing next page: ${nextPageNum}`, totalPages);
-		await crawler.addRequests([
-			{
-				url: nextPageUrl,
-				userData: { pageNum: nextPageNum, totalPages: 50, isRental, label },
-			},
-		]);
-	}
 }
 
 // ============================================================================
 // CRAWLER SETUP
 // ============================================================================
-
-let crawler; // Global crawler instance for recursion
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
@@ -286,47 +293,58 @@ function createCrawler(browserWSEndpoint) {
 
 async function scrapeVHHomes() {
 	logger.step("Starting VHHomes scraper...");
+
 	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
+
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-	// Scrape sales
-	logger.step("SALES");
-	crawler = createCrawler(browserWSEndpoint);
-	try {
-		await crawler.run([
-			{
-				url: `https://vhhomes.co.uk/search?type=buy&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=${startPage}`,
-				userData: { pageNum: startPage, totalPages: 50, isRental: false, label: "SALES" },
-			},
-		]);
-	} catch (error) {
-		logger.error("Error during sales scraping", error);
-	} finally {
-		await crawler.teardown();
+
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const allRequests = [];
+	for (const type of PROPERTY_TYPES) {
+		logger.step(`Queueing ${type.label} (${type.totalPages} pages)`);
+		for (let pg = Math.max(1, startPage); pg <= type.totalPages; pg++) {
+			allRequests.push({
+				url: `${type.baseUrl}&page=${pg}`,
+				userData: {
+					pageNum: pg,
+					isRental: type.isRental,
+					label: type.label,
+					totalPages: type.totalPages,
+				},
+			});
+		}
 	}
-	// Clear processed URLs for rentals
-	processedUrls.clear();
-	// Scrape rentals
-	logger.step("LETTINGS");
-	crawler = createCrawler(browserWSEndpoint);
-	try {
-		await crawler.run([
-			{
-				url: `https://vhhomes.co.uk/search?type=rent&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=${startPage}`,
-				userData: { pageNum: startPage, totalPages: 50, isRental: true, label: "LETTINGS" },
-			},
-		]);
-	} catch (error) {
-		logger.error("Error during rentals scraping", error);
-	} finally {
-		await crawler.teardown();
+
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	} else {
+		logger.warn("No requests to process.");
 	}
-	// Print summary
+
 	logger.step(
-		`Summary - Total scraped: ${stats.totalScraped}, Total updated: ${stats.totalSaved}, New sales: ${stats.savedSales}, New rentals: ${stats.savedRentals}`,
+		`Completed VHHomes - Total scraped: ${counts.totalScraped}, Total updated: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // Run the scraper
-scrapeVHHomes().catch((error) => logger.error("Unhandled scraper error", error));
+scrapeVHHomes()
+	.then(() => {
+		logger.step("All done!");
+		process.exit(0);
+	})
+	.catch((error) => {
+		logger.error("Unhandled scraper error", error);
+		process.exit(1);
+	});

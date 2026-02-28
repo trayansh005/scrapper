@@ -1,0 +1,9 @@
+{
+	"id": "J1pBen4HUzybb1h",
+	"json": "{\"id\":\"J1pBen4HUzybb1h\",\"url\":\"https://vhhomes.co.uk/search?type=buy&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=3\",\"uniqueKey\":\"https://vhhomes.co.uk/search?page=3&per-page=10&sort=price-high&status=available&status-ids=371%2C385%2C391%2C1394&type=buy\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":50}}",
+	"method": "GET",
+	"orderNo": 1772270419857,
+	"retryCount": 0,
+	"uniqueKey": "https://vhhomes.co.uk/search?page=3&per-page=10&sort=price-high&status=available&status-ids=371%2C385%2C391%2C1394&type=buy",
+	"url": "https://vhhomes.co.uk/search?type=buy&status=available&per-page=10&sort=price-high&status-ids=371,385,391,1394&page=3"
+}

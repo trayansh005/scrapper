@@ -8,7 +8,12 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { logMemoryUsage, blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -62,13 +67,13 @@ const SELECTORS = {
 };
 
 const PROPERTY_TYPES = [
-	// {
-	//   urlBase: "https://www.romans.co.uk/properties/for-sale",
-	//   isRental: false,
-	//   label: "SALES",
-	//   totalRecords: 876,
-	//   recordsPerPage: 8,
-	// },
+	{
+		urlBase: "https://www.romans.co.uk/properties/for-sale",
+		isRental: false,
+		label: "SALES",
+		totalRecords: 876,
+		recordsPerPage: 8,
+	},
 	{
 		urlBase: "https://www.romans.co.uk/properties/to-rent",
 		isRental: true,
@@ -82,9 +87,11 @@ const PROPERTY_TYPES = [
 // STATE
 // ============================================================================
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
 // ============================================================================
@@ -97,11 +104,6 @@ function sleep(ms) {
 
 function randBetween(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	return "£" + Number(price).toLocaleString("en-GB");
 }
 
 function getRandomUserAgent() {
@@ -247,12 +249,6 @@ async function extractCoordinates(htmlContent, detailPage) {
 // PROPERTY PARSING
 // ============================================================================
 
-function parsePrice(priceText) {
-	if (!priceText) return null;
-	const digits = priceText.replace(/[^0-9]/g, "");
-	return digits ? parseInt(digits) : null;
-}
-
 function parseBedrooms($card) {
 	const bedEl = $card.find(SELECTORS.BEDROOMS_ICON);
 
@@ -357,17 +353,14 @@ async function scrapePropertyDetail(browserContext, property) {
 			coords.longitude,
 		);
 
-		stats.totalScraped++;
-		stats.totalSaved++;
-
-		const coordsStr =
-			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
+		counts.totalScraped++;
+		counts.totalSaved++;
 
 		logger.property(
 			0,
 			"",
 			property.title ? property.title.substring(0, 40) : "",
-			formatPrice(property.price),
+			formatPriceDisplay(property.price, property.isRental),
 			property.link,
 			property.isRental,
 			0,
@@ -383,9 +376,9 @@ async function scrapePropertyDetail(browserContext, property) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData || {};
+	const { pageNum, isRental, label, totalPages } = request.userData || {};
 
-	logger.page(pageNum, label, request.url);
+	logger.page(pageNum, label, request.url, totalPages);
 
 	await setupPageHeaders(page);
 	await navigateToPage(page, request.url);
@@ -398,7 +391,7 @@ async function handleListingPage({ page, request }) {
 	// Parse properties from listing page
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
-	logger.page(pageNum, label, `Found ${properties.length} properties`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	// Process each property
 	for (const property of properties) {
@@ -418,16 +411,30 @@ async function handleListingPage({ page, request }) {
 				pageNum,
 				label,
 				property.title.substring(0, 40),
-				formatPrice(property.price),
+				formatPriceDisplay(property.price, isRental),
 				property.link,
 				isRental,
-				0,
+				totalPages,
 				"CREATED",
 			);
 			await scrapePropertyDetail(page.context(), {
 				...property,
 				isRental,
 			});
+		} else {
+			let propertyAction = result.updated ? "UPDATED" : "UNCHANGED";
+			if (result.updated) counts.totalSaved++;
+
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				propertyAction,
+			);
 		}
 	}
 }
@@ -438,7 +445,7 @@ async function handleListingPage({ page, request }) {
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
-		maxConcurrency: 2,
+		maxConcurrency: 1,
 		maxRequestRetries: 3,
 		requestHandlerTimeoutSecs: 120,
 		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
@@ -459,39 +466,6 @@ function createCrawler(browserWSEndpoint) {
 // PAGE QUEUEING
 // ============================================================================
 
-function generatePageRequests(propertyType, startPage) {
-	const totalPages =
-		propertyType.totalRecords && propertyType.recordsPerPage
-			? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
-			: 1;
-
-	logger.step(`Queueing ${propertyType.label} pages: ${totalPages}`);
-
-	const validStartPage = startPage > 0 && startPage <= totalPages ? startPage : 1;
-
-	logger.step(`Starting from page ${validStartPage} to ${totalPages}`);
-
-	const requests = [];
-
-	for (let page = validStartPage; page <= validStartPage; page++) {
-		// Romans uses /page-N/ format
-		const url = `${propertyType.urlBase}/page-${page}/`;
-		const uniqueKey = `${propertyType.label}_page_${page}`;
-
-		requests.push({
-			url,
-			uniqueKey,
-			userData: {
-				pageNum: page,
-				isRental: propertyType.isRental,
-				label: propertyType.label,
-			},
-		});
-	}
-
-	return requests;
-}
-
 // ============================================================================
 // MAIN SCRAPER LOGIC
 // ============================================================================
@@ -500,25 +474,53 @@ async function scrapeRomans() {
 	logger.step(`Starting Romans scraper...`);
 	logMemoryUsage("START");
 
+	const args = process.argv.slice(2);
+	const startPage = getStartingPage(args);
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
+
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
-	const startPage = getStartingPage(process.argv.slice(2));
 
-	// Process each property type
-	for (const propertyType of PROPERTY_TYPES) {
-		const requests = generatePageRequests(propertyType, startPage);
+	const allRequests = [];
+	for (const type of PROPERTY_TYPES) {
+		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+		const validStartPage = startPage > 0 && startPage <= totalPages ? startPage : 1;
 
-		await crawler.addRequests(requests);
-		await crawler.run();
+		logger.step(`Queueing ${type.label} pages: ${totalPages} (starting from ${validStartPage})`);
 
-		logMemoryUsage(`After ${propertyType.label}`);
+		for (let pg = validStartPage; pg <= totalPages; pg++) {
+			allRequests.push({
+				url: `${type.urlBase}/page-${pg}/`,
+				userData: {
+					pageNum: pg,
+					totalPages,
+					isRental: type.isRental,
+					label: type.label,
+				},
+			});
+		}
+	}
+
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	} else {
+		logger.warn("No pages to scrape with current arguments.");
 	}
 
 	logger.step(
-		`Completed Romans - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Romans - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
+
 	logMemoryUsage("END");
 }
 
@@ -529,7 +531,6 @@ async function scrapeRomans() {
 (async () => {
 	try {
 		await scrapeRomans();
-		await updateRemoveStatus(AGENT_ID);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (error) {

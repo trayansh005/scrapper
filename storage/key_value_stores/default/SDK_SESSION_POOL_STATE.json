@@ -1,0 +1,90 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_werSgVd08M",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-28T11:48:45.760Z",
+      "createdAt": "2026-02-28T10:58:45.760Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ZZhJVvgSAe",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ctesius2_session",
+            "value": "dTZDb3czOHhSbWRqMEZqMnFLY0ZYWnVDb05TWDVlYk1kNUQvT1grdmdtQjRtc0ZTcllmYU5rU3FiV0F3enZjV1FEYkdpWFhlTkFwZExxOG9VUjZWOVRQNDdhRmhsWmY5bnRncThHR0xKQUZoZjZnV2JpdktQcDl6WmZWejBKbWRCdzJDTlRxRGRNa2RpajVhYUVSd1RRPT0tLU44ZHVrVjF4L2FTaHBWeTNWSWRRc1E9PQ%3D%3D--dbd5b6fa76221297b76a499f41de5e766046e2b6",
+            "expires": "2026-02-28T11:48:53.721Z",
+            "domain": "www.bairstoweves.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-02-28T10:58:53.724Z",
+            "lastAccessed": "2026-02-28T10:58:53.724Z"
+          },
+          {
+            "key": "_ga_XMD509BE32",
+            "value": "GS2.1.s1772276331$o1$g0$t1772276331$j60$l0$h0",
+            "expires": "2027-04-04T10:58:51.760Z",
+            "domain": "bairstoweves.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T10:58:53.725Z",
+            "lastAccessed": "2026-02-28T10:58:53.725Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.209351719.1772276332",
+            "expires": "2027-04-04T10:58:51.760Z",
+            "domain": "bairstoweves.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T10:58:53.730Z",
+            "lastAccessed": "2026-02-28T10:58:53.730Z"
+          },
+          {
+            "key": "CookieScriptConsent",
+            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
+            "expires": "2026-03-30T10:58:52.000Z",
+            "domain": "www.bairstoweves.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-02-28T10:58:53.732Z",
+            "lastAccessed": "2026-02-28T10:58:53.732Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-28T11:48:45.765Z",
+      "createdAt": "2026-02-28T10:58:45.765Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

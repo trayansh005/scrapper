@@ -1,36 +1,28 @@
-// Bairstow Eves scraper using Playwright with Crawlee
+// Bairstow Eves scraper using Playwright to bypass Cloudflare and fetch `.ljson` API
 // Agent ID: 13
 // Usage:
-// node backend/scraper-agent-13.js
+// node backend/scraper-agent-13.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const {
-	extractCoordinatesFromHTML,
-	isSoldProperty,
-	parsePrice,
-	formatPriceDisplay,
-} = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
-const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 13;
 const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
 	savedRentals: 0,
 };
-
-const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -39,8 +31,6 @@ const processedUrls = new Set();
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-// using shared blockNonEssentialResources from lib/scraper-utils.js
 
 // ============================================================================
 // BROWSERLESS SETUP
@@ -54,158 +44,125 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property) {
-	await sleep(1500);
-
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await blockNonEssentialResources(detailPage);
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		});
-
-		await detailPage.waitForTimeout(800);
-
-		const htmlContent = await detailPage.content();
-		const coords = await extractCoordinatesFromHTML(htmlContent);
-
-		return {
-			coords: {
-				latitude: coords.latitude || null,
-				longitude: coords.longitude || null,
-			},
-		};
-	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}`, error);
-		return null;
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
 // REQUEST HANDLER
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label, totalPages } = request.userData;
+	const { pageNum, isRental, label, totalPages, apiUrl } = request.userData;
 	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
-		await page.waitForSelector(".card", { timeout: 15000 });
-	} catch (e) {
-		logger.error("Listing container not found", e, pageNum, label);
-	}
+		// Wait for CF challenge to clear and normal page to load
+		await page.waitForTimeout(3000);
 
-	const properties = await page.evaluate(() => {
-		try {
-			const results = [];
-			const seenLinks = new Set();
+		// Attempt to wait for the main React container to ensure CF is bypassed
+		await page.waitForSelector("#homeflow-search-results", { timeout: 15000 }).catch(() => {});
 
-			const cards = Array.from(document.querySelectorAll(".card"));
-
-			for (const card of cards) {
-				const linkEl = card.querySelector("a.card__link");
-				let href = linkEl?.getAttribute("href");
-				if (!href) continue;
-
-				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
-				if (seenLinks.has(link)) continue;
-				seenLinks.add(link);
-
-				const title = card.querySelector(".card__text-content")?.textContent?.trim() || "Property";
-				const priceRaw = card.querySelector(".card__heading")?.textContent?.trim() || "";
-
-				const bedEl = card.querySelector(".card-content__spec-list-number");
-				const bedText = bedEl ? bedEl.textContent.trim() : "";
-				const statusText = card.innerText || "";
-
-				results.push({ link, title, priceRaw, bedText, statusText });
+		// Now execute a fetch INSIDE the browser context to get the .ljson!
+		// Because we're inside the browser, Cloudflare cookies are automatically attached.
+		const data = await page.evaluate(async (url) => {
+			try {
+				const response = await fetch(url, {
+					headers: {
+						accept: "application/json, text/javascript, */*; q=0.01",
+						"x-requested-with": "XMLHttpRequest",
+					},
+				});
+				if (!response.ok) return null;
+				return await response.json();
+			} catch (err) {
+				return null;
 			}
-			return results;
-		} catch (e) {
-			return [];
-		}
-	});
+		}, apiUrl);
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
-
-	for (const property of properties) {
-		if (!property.link) continue;
-
-		if (isSoldProperty(property.statusText || "")) continue;
-
-		if (processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
-
-		const price = parsePrice(property.priceRaw);
-		let bedrooms = null;
-		const bedMatch = property.bedText.match(/\d+/);
-		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
-
-		if (!price) {
-			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
-			continue;
+		if (!data || !data.properties) {
+			logger.error(`Failed to fetch JSON API data inside browser on page ${pageNum} for ${label}.`);
+			return;
 		}
 
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			price,
-			property.title,
-			bedrooms,
-			AGENT_ID,
-			isRental,
-		);
+		const properties = data.properties || [];
+		logger.page(pageNum, label, `Found ${properties.length} properties via JSON API`, totalPages);
 
-		let propertyAction = "SEEN";
+		for (const prop of properties) {
+			const relativeLink = prop.url;
+			if (!relativeLink) continue;
 
-		if (result.updated) {
-			stats.totalSaved++;
-			propertyAction = "UPDATED";
-		}
+			const link = relativeLink.startsWith("http")
+				? relativeLink
+				: `https://www.bairstoweves.co.uk${relativeLink}`;
 
-		if (!result.isExisting && !result.error) {
-			const detail = await scrapePropertyDetail(page.context(), property);
+			// Basic skipping
+			if (isSoldProperty(prop.status || "")) continue;
 
-			await processPropertyWithCoordinates(
-				property.link.trim(),
+			// Price extraction
+			const priceText = prop.priceValue || prop.price || "";
+			const price = parsePrice(priceText.toString());
+
+			if (!price) continue;
+
+			const title = prop.displayAddress || prop.addressWithCommas || "Property";
+			const bedrooms = prop.bedrooms ? parseInt(prop.bedrooms, 10) : null;
+
+			const lat = prop.lat ? parseFloat(prop.lat) : null;
+			const lon = prop.lng ? parseFloat(prop.lng) : null;
+
+			// Check if property exists first
+			const result = await updatePriceByPropertyURLOptimized(
+				link,
 				price,
-				property.title,
+				title,
 				bedrooms,
 				AGENT_ID,
 				isRental,
-				null, // HTML not needed if we have coords
-				detail?.coords?.latitude || null,
-				detail?.coords?.longitude || null,
 			);
 
-			stats.totalSaved++;
-			stats.totalScraped++;
-			if (isRental) stats.savedRentals++;
-			else stats.savedSales++;
-			propertyAction = "CREATED";
-		} else if (result.error) {
-			propertyAction = "ERROR";
+			if (result.updated) {
+				counts.totalSaved++;
+				counts.totalScraped++;
+				if (isRental) counts.savedRentals++;
+				else counts.savedSales++;
+			} else if (result.isExisting) {
+				counts.totalScraped++;
+			}
+
+			let propertyAction = "UNCHANGED";
+			if (result.updated) propertyAction = "UPDATED";
+
+			if (!result.isExisting && !result.error) {
+				propertyAction = "CREATED";
+				// Insert new property with coordinates
+				await processPropertyWithCoordinates(
+					link,
+					price,
+					title,
+					bedrooms,
+					AGENT_ID,
+					isRental,
+					null, // HTML config not needed
+					lat,
+					lon,
+				);
+				counts.totalSaved++;
+				counts.totalScraped++;
+				if (isRental) counts.savedRentals++;
+				else counts.savedSales++;
+			}
+
+			logger.property(
+				pageNum,
+				label,
+				title.substring(0, 40),
+				formatPriceDisplay(price, isRental),
+				link,
+				isRental,
+				totalPages,
+				propertyAction,
+			);
+
+			await sleep(500); // DB politeness delay
 		}
-
-		logger.property(
-			pageNum,
-			label,
-			property.title.substring(0, 40),
-			formatPriceDisplay(price, isRental),
-			property.link,
-			isRental,
-			totalPages,
-			propertyAction,
-		);
-
-		await sleep(3000);
+	} catch (error) {
+		logger.error(`Error processing page ${pageNum} for ${label}`, error);
 	}
 }
 
@@ -219,11 +176,6 @@ function createCrawler(browserWSEndpoint) {
 		maxRequestRetries: 2,
 		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -243,10 +195,12 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeBairstowEves() {
-	logger.step("Starting Bairstow Eves scraper...");
+	logger.step(`Starting Bairstow Eves API scraper (Agent ${AGENT_ID})...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
 	const PROPERTY_TYPES = [
 		{
@@ -283,7 +237,8 @@ async function scrapeBairstowEves() {
 					pageNum: pg,
 					totalPages,
 					isRental: type.isRental,
-					label: `${type.label}_PAGE_${pg}`,
+					label: `${type.label}`,
+					apiUrl: `https://www.bairstoweves.co.uk/${type.urlPath}.ljson?page=${pg}`,
 				},
 			});
 		}
@@ -298,9 +253,15 @@ async function scrapeBairstowEves() {
 	await crawler.run(allRequests);
 
 	logger.step(
-		`Completed Bairstow Eves - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Bairstow Eves - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
-	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -310,7 +271,6 @@ async function scrapeBairstowEves() {
 (async () => {
 	try {
 		await scrapeBairstowEves();
-		await updateRemoveStatus(AGENT_ID);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {

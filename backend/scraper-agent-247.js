@@ -322,7 +322,11 @@ async function run() {
 	logger.step("All done!");
 }
 
-run().catch((err) => {
-	logger.error(`Fatal error: ${err.message}`);
-	process.exit(1);
-});
+run()
+	.then(() => {
+		process.exit(0);
+	})
+	.catch((err) => {
+		logger.error(`Fatal error: ${err.message}`);
+		process.exit(1);
+	});

@@ -1,0 +1,148 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_mXAr4tpxwU",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-28T10:16:22.352Z",
+      "createdAt": "2026-02-28T09:26:22.352Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_nz7Pqvx6kq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "session",
+            "value": "JL8omAh64dWYjdpNuzSicwZI1a8OKNPOgC8l4f2R",
+            "expires": "2026-02-28T10:16:29.249Z",
+            "domain": "www.allsop.co.uk",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-02-28T09:26:29.252Z",
+            "lastAccessed": "2026-02-28T09:26:29.252Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.1151425338.1772270788",
+            "expires": "2026-05-29T09:26:28.000Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.253Z",
+            "lastAccessed": "2026-02-28T09:26:29.253Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.1273911488.1772270788",
+            "expires": "2026-03-01T09:26:28.000Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.259Z",
+            "lastAccessed": "2026-02-28T09:26:29.259Z"
+          },
+          {
+            "key": "_gat_UA-20615595-1",
+            "value": "1",
+            "expires": "2026-02-28T09:27:28.000Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.261Z",
+            "lastAccessed": "2026-02-28T09:26:29.261Z"
+          },
+          {
+            "key": "_gat_UA-21342729-4",
+            "value": "1",
+            "expires": "2026-02-28T09:27:28.000Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.261Z",
+            "lastAccessed": "2026-02-28T09:26:29.261Z"
+          },
+          {
+            "key": "_ga_XCPHDZEZ3M",
+            "value": "GS2.1.s1772270788$o1$g0$t1772270788$j60$l0$h884043426",
+            "expires": "2027-04-04T09:26:28.463Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.262Z",
+            "lastAccessed": "2026-02-28T09:26:29.262Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.544684929.1772270788",
+            "expires": "2027-04-04T09:26:28.464Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.262Z",
+            "lastAccessed": "2026-02-28T09:26:29.262Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.2.1772270788662.904112644292075732",
+            "expires": "2026-05-29T09:26:28.000Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.262Z",
+            "lastAccessed": "2026-02-28T09:26:29.262Z"
+          },
+          {
+            "key": "_ga_V30SE69E39",
+            "value": "GS2.3.s1772270788$o1$g0$t1772270788$j60$l0$h0",
+            "expires": "2027-04-04T09:26:28.811Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.263Z",
+            "lastAccessed": "2026-02-28T09:26:29.263Z"
+          },
+          {
+            "key": "_ga_7BGSHL6GPK",
+            "value": "GS2.3.s1772270788$o1$g0$t1772270788$j60$l0$h0",
+            "expires": "2027-04-04T09:26:28.898Z",
+            "domain": "allsop.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-02-28T09:26:29.263Z",
+            "lastAccessed": "2026-02-28T09:26:29.263Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-02-28T10:16:22.358Z",
+      "createdAt": "2026-02-28T09:26:22.358Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

@@ -1,20 +1,15 @@
-// Chestertons scraper using Playwright with Crawlee
+// Chestertons scraper using Playwright to bypass Cloudflare and fetch API
 // Agent ID: 14
 // Usage:
-// node backend/scraper-agent-14.js
+// node backend/scraper-agent-14.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const {
-	extractCoordinatesFromHTML,
-	isSoldProperty,
-	parsePrice,
-	formatPriceDisplay,
-} = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -23,15 +18,12 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 14;
 const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
 	savedRentals: 0,
 };
-
-const recentPageSignatures = new Map();
-const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -39,11 +31,6 @@ const processedUrls = new Set();
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function buildPagedUrl(urlBase, pageNum) {
-	if (pageNum <= 1) return urlBase;
-	return `${urlBase}?page=${pageNum}`;
 }
 
 // ============================================================================
@@ -58,207 +45,118 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property) {
-	await sleep(700);
-
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await blockNonEssentialResources(detailPage);
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		});
-
-		await detailPage.waitForTimeout(1500);
-
-		const htmlContent = await detailPage.content();
-		const coords = await extractCoordinatesFromHTML(htmlContent);
-
-		return {
-			coords: {
-				latitude: coords.latitude || null,
-				longitude: coords.longitude || null,
-			},
-		};
-	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}`, error);
-		return null;
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
 // REQUEST HANDLER
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	logger.page(pageNum, label, request.url);
-
-	if (pageNum > 1) {
-		const finalUrl = page.url();
-		const expectedPageToken = `page=${pageNum}`;
-		if (!finalUrl.includes(expectedPageToken)) {
-			logger.page(
-				pageNum,
-				label,
-				`Pagination mismatch: requested ${pageNum} landed on ${finalUrl}`,
-			);
-		}
-	}
+	const { pageNum, isRental, label, totalPages, apiUrl } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
-		await page.waitForSelector(".pegasus-property-card", { timeout: 15000 });
-	} catch (e) {
-		logger.error(`Listing container not found on page ${pageNum}`, e);
-	}
+		// Wait for CF challenge to clear and normal page to load
+		await page.waitForTimeout(4000);
 
-	const properties = await page.evaluate((rentalMode) => {
-		try {
-			const results = [];
-			const seenLinks = new Set();
-			const expectedPathPart = rentalMode ? "/lettings/" : "/sales/";
+		// Attempt to wait for a standard element to ensure CF is bypassed
+		await page.waitForSelector("body", { timeout: 15000 }).catch(() => {});
 
-			const cards = Array.from(document.querySelectorAll(".pegasus-property-card"));
-
-			for (const card of cards) {
-				const linkEl = card.querySelector("a[href*='/properties/']");
-				let href = linkEl?.getAttribute("href");
-				if (!href) continue;
-
-				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
-				if (!link.includes(expectedPathPart)) continue;
-				if (seenLinks.has(link)) continue;
-				seenLinks.add(link);
-
-				const title = linkEl.getAttribute("title") || linkEl.textContent?.trim() || "Property";
-
-				let priceRaw = "";
-				const spanEls = Array.from(card.querySelectorAll("span"));
-				for (const span of spanEls) {
-					if (span.textContent.includes("£")) {
-						priceRaw = span.textContent.trim();
-						break;
-					}
-				}
-
-				let bedText = "";
-				const svgEls = Array.from(card.querySelectorAll("svg"));
-				for (const svg of svgEls) {
-					const titleTag = svg.querySelector("title");
-					if (titleTag && titleTag.textContent === "Bedrooms") {
-						bedText = svg.parentElement?.textContent?.trim() || "";
-						break;
-					}
-				}
-
-				const statusText = card.innerText || "";
-
-				results.push({ link, title, priceRaw, bedText, statusText });
+		// Now execute a fetch INSIDE the browser context to get the JSON API data
+		const data = await page.evaluate(async (url) => {
+			try {
+				const response = await fetch(url, {
+					headers: { accept: "application/json, text/plain, */*" },
+				});
+				if (!response.ok) return null;
+				return await response.json();
+			} catch (err) {
+				return null;
 			}
-			return results;
-		} catch (e) {
-			return [];
+		}, apiUrl);
+
+		if (!data || !data.results) {
+			logger.error(`Failed to fetch JSON API data inside browser on page ${pageNum} for ${label}.`);
+			return;
 		}
-	}, isRental);
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`);
+		const properties = data.results || [];
+		logger.page(pageNum, label, `Found ${properties.length} properties via JSON API`, totalPages);
 
-	const pageSignature = properties
-		.map((p) => p.link)
-		.slice(0, 5)
-		.join("|");
-	const signatureKey = isRental ? "LETTINGS" : "SALES";
-	const previousSignature = recentPageSignatures.get(signatureKey);
-	if (pageSignature && previousSignature === pageSignature) {
-		logger.page(
-			pageNum,
-			label,
-			`Warning: ${signatureKey} page ${pageNum} same leading links as previous page`,
-		);
-	}
-	recentPageSignatures.set(signatureKey, pageSignature);
+		for (const prop of properties) {
+			const relativeLink = prop.urlLabelWithKeyword;
+			if (!relativeLink) continue;
 
-	const batchSize = 2;
-	for (let i = 0; i < properties.length; i += batchSize) {
-		const batch = properties.slice(i, i + batchSize);
+			const link = relativeLink.startsWith("http")
+				? relativeLink
+				: `https://www.chestertons.co.uk${relativeLink.startsWith("/") ? "" : "/"}${relativeLink}`;
 
-		await Promise.all(
-			batch.map(async (property) => {
-				if (!property.link) return;
+			// Price extraction
+			const priceText = prop.formattedPrice || prop.priceValue || "";
+			const price = parsePrice(priceText.toString());
 
-				if (isSoldProperty(property.statusText || "")) return;
+			if (!price) continue;
 
-				if (processedUrls.has(property.link)) return;
-				processedUrls.add(property.link);
+			const title = prop.displayAddress || "Property";
+			const bedrooms = prop.bedrooms ? parseInt(prop.bedrooms, 10) : null;
 
-				const price = parsePrice(property.priceRaw);
-				let bedrooms = null;
-				const bedMatch = property.bedText.match(/\d+/);
-				if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+			const lat = prop.lat ? parseFloat(prop.lat) : null;
+			const lon = prop.lng ? parseFloat(prop.lng) : null;
 
-				if (!price) {
-					logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`);
-					return;
-				}
+			// Check if property exists first
+			const result = await updatePriceByPropertyURLOptimized(
+				link,
+				price,
+				title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+			);
 
-				const result = await updatePriceByPropertyURLOptimized(
-					property.link,
+			if (result.updated) {
+				counts.totalSaved++;
+				counts.totalScraped++;
+				if (isRental) counts.savedRentals++;
+				else counts.savedSales++;
+			} else if (result.isExisting) {
+				counts.totalScraped++;
+			}
+
+			let propertyAction = "UNCHANGED";
+			if (result.updated) propertyAction = "UPDATED";
+
+			if (!result.isExisting && !result.error) {
+				propertyAction = "CREATED";
+				// Insert new property with coordinates
+				await processPropertyWithCoordinates(
+					link,
 					price,
-					property.title,
+					title,
 					bedrooms,
 					AGENT_ID,
 					isRental,
+					null, // HTML config not needed
+					lat,
+					lon,
 				);
+				counts.totalSaved++;
+				counts.totalScraped++;
+				if (isRental) counts.savedRentals++;
+				else counts.savedSales++;
+			}
 
-				if (result.updated) {
-					stats.totalSaved++;
-				}
+			logger.property(
+				pageNum,
+				label,
+				title.substring(0, 40),
+				formatPriceDisplay(price, isRental),
+				link,
+				isRental,
+				totalPages,
+				propertyAction,
+			);
 
-				if (!result.isExisting && !result.error) {
-					const detail = await scrapePropertyDetail(page.context(), property);
-
-					await processPropertyWithCoordinates(
-						property.link.trim(),
-						price,
-						property.title,
-						bedrooms,
-						AGENT_ID,
-						isRental,
-						null, // HTML not needed if we have coords
-						detail?.coords?.latitude || null,
-						detail?.coords?.longitude || null,
-					);
-
-					stats.totalSaved++;
-					stats.totalScraped++;
-					if (isRental) stats.savedRentals++;
-					else stats.savedSales++;
-				}
-
-				const categoryLabel = isRental ? "LETTINGS" : "SALES";
-				let propertyAction = "SEEN";
-				if (result.updated) propertyAction = "UPDATED";
-				if (!result.isExisting && !result.error) propertyAction = "CREATED";
-				logger.property(
-					pageNum,
-					label,
-					property.title.substring(0, 40),
-					formatPriceDisplay(price, isRental),
-					property.link,
-					isRental,
-					0,
-					propertyAction,
-				);
-			}),
-		);
-		await sleep(500);
+			await sleep(500); // DB politeness delay
+		}
+	} catch (error) {
+		logger.error(`Error processing page ${pageNum} for ${label}`, error);
 	}
 }
 
@@ -270,6 +168,7 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
 		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
@@ -281,7 +180,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -291,25 +190,29 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeChestertons() {
-	logger.step(`Starting Chestertons scraper...`);
+	logger.step(`Starting Chestertons API scraper (Agent ${AGENT_ID})...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
 	const PROPERTY_TYPES = [
+		// {
+		// 	channel: "sales",
+		// 	urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
+		// 	isRental: false,
+		// 	label: "SALES",
+		// 	totalRecords: 1747,
+		// 	recordsPerPage: 50,
+		// },
 		{
-			urlBase: "https://www.chestertons.co.uk/properties/sales/status-available",
-			isRental: false,
-			label: "SALES",
-			totalRecords: 1747,
-			recordsPerPage: 12,
-		},
-		{
+			channel: "lettings",
 			urlBase: "https://www.chestertons.co.uk/properties/lettings/status-available",
 			isRental: true,
 			label: "LETTINGS",
 			totalRecords: 1132,
-			recordsPerPage: 12,
+			recordsPerPage: 50,
 		},
 	];
 
@@ -325,12 +228,24 @@ async function scrapeChestertons() {
 		const effectiveStartPage = Math.max(1, startPage);
 
 		for (let pg = effectiveStartPage; pg <= totalPages; pg++) {
+			const url = pg <= 1 ? type.urlBase : `${type.urlBase}?page=${pg}`;
+
+			// Generate the JSON API URL
+			const params = {
+				search: { channel: type.channel, status: "available" },
+				page: pg,
+				pageSize: type.recordsPerPage,
+			};
+			const apiUrl = `https://www.chestertons.co.uk/api/properties?params=${encodeURIComponent(JSON.stringify(params))}`;
+
 			allRequests.push({
-				url: buildPagedUrl(type.urlBase, pg),
+				url, // Navigate to regular HTML to bypass CF
 				userData: {
 					pageNum: pg,
+					totalPages,
 					isRental: type.isRental,
-					label: `${type.label}_PAGE_${pg}`,
+					label: type.label,
+					apiUrl: apiUrl, // Fetch this inside the browser
 				},
 			});
 		}
@@ -342,13 +257,18 @@ async function scrapeChestertons() {
 	}
 
 	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	await crawler.run(allRequests);
 
 	logger.step(
-		`Completed Chestertons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Chestertons - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
-	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -358,11 +278,10 @@ async function scrapeChestertons() {
 (async () => {
 	try {
 		await scrapeChestertons();
-		await updateRemoveStatus(AGENT_ID);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

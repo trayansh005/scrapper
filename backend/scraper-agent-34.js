@@ -1,29 +1,45 @@
-// Strutt & Parker scraper using Playwright with Crawlee
+// Strutt & Parker scraper using native fetch (API-only)
 // Agent ID: 34
 //
 // Usage:
-// node backend/scraper-agent-34.js
+// node backend/scraper-agent-34.js [startPage]
 
-const { PlaywrightCrawler, log } = require("crawlee");
-const cheerio = require("cheerio");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	processPropertyWithCoordinates,
+	updatePriceByPropertyURLOptimized,
+} = require("./lib/db-helpers.js");
+const { parsePrice, formatPriceDisplay, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
-const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
-
-// Disable Crawlee's verbose logging
-log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 34;
 const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
-const processedUrls = new Set();
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const LOCATIONS = ["London"]; // Can be expanded
+
+const PROPERTY_TYPES = [
+	{
+		type: "for-sale",
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		type: "to-rent",
+		isRental: true,
+		label: "LETTINGS",
+	},
+];
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -33,292 +49,183 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parsePrice(priceText) {
-	if (!priceText) return null;
-	const priceMatch = priceText.match(/[£€]\s*([\d,]+)/);
-	if (!priceMatch) return null;
-
-	const priceClean = priceMatch[1].replace(/,/g, "");
-	if (!priceClean) return null;
-
-	// Return formatted as string with commas
-	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-function parsePropertyCard($, element) {
-	try {
-		const $card = $(element);
-
-		// Extract link from anchor tag
-		const linkEl = $card.find('a[data-element="property-list-item"]').length
-			? $card.find('a[data-element="property-list-item"]')
-			: $card.find("a");
-
-		let href = linkEl.attr("href");
-		if (!href) return null;
-
-		const link = href.startsWith("http") ? href : "https://www.struttandparker.com" + href;
-
-		// Extract title
-		const titleEl = $card.find(".card__heading, .card__title, h3, .card__text-content");
-		const title = titleEl.text().trim() || null;
-
-		// Extract bedrooms
-		const bedroomsEl = $card.find(".property-features__item--bed, .card__beds");
-		let bedrooms = null;
-		if (bedroomsEl.length) {
-			const bedroomsText = bedroomsEl.text().trim();
-			const bedroomsMatch = bedroomsText.match(/\d+/);
-			if (bedroomsMatch) bedrooms = bedroomsMatch[0];
-		}
-
-		// Extract price
-		const priceEl = $card.find(".card__price, .card__price-container .card__price");
-		const priceRaw = priceEl.text().trim();
-		const price = formatPriceUk(priceRaw);
-
-		if (link && title && price) {
-			return { link, title, price, bedrooms };
-		}
-		return null;
-	} catch (error) {
-		return null;
-	}
-}
-
-function parseListingPage(htmlContent) {
-	const $ = cheerio.load(htmlContent);
-	const properties = [];
-
-	$(".grid-columns--2 .grid-columns__item").each((index, element) => {
-		const property = parsePropertyCard($, element);
-		if (property) {
-			properties.push(property);
-		}
-	});
-
-	return properties;
-}
-
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(800);
-
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await blockNonEssentialResources(detailPage);
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 60000,
-		});
-
-		await detailPage.waitForTimeout(1200);
-
-		const htmlContent = await detailPage.content();
-
-		const coords = await extractCoordinatesFromHTML(htmlContent);
-
-		await updatePriceByPropertyURL(
-			property.link.trim(),
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			coords?.latitude || null,
-			coords?.longitude || null,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
-	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}`, error);
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
-
-async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label } = request.userData;
-	logger.page(pageNum, label, request.url);
-
-	// Strutt & Parker uses lazy loading / scrolling
-	let previousHeightValue = 0;
-	let currentHeightValue = await page.evaluate(() => document.body.scrollHeight);
-	let scrollAttempts = 0;
-	const maxScrollAttempts = 10;
-
-	while (previousHeightValue !== currentHeightValue && scrollAttempts < maxScrollAttempts) {
-		previousHeightValue = currentHeightValue;
-		await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-		await page.waitForTimeout(1500);
-		currentHeightValue = await page.evaluate(() => document.body.scrollHeight);
-		scrollAttempts++;
-	}
-
-	// Parse properties from listing page
-	const htmlContent = await page.content();
-	const properties = parseListingPage(htmlContent);
-
-	logger.page(pageNum, label, `Found ${properties.length} properties`);
-
-	// Process each property
-	for (const property of properties) {
-		// Skip duplicate URLs
-		if (processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
-
-		// Skip sold properties
-		if (isSoldProperty(property.title || "")) continue;
-
-		// Update price in database (or insert minimal record if new)
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-		);
-
-		if (result.updated) {
-			stats.totalSaved++;
-		}
-
-		// If new property, scrape full details immediately
-		if (!result.isExisting && !result.error) {
-			logger.page(pageNum, label, `Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), property, isRental);
-		}
-		await sleep(500);
-	}
-
-	// Pagination - Strutt & Parker uses &page=N
-	// if (pageNum < 2) {
-	// 	const nextUrl = request.url + "&page=" + (pageNum + 1);
-	// 	await crawler.addRequests([
-	// 		{
-	// 			url: nextUrl,
-	// 			userData: {
-	// 				pageNum: pageNum + 1,
-	// 				isRental,
-	// 				label,
-	// 			},
-	// 		},
-	// 	]);
-	// }
-}
-
-// ============================================================================
-// CRAWLER SETUP
-// ============================================================================
-
-function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		navigationTimeoutSecs: 60,
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-			},
-		},
-		requestHandler: handleListingPage,
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
-		failedRequestHandler({ request }) {
-			logger.error(`Failed listing page: ${request.url}`);
-		},
-	});
-}
-
 // ============================================================================
 // MAIN SCRAPER LOGIC
 // ============================================================================
 
-async function scrapeStruttAndParker() {
-	logger.step(`Starting Strutt & Parker scraper (Agent ${AGENT_ID})...`);
+async function fetchPage(location, searchType, pageNum) {
+	const url = `https://www.struttandparker.com/properties/residential/${searchType}/london/search?r[list_page]=${pageNum}&r[sr]=${searchType}&r[loc]=${location}&r[sort_by]=property_price_min--desc&sold=on`;
 
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-	const totalSalesPages = 5; // Default for London Sales
-	const totalLettingsPages = 2;
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
-	const crawler = createCrawler(browserWSEndpoint);
-
-	// Mark existing properties as removed for this run
-
-	const allRequests = [];
-
-	// Build Sales requests
-	for (let p = Math.max(1, startPage); p <= totalSalesPages; p++) {
-		allRequests.push({
-			url: `https://www.struttandparker.com/properties/residential/for-sale/london?showstc=on${
-				p > 1 ? `&page=${p}` : ""
-			}`,
-			userData: {
-				pageNum: p,
-				isRental: false,
-				label: `SALES_PAGE_${p}`,
+	try {
+		const response = await fetch(url, {
+			headers: {
+				accept: "application/json, text/javascript, */*; q=0.01",
+				"x-requested-with": "XMLHttpRequest",
 			},
 		});
-	}
 
-	// Build Lettings requests (standard page 1 only if startPage is 1)
-	if (startPage === 1) {
-		for (let p = 1; p <= totalLettingsPages; p++) {
-			allRequests.push({
-				url: `https://www.struttandparker.com/properties/residential/to-rent/london?showstc=on${
-					p > 1 ? `&page=${p}` : ""
-				}`,
-				userData: {
-					pageNum: p,
-					isRental: true,
-					label: `LETTINGS_PAGE_${p}`,
-				},
-			});
+		if (!response.ok) {
+			logger.error(
+				`Failed to fetch page ${pageNum} for ${searchType} in ${location}: ${response.status} ${response.statusText}`,
+			);
+			return null;
+		}
+
+		return await response.json();
+	} catch (error) {
+		logger.error(`Error fetching page ${pageNum} for ${searchType} in ${location}:`, error);
+		return null;
+	}
+}
+
+async function scrapeStruttAndParker() {
+	logger.step(`Starting Strutt & Parker API scraper (Agent ${AGENT_ID})...`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
+
+	for (const location of LOCATIONS) {
+		for (const typeInfo of PROPERTY_TYPES) {
+			logger.step(`Processing ${typeInfo.label} for ${location}...`);
+
+			let currentPage = startPage;
+			let totalPages = startPage;
+
+			while (currentPage <= totalPages) {
+				const data = await fetchPage(location, typeInfo.type, currentPage);
+
+				if (!data || !data.message || !data.message.results || !data.message.results.matches) {
+					logger.warn(`No results found on page ${currentPage} for ${typeInfo.label}, stopping.`);
+					break;
+				}
+
+				// The API returns an empty array when pages are exhausted
+				if (data.message.results.matches.length === 0) {
+					break;
+				}
+
+				// Attempt to extract total pages from pagination data if available
+				// If not available, we rely on the empty array break condition above
+				if (currentPage === startPage && data.message.pagination) {
+					// Extract max page number from pagination HTML string if present
+					const maxPageMatch = data.message.pagination.match(/r\[list_page\]=(\d+)["']/g);
+					if (maxPageMatch) {
+						let maxFound = 1;
+						for (const match of maxPageMatch) {
+							const num = parseInt(match.replace(/\D/g, ""));
+							if (num > maxFound) maxFound = num;
+						}
+						totalPages = Math.max(startPage, maxFound);
+						logger.step(`Total pages estimated: ${totalPages}`);
+					} else {
+						// Fallback: assume at least current page + 1 to keep loop going
+						totalPages = currentPage + 1;
+					}
+				} else if (totalPages === currentPage) {
+					// Fallback: Keep increasing total pages as long as we get results
+					totalPages++;
+				}
+
+				const properties = data.message.results.matches;
+				logger.page(
+					currentPage,
+					typeInfo.label,
+					`Found ${properties.length} properties via API`,
+					totalPages,
+				);
+
+				for (const prop of properties) {
+					const link = prop.url;
+
+					// If sold, we skip it
+					if (isSoldProperty(prop.status || "")) continue;
+
+					// Priority: numeric min price, then display string
+					const priceText = prop.property_price_min || prop.property_price_display || "";
+					const price = parsePrice(priceText.toString());
+
+					if (!price) continue;
+
+					const title = prop.property_address || prop.name || "Property";
+
+					// Beds extracted from explicit API fields
+					const bedrooms = prop.property_bedrooms ? parseInt(prop.property_bedrooms, 10) : null;
+
+					const lat = prop.location?.lat ? parseFloat(prop.location.lat) : null;
+					const lon = prop.location?.lon ? parseFloat(prop.location.lon) : null;
+
+					// Check if property exists first
+					const result = await updatePriceByPropertyURLOptimized(
+						link,
+						price,
+						title,
+						bedrooms,
+						AGENT_ID,
+						typeInfo.isRental,
+					);
+
+					if (result.updated) {
+						counts.totalSaved++;
+						counts.totalScraped++;
+						if (typeInfo.isRental) counts.savedRentals++;
+						else counts.savedSales++;
+					} else if (result.isExisting) {
+						counts.totalScraped++;
+					}
+
+					let propertyAction = "UNCHANGED";
+					if (result.updated) propertyAction = "UPDATED";
+
+					if (!result.isExisting && !result.error) {
+						propertyAction = "CREATED";
+						// Insert new property with coordinates
+						await processPropertyWithCoordinates(
+							link,
+							price,
+							title,
+							bedrooms,
+							AGENT_ID,
+							typeInfo.isRental,
+							null, // HTML config not needed
+							lat,
+							lon,
+						);
+						counts.totalSaved++;
+						counts.totalScraped++;
+						if (typeInfo.isRental) counts.savedRentals++;
+						else counts.savedSales++;
+					}
+
+					logger.property(
+						currentPage,
+						typeInfo.label,
+						title.substring(0, 40),
+						formatPriceDisplay(price, typeInfo.isRental),
+						link,
+						typeInfo.isRental,
+						totalPages,
+						propertyAction,
+					);
+				}
+
+				currentPage++;
+				await sleep(1000); // Politeness delay
+			}
 		}
 	}
 
-	if (allRequests.length === 0) {
-		logger.step("No pages to scrape with current arguments.");
-		return;
-	}
-
-	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.run(allRequests);
-
 	logger.step(
-		`Completed Strutt & Parker - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Strutt & Parker - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -328,11 +235,10 @@ async function scrapeStruttAndParker() {
 (async () => {
 	try {
 		await scrapeStruttAndParker();
-		await updateRemoveStatus(AGENT_ID);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		logger.error("Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

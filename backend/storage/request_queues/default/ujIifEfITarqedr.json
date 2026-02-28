@@ -1,0 +1,9 @@
+{
+	"id": "ujIifEfITarqedr",
+	"json": "{\"id\":\"ujIifEfITarqedr\",\"url\":\"https://www.chestertons.co.uk/properties/lettings/status-available?page=23\",\"uniqueKey\":\"https://www.chestertons.co.uk/properties/lettings/status-available?page=23\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":23,\"totalPages\":23,\"isRental\":true,\"label\":\"LETTINGS\",\"apiUrl\":\"https://www.chestertons.co.uk/api/properties?params=%7B%22search%22%3A%7B%22channel%22%3A%22lettings%22%2C%22status%22%3A%22available%22%7D%2C%22page%22%3A23%2C%22pageSize%22%3A50%7D\"}}",
+	"method": "GET",
+	"orderNo": 1772277254559,
+	"retryCount": 0,
+	"uniqueKey": "https://www.chestertons.co.uk/properties/lettings/status-available?page=23",
+	"url": "https://www.chestertons.co.uk/properties/lettings/status-available?page=23"
+}
