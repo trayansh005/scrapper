@@ -184,7 +184,7 @@ async function handleListingPage({ page, request }) {
 					// Extract coords from Adfenix HTML comment tags:
 					//   <!--property-latitude:"55.203..."-->
 					//   <!--property-longitude:"-1.626..."-->
-					const coords = extractCoordinatesFromHTML(html);
+					const coords = await extractCoordinatesFromHTML(html);
 					latitude = coords?.latitude || null;
 					longitude = coords?.longitude || null;
 

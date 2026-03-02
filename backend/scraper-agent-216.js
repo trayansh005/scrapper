@@ -62,9 +62,9 @@ const PROPERTY_TYPES = [
 // extractCoordinatesFromHTML covers standard patterns; fallback handles CJ Hole format.
 // ============================================================================
 
-function extractCJHoleCoords(html) {
-	// Try shared extractor first
-	const coords = extractCoordinatesFromHTML(html);
+async function extractCJHoleCoords(html) {
+	// Try shared extractor first (async)
+	const coords = await extractCoordinatesFromHTML(html);
 	if (coords?.latitude && coords?.longitude) return coords;
 
 	// CJ Hole-specific fallback: inline JSON-LD without quoted numbers
@@ -170,7 +170,7 @@ async function handleListingPage({ page, request }) {
 				});
 
 				html = await detailPage.content();
-				const coords = extractCJHoleCoords(html);
+				const coords = await extractCJHoleCoords(html);
 				latitude = coords.latitude;
 				longitude = coords.longitude;
 

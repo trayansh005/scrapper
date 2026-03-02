@@ -154,7 +154,7 @@ async function handleListingPage({ page, request }) {
 				});
 
 				html = await detailPage.content();
-				const coords = extractCoordinatesFromHTML(html);
+				const coords = await extractCoordinatesFromHTML(html);
 				latitude = coords?.latitude || null;
 				longitude = coords?.longitude || null;
 
