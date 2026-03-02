@@ -24,6 +24,13 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 71;
 const logger = createAgentLogger(AGENT_ID);
 
+const counts = {
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
+};
+
 // Configuration for sales and rentals
 const PROPERTY_TYPES = [
 	{
@@ -41,13 +48,6 @@ const PROPERTY_TYPES = [
 		label: "RENTAL",
 	},
 ];
-
-const counts = {
-	totalScraped: 0,
-	totalSaved: 0,
-	savedSales: 0,
-	savedRentals: 0,
-};
 
 const processedUrls = new Set();
 
@@ -225,6 +225,8 @@ async function handleListingPage({ page, request }) {
 			propertyAction = "CREATED";
 		} else if (result.error) {
 			propertyAction = "ERROR";
+		} else if (result.isExisting) {
+			counts.totalScraped++;
 		}
 
 		logger.property(
@@ -297,7 +299,7 @@ async function scrapeHawesAndCo() {
 	}
 
 	logger.step(
-		`Completed Hawes & Co - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`,
+		`Completed Hawes & Co - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
 	logger.step(`Breakdown - SALES: ${counts.savedSales}, LETTINGS: ${counts.savedRentals}`);
 

@@ -87,14 +87,14 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 									};
 							}
 						}
-					} catch (e) {}
+					} catch (e) { }
 				}
 
 				const all = document.documentElement.innerHTML;
 				const latM = all.match(/"latitude"\s*:\s*([0-9.+-]+)/i);
 				const lngM = all.match(/"longitude"\s*:\s*([0-9.+-]+)/i);
 				if (latM && lngM) return { lat: parseFloat(latM[1]), lng: parseFloat(lngM[1]), html: all };
-			} catch (e) {}
+			} catch (e) { }
 			return { lat: null, lng: null, html: document.documentElement.innerHTML };
 		});
 
@@ -147,15 +147,18 @@ async function handleListingPage({ page, request }) {
 
 	try {
 		await page
-			.waitForSelector('[class*="SearchResultCard_searchItem"]', { timeout: 30000 })
+			.waitForSelector('[class*="__searchItem"]', { timeout: 30000 })
 			.catch(() => {
-				logger.error(`No property cards found on page ${pageNumber}`, null, pageNumber, label);
+				logger.warn(`No property cards found on page ${pageNumber}`);
 			});
 
 		const properties = await page.evaluate(() => {
-			const items = Array.from(document.querySelectorAll('[class*="SearchResultCard_searchItem"]'));
+			// CSS modules generate hashed class names — match by the stable suffix after '__'
+			const items = Array.from(document.querySelectorAll('[class*="__searchItem"]'));
 			return items.map((el) => {
-				const linkEl = el.querySelector("a[href]");
+				// Link — prefer detail page hrefs (relative paths like /property-for-sale/...)
+				const linkEl = el.querySelector('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]') ||
+					el.querySelector("a[href]");
 				const href = linkEl ? linkEl.getAttribute("href") : null;
 				const link = href
 					? href.startsWith("http")
@@ -163,21 +166,33 @@ async function handleListingPage({ page, request }) {
 						: "https://ryderdutton.co.uk" + href
 					: null;
 
+				// Title: h3 inside the title div (desktop version)
 				const title =
-					el.querySelector('[class*="SearchResultCard_title"] h3')?.textContent?.trim() ||
+					el.querySelector('[class*="__title"] h3')?.textContent?.trim() ||
+					el.querySelector("h3.d-none")?.textContent?.trim() ||
 					el.querySelector("h3")?.textContent?.trim() ||
 					"";
-				const address =
-					el.querySelector('[class*="SearchResultCard_address"]')?.textContent?.trim() || "";
-				const priceText =
-					el.querySelector('[class*="SearchResultCard_price"]')?.textContent?.trim() || "";
 
+				// Address: the __address div
+				const address =
+					el.querySelector('[class*="__address"]')?.textContent?.trim() || "";
+
+				// Price: £NNN,NNN inside __price; h3 holds the formatted price
+				const priceText =
+					el.querySelector('[class*="__price"] h3')?.textContent?.trim() ||
+					el.querySelector('[class*="__price"]')?.textContent?.trim() ||
+					"";
+
+				// Bedrooms: .htype1 li contains "3 <i class=fa-bed>" 
 				const bedLi = el.querySelector(".htype1");
 				const bedrooms = bedLi ? parseInt(bedLi.textContent.replace(/\D+/g, "")) : null;
 
 				const statusText = el.innerText || "";
 
-				return { link, title: title || address, priceText, bedrooms, statusText };
+				// Use title + address as full label
+				const fullTitle = [title, address].filter(Boolean).join(", ") || title || address;
+
+				return { link, title: fullTitle, priceText, bedrooms, statusText };
 			});
 		});
 

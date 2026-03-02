@@ -11,7 +11,12 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -21,9 +26,11 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 75;
 const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
 const processedUrls = new Set();
@@ -64,6 +71,8 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 		stats.totalSaved++;
+		if (isRental) counts.savedRentals++;
+		else counts.savedSales++;
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}`, error);
 	} finally {
@@ -215,6 +224,8 @@ async function handleListingPage({ page, request }) {
 			if (updateResult.updated) {
 				stats.totalSaved++;
 				propertyAction = "UPDATED";
+			} else if (updateResult.isExisting) {
+				stats.totalScraped++;
 			}
 
 			if (!updateResult.isExisting && !updateResult.error) {
@@ -333,7 +344,7 @@ async function scrapeKFH() {
 	await crawler.run(allRequests);
 
 	logger.step(
-		`Finished KFH - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Finished KFH - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
 
 	if (!isPartialRun) {
