@@ -220,14 +220,82 @@ async function scrapeKFH() {
 						try {
 							await blockNonEssentialResources(detailPage);
 							await detailPage.goto(property.link, {
-								waitUntil: "networkidle",
+								// domcontentloaded is enough — __NEXT_DATA__ is SSR'd into the initial HTML.
+								// networkidle often times out on KFH due to analytics/3rd-party scripts.
+								waitUntil: "domcontentloaded",
 								timeout: 30000,
 							});
+							// Brief pause for React hydration to complete before evaluate()
+							await detailPage.waitForTimeout(1000);
 
 							htmlContent = await detailPage.content();
 
-							const extracted = extractCoordinatesFromHTML(htmlContent);
-							if (extracted) coords = extracted;
+							// KFH is Next.js/React — coords live in JS state.
+							// Extract directly from the live browser context.
+							const evalCoords = await detailPage.evaluate(() => {
+								try {
+									// 1. Next.js: __NEXT_DATA__ page props
+									if (window.__NEXT_DATA__) {
+										const str = JSON.stringify(window.__NEXT_DATA__);
+										const latM = str.match(/"lat(?:itude)?"\s*:\s*([-\d.]+)/i);
+										const lngM = str.match(/"l(?:ng|on)(?:gitude)?"\s*:\s*([-\d.]+)/i);
+										if (latM && lngM) return { latitude: parseFloat(latM[1]), longitude: parseFloat(lngM[1]) };
+									}
+
+									// 2. JSON-LD structured data
+									for (const el of document.querySelectorAll('script[type="application/ld+json"]')) {
+										try {
+											const obj = JSON.parse(el.textContent);
+											const geo = obj?.geo || obj?.location?.geo;
+											if (geo?.latitude && geo?.longitude)
+												return { latitude: parseFloat(geo.latitude), longitude: parseFloat(geo.longitude) };
+										} catch (_) { }
+									}
+
+									// 3. Window globals (propertyData, digitalData, etc.)
+									for (const key of ["propertyData", "digitalData", "pageData", "property"]) {
+										const obj = window[key];
+										if (obj) {
+											const str = JSON.stringify(obj);
+											const latM = str.match(/"lat(?:itude)?"\s*:\s*([-\d.]+)/i);
+											const lngM = str.match(/"l(?:ng|on)(?:gitude)?"\s*:\s*([-\d.]+)/i);
+											if (latM && lngM) return { latitude: parseFloat(latM[1]), longitude: parseFloat(lngM[1]) };
+										}
+									}
+
+									// 4. data-lat / data-lng / data-latitude / data-longitude attributes
+									const el =
+										document.querySelector("[data-lat][data-lng]") ||
+										document.querySelector("[data-latitude][data-longitude]");
+									if (el) {
+										const lat = parseFloat(el.dataset.lat || el.dataset.latitude);
+										const lng = parseFloat(el.dataset.lng || el.dataset.longitude);
+										if (!isNaN(lat) && !isNaN(lng)) return { latitude: lat, longitude: lng };
+									}
+
+									// 5. Google Maps iframe embed src: ?q=lat,lng or &center=lat,lng
+									const iframe = document.querySelector('iframe[src*="google.com/maps"]');
+									if (iframe) {
+										const src = iframe.src;
+										const qM = src.match(/[?&]q=([-\d.]+),([-\d.]+)/);
+										const cM = src.match(/[?&]center=([-\d.]+),([-\d.]+)/);
+										const m = qM || cM;
+										if (m) return { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
+									}
+
+									return null;
+								} catch (_) {
+									return null;
+								}
+							});
+
+							if (evalCoords?.latitude && evalCoords?.longitude) {
+								coords = evalCoords;
+							} else {
+								// Fallback: static HTML regex (covers older patterns)
+								const extracted = extractCoordinatesFromHTML(htmlContent);
+								if (extracted?.latitude && extracted?.longitude) coords = extracted;
+							}
 
 							sold = isSoldProperty(htmlContent);
 
