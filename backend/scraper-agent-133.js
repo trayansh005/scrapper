@@ -1,14 +1,16 @@
-// Countrywide Scotland scraper using Playwright with Crawlee
+// Countrywide Scotland scraper using CheerioCrawler with JSON extraction
 // Agent ID: 133
 // Usage:
 // node backend/scraper-agent-133.js
 
-const { PlaywrightCrawler, log } = require("crawlee");
+const { CheerioCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
-const { updatePriceByPropertyURLOptimized, processPropertyWithCoordinates, } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty, parsePrice, formatPriceDisplay, } = require("./lib/property-helpers.js");
+const {
+updatePriceByPropertyURLOptimized,
+processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
-const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -16,33 +18,31 @@ const AGENT_ID = 133;
 const logger = createAgentLogger(AGENT_ID);
 
 const counts = {
-    totalScraped: 0,
-    totalSaved: 0,
-    savedSales: 0,
-    savedRentals: 0,
+totalScraped: 0,
+totalSaved: 0,
+savedSales: 0,
+savedRentals: 0,
 };
 
-// Based on the URL structure, pagination appears to be handled dynamically
-// Initial estimate of page counts; crawler will handle pagination
 const PROPERTY_TYPES = [
-    {
-        channel: "sales",
-        baseUrl:
-            "https://www.countrywidescotland.co.uk/properties/sales/status-available/most-recent-first",
-        isRental: false,
-        label: "SALES",
-        totalRecords: 138,
-        recordsPerPage: 10,
-    },
-    {
-        channel: "lettings",
-        baseUrl:
-            "https://www.countrywidescotland.co.uk/properties/lettings/status-available/most-recent-first",
-        isRental: true,
-        label: "LETTINGS",
-        totalRecords: 41,
-        recordsPerPage: 10,
-    },
+{
+channel: "sales",
+baseUrl:
+"https://www.countrywidescotland.co.uk/properties/sales/status-available/most-recent-first",
+isRental: false,
+label: "SALES",
+totalRecords: 138,
+recordsPerPage: 10,
+},
+{
+channel: "lettings",
+baseUrl:
+"https://www.countrywidescotland.co.uk/properties/lettings/status-available/most-recent-first",
+isRental: true,
+label: "LETTINGS",
+totalRecords: 41,
+recordsPerPage: 10,
+},
 ];
 
 const processedUrls = new Set();
@@ -52,249 +52,166 @@ const processedUrls = new Set();
 // ============================================================================
 
 function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// using shared blockNonEssentialResources from lib/scraper-utils.js
-
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-    return (
-        process.env.BROWSERLESS_WS_ENDPOINT ||
-        `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-    );
-}
-
-// ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property) {
-    await sleep(700);
-    const detailPage = await browserContext.newPage();
-    try {
-        // await blockNonEssentialResources(detailPage);
-        await detailPage.goto(property.link, {
-            waitUntil: "networkidle",
-            timeout: 90000,
-        });
-        await detailPage.waitForTimeout(800);
-        const htmlContent = await detailPage.content();
-        const coords = await extractCoordinatesFromHTML(htmlContent);
-        return {
-            coords: {
-                latitude: coords.latitude || null,
-                longitude: coords.longitude || null,
-            },
-        };
-    } catch (error) {
-        logger.error(`Error scraping detail page ${property.link}`, error);
-        return null;
-    } finally {
-        await detailPage.close();
-    }
+return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ============================================================================
 // REQUEST HANDLER
 // ============================================================================
 
-async function handleListingPage({ page, request }) {
-    const { pageNum, isRental, label, totalPages } = request.userData;
-    logger.page(pageNum, label, request.url, totalPages);
+async function handleListingPage({ $, request }) {
+const { pageNum, isRental, label, totalPages } = request.userData;
+logger.page(pageNum, label, request.url, totalPages);
 
-    try {
-        // Wait for property cards to load
-        await page.waitForLoadState("networkidle");
-        await page.waitForTimeout(3000);
-        const html = await page.content();
-        console.log(html.substring(0, 5000));
-    } catch (e) {
-        logger.warn("No properties found on page", pageNum, label);
-    }
+const html = $.html();
 
-    const properties = await page.evaluate(() => {
-        try {
-            const results = [];
-            const seen = new Set();
+// Extract JSON data embedded in the script tag
+// Variable name can be 'propertyData' or 'homeflow.Properties' in some cases
+const jsonMatch =
+html.match(/var\s+propertyData\s*=\s*(\{.*?\});/s) ||
+html.match(/homeflow\.Properties\s*=\s*(\{.*?\});/s);
 
-            const cards = document.querySelectorAll("article");
+if (!jsonMatch) {
+logger.warn(`Could not find property JSON on page ${pageNum} (${label})`);
+return;
+}
 
-            for (const card of cards) {
-                const linkElem = card.querySelector("a.card__link");
-                if (!linkElem) continue;
+let propertyData;
+try {
+propertyData = JSON.parse(jsonMatch[1]);
+} catch (e) {
+logger.error(`Error parsing JSON on page ${pageNum} (${label})`, e);
+return;
+}
 
-                const href = linkElem.getAttribute("href");
-                if (!href) continue;
+const properties = propertyData.properties || [];
+logger.page(pageNum, label, `Extracted ${properties.length} properties from JSON`, totalPages);
 
-                const fullUrl = href.startsWith("http")
-                    ? href
-                    : new URL(href, window.location.origin).href;
+for (const prop of properties) {
+// Homeflow properties usually have relative URLs
+const fullUrl = prop.url.startsWith("http")
+? prop.url
+: `https://www.countrywidescotland.co.uk${prop.url}`;
 
-                if (seen.has(fullUrl)) continue;
-                seen.add(fullUrl);
+if (isSoldProperty(prop.status || "")) {
+logger.property(
+pageNum,
+label,
+(prop.displayAddress || "Property").substring(0, 40),
+formatPriceDisplay(parseInt(prop.priceValue) || 0, isRental),
+fullUrl,
+isRental,
+totalPages,
+"SKIPPED_SOLD",
+);
+continue;
+}
 
-                const priceElem = card.querySelector("[class*='price']");
-                const priceRaw = priceElem ? priceElem.textContent.trim() : "";
-                if (!priceRaw) continue;
+if (processedUrls.has(fullUrl)) {
+continue;
+}
+processedUrls.add(fullUrl);
 
-                const titleElem = card.querySelector("h2, h3");
-                const title = titleElem ? titleElem.textContent.trim() : "";
+const price = parseInt(prop.priceValue) || 0;
+const bedrooms = parseInt(prop.bedrooms) || null;
+const title = prop.displayAddress || prop.addressWithCommas || "Property";
 
-                let bedrooms = null;
-                const bedMatch = card.innerText.match(/(\d+)\s*bed/i);
-                if (bedMatch) bedrooms = parseInt(bedMatch[1]);
+if (!price) {
+logger.page(pageNum, label, `Skipping (no price): ${fullUrl}`, totalPages);
+continue;
+}
 
-                const statusElem = card.querySelector("[class*='status']");
-                const statusText = statusElem ? statusElem.textContent.trim() : "";
+// Use coordinates from JSON directly
+const latitude = prop.lat ? parseFloat(prop.lat) : null;
+const longitude = prop.lng ? parseFloat(prop.lng) : null;
 
-                results.push({
-                    link: fullUrl,
-                    title,
-                    priceRaw,
-                    bedrooms,
-                    statusText,
-                });
-            }
+const result = await updatePriceByPropertyURLOptimized(
+fullUrl,
+price,
+title,
+bedrooms,
+AGENT_ID,
+isRental,
+);
 
-            return results;
-        } catch (err) {
-            console.log("Extraction error:", err.message);
-            return [];
-        }
-    });
+let propertyAction = "UNCHANGED";
 
-    logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+if (result && result.updated) {
+counts.totalSaved++;
+propertyAction = "UPDATED";
+}
 
-    for (const property of properties) {
-        if (!property.link) continue;
+if (result && !result.isExisting && !result.error) {
+// Since we have coordinates in JSON, we can skip detail page visit
+await processPropertyWithCoordinates(
+fullUrl,
+price,
+title,
+bedrooms,
+AGENT_ID,
+isRental,
+null, // No HTML available
+latitude,
+longitude,
+);
+counts.totalSaved++;
+counts.totalScraped++;
+if (isRental) counts.savedRentals++;
+else counts.savedSales++;
+propertyAction = "CREATED";
+} else if (result && result.isExisting && result.updated) {
+counts.totalScraped++;
+if (isRental) counts.savedRentals++;
+else counts.savedSales++;
+} else if (!result || result.error) {
+propertyAction = "ERROR";
+}
 
-        if (isSoldProperty(property.statusText || "")) continue;
+logger.property(
+pageNum,
+label,
+title.substring(0, 40),
+formatPriceDisplay(price, isRental),
+fullUrl,
+isRental,
+totalPages,
+propertyAction,
+);
 
-        if (processedUrls.has(property.link)) {
-            logger.page(
-                pageNum,
-                label,
-                `Skipping duplicate URL: ${property.link.substring(0, 60)}...`,
-                totalPages,
-            );
-            continue;
-        }
-        processedUrls.add(property.link);
-
-        // Extract price and bedrooms
-        const price = parsePrice(property.priceRaw);
-        const bedrooms = property.bedrooms;
-
-        if (!price) {
-            logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
-            continue;
-        }
-
-        const result = await updatePriceByPropertyURLOptimized(
-            property.link,
-            price,
-            property.title,
-            bedrooms,
-            AGENT_ID,
-            isRental,
-        );
-
-        let propertyAction = "UNCHANGED";
-
-        if (result.updated) {
-            counts.totalSaved++;
-            propertyAction = "UPDATED";
-        }
-
-        if (!result.isExisting && !result.error) {
-            const detail = await scrapePropertyDetail(page.context(), property);
-            await processPropertyWithCoordinates(
-                property.link.trim(),
-                price,
-                property.title,
-                bedrooms,
-                AGENT_ID,
-                isRental,
-                null, // HTML not needed if we have coords
-                detail?.coords?.latitude || null,
-                detail?.coords?.longitude || null,
-            );
-            counts.totalSaved++;
-            counts.totalScraped++;
-            if (isRental) counts.savedRentals++;
-            else counts.savedSales++;
-            propertyAction = "CREATED";
-        } else if (result.isExisting && result.updated) {
-            counts.totalScraped++;
-            if (isRental) counts.savedRentals++;
-            else counts.savedSales++;
-        } else if (result.error) {
-            propertyAction = "ERROR";
-        }
-
-        logger.property(
-            pageNum,
-            label,
-            property.title.substring(0, 40),
-            formatPriceDisplay(price, isRental),
-            property.link,
-            isRental,
-            totalPages,
-            propertyAction,
-        );
-
-        if (propertyAction !== "UNCHANGED") {
-            await sleep(500);
-        }
-    }
+if (propertyAction !== "UNCHANGED") {
+await sleep(100); // Small delay for DB stability
+}
+}
 }
 
 // ============================================================================
 // CRAWLER SETUP
 // ============================================================================
 
-function createCrawler(browserWSEndpoint) {
-    return new PlaywrightCrawler({
-        maxConcurrency: 1,
-        maxRequestRetries: 2,
-        navigationTimeoutSecs: 90,
-        requestHandlerTimeoutSecs: 300,
-        preNavigationHooks: [
-            async ({ page }) => {
-
-                // 1️⃣ Set real user agent
-                await page.setExtraHTTPHeaders({
-                    "accept-language": "en-GB,en;q=0.9",
-                });
-
-                await page.setUserAgent(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                );
-
-                // 2️⃣ Remove webdriver flag
-                await page.addInitScript(() => {
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined,
-                    });
-                });
-            },
-        ],
-        launchContext: {
-            launcher: undefined,
-            launchOptions: {
-                browserWSEndpoint,
-                args: ["--no-sandbox", "--disable-setuid-sandbox"],
-            },
-        },
-        requestHandler: handleListingPage,
-        failedRequestHandler({ request }) {
-            logger.error(`Failed listing page: ${request.url}`);
-        },
-    });
+function createCrawler() {
+return new CheerioCrawler({
+maxConcurrency: 5,
+maxRequestRetries: 2,
+requestHandler: handleListingPage,
+additionalMimeTypes: ["application/json"],
+preNavigationHooks: [
+async ({ request }) => {
+request.headers = {
+...request.headers,
+"User-Agent":
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+Accept:
+"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+"Accept-Language": "en-GB,en;q=0.9",
+"Cache-Control": "no-cache",
+Pragma: "no-cache",
+};
+},
+],
+failedRequestHandler({ request }) {
+logger.error(`Failed listing page: ${request.url}`);
+},
+});
 }
 
 // ============================================================================
@@ -302,58 +219,51 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeCountrywideScotland() {
-    logger.step("Starting Countrywide Scotland scraper...");
+logger.step("Starting Countrywide Scotland (JSON Extraction) scraper...");
 
-    const args = process.argv.slice(2);
-    const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
-    const isPartialRun = startPage > 1;
-    const scrapeStartTime = new Date();
+const args = process.argv.slice(2);
+const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+const isPartialRun = startPage > 1;
+const scrapeStartTime = new Date();
 
-    const browserWSEndpoint = getBrowserlessEndpoint();
-    logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+const crawler = createCrawler();
 
-    const crawler = createCrawler(browserWSEndpoint);
+const allRequests = [];
+for (const type of PROPERTY_TYPES) {
+const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+logger.step(`Queueing ${type.label} (${totalPages} pages)`);
 
-    const allRequests = [];
-    for (const type of PROPERTY_TYPES) {
-        const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
-        logger.step(`Queueing ${type.label} (${totalPages} pages)`);
+for (let pg = Math.max(1, startPage); pg <= totalPages; pg++) {
+const url = pg === 1 ? type.baseUrl : `${type.baseUrl}/page-${pg}`;
 
-        for (let pg = Math.max(1, startPage); pg <= totalPages; pg++) {			// For Countrywide, pagination may be handled via query params
-            // Adjust URL structure based on actual site behavior
-            const url =
-                pg === 1
-                    ? type.baseUrl
-                    : `${type.baseUrl}?page=${pg}`;
+allRequests.push({
+url,
+userData: {
+pageNum: pg,
+isRental: type.isRental,
+label: type.label,
+totalPages,
+},
+});
+}
+}
 
-            allRequests.push({
-                url,
-                userData: {
-                    pageNum: pg,
-                    isRental: type.isRental,
-                    label: type.label,
-                    totalPages,
-                },
-            });
-        }
-    }
+if (allRequests.length > 0) {
+await crawler.run(allRequests);
+} else {
+logger.warn("No requests to process.");
+}
 
-    if (allRequests.length > 0) {
-        await crawler.run(allRequests);
-    } else {
-        logger.warn("No requests to process.");
-    }
+logger.step(
+`Completed Countrywide Scotland - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New lettings: ${counts.savedRentals}`,
+);
 
-    logger.step(
-        `Completed Countrywide Scotland - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New lettings: ${counts.savedRentals}`,
-    );
-
-    if (!isPartialRun) {
-        logger.step("Updating remove status...");
-        await updateRemoveStatus(AGENT_ID, scrapeStartTime);
-    } else {
-        logger.warn("Partial run detected. Skipping updateRemoveStatus.");
-    }
+if (!isPartialRun) {
+logger.step("Updating remove status...");
+await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+} else {
+logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+}
 }
 
 // ============================================================================
@@ -361,11 +271,11 @@ async function scrapeCountrywideScotland() {
 // ============================================================================
 
 scrapeCountrywideScotland()
-    .then(() => {
-        logger.step("All done!");
-        process.exit(0);
-    })
-    .catch((error) => {
-        logger.error("Unhandled scraper error", error);
-        process.exit(1);
-    });
+.then(() => {
+logger.step("All done!");
+process.exit(0);
+})
+.catch((error) => {
+logger.error("Unhandled scraper error", error);
+process.exit(1);
+});

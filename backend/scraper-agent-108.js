@@ -1,219 +1,158 @@
-﻿// Hamptons scraper using Playwright with Crawlee
+// Hamptons scraper using CheerioCrawler with JSON extraction
 // Agent ID: 108
 // Website: hamptons.co.uk
 // Usage:
-// node backend/scraper-agent-108.js
+// node backend/scraper-agent-108.js [startPage]
 
-const { PlaywrightCrawler, log } = require("crawlee");
+const { CheerioCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { isSoldProperty, formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-// Disable Crawlee's verbose logging
+// Reduce logging noise
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 108;
+const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
+const processedUrls = new Set();
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
+// UTILITY FUNCTIONS
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	const detailPage = await browserContext.newPage();
-
-	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 60000,
-		});
-
-		// Important: Hamptons might need a small wait for Homeflow object to be populated
-		await detailPage.waitForTimeout(2000);
-
-		// Extract coordinates directly from page context for better accuracy
-		const detailData = await detailPage.evaluate(() => {
-			let lat = null;
-			let lng = null;
-
-			// Priority 1: Homeflow object (most accurate)
-			if (typeof Homeflow !== "undefined" && Homeflow.get) {
-				const prop = Homeflow.get("property");
-				if (prop && prop.lat && prop.lng) {
-					lat = prop.lat;
-					lng = prop.lng;
-				}
-			}
-
-			// Priority 2: GA4 property object (sometimes buggy on Hamptons)
-			if ((lat === null || lng === null) && typeof propertyObject !== "undefined") {
-				lat = parseFloat(propertyObject.ga4_property_latitude);
-				lng = parseFloat(propertyObject.ga4_property_longitude);
-
-				// If they are exactly the same and not null, it might be a bug
-				if (lat === lng && lat !== null) {
-					lat = null;
-					lng = null;
-				}
-			}
-
-			return {
-				lat,
-				lng,
-				html: document.documentElement.innerHTML,
-			};
-		});
-
-		// Save property to database
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			detailData.html,
-			detailData.lat,
-			detailData.lng,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
-	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
-	} finally {
-		await detailPage.close();
-	}
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ============================================================================
 // REQUEST HANDLER
 // ============================================================================
 
-async function handleListingPage({ page, request, crawler }) {
-	const { isRental, label, pageNumber } = request.userData;
-	console.log(`\n📍 Loading [${label}] Page ${pageNumber}: ${request.url}`);
+async function handleListingPage({ $, request }) {
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
+	const html = $.html();
+
+	// Extract JSON data embedded in the script tag
+	const jsonMatch =
+		html.match(/var\s+propertyData\s*=\s*(\{.*?\});/s) ||
+		html.match(/homeflow\.Properties\s*=\s*(\{.*?\});/s);
+
+	if (!jsonMatch) {
+		logger.warn(`Could not find property JSON on page ${pageNum} (${label})`);
+		return;
+	}
+
+	let propertyData;
 	try {
-		await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
-		await page.waitForTimeout(2000);
+		propertyData = JSON.parse(jsonMatch[1]);
+	} catch (e) {
+		logger.error(`Error parsing JSON on page ${pageNum} (${label})`, e);
+		return;
+	}
 
-		// Wait for property cards
-		await page.waitForSelector("article.property-card", { timeout: 30000 }).catch(() => {
-			console.log(`   ⚠️ No properties found on page ${pageNumber}`);
-		});
+	const properties = propertyData.properties || [];
+	logger.page(pageNum, label, `Extracted ${properties.length} properties from JSON`, totalPages);
 
-		// Extract properties
-		const properties = await page.evaluate(() => {
-			const containers = Array.from(document.querySelectorAll("article.property-card"));
-			const items = [];
+	for (const prop of properties) {
+		const fullUrl = prop.url
+			? prop.url.startsWith("http")
+				? prop.url
+				: `https://www.hamptons.co.uk${prop.url}`
+			: prop.property_url.startsWith("http")
+				? prop.property_url
+				: `https://www.hamptons.co.uk${prop.property_url}`;
 
-			for (const container of containers) {
-				const linkEl = container.querySelector("a.property-card__link");
-				const rawHref = linkEl ? linkEl.getAttribute("href") : null;
-				const link = rawHref ? new URL(rawHref, window.location.origin).href : null;
+		if (isSoldProperty(prop.status || "")) continue;
 
-				const priceText =
-					container.querySelector(".property-card__price")?.textContent?.trim() || "";
-				const title = container.querySelector(".property-card__title")?.textContent?.trim() || "";
-				const statusText = container.textContent || "";
+		if (processedUrls.has(fullUrl)) {
+			logger.page(pageNum, label, `Skipping duplicate: ${fullUrl.substring(0, 60)}...`, totalPages);
+			continue;
+		}
+		processedUrls.add(fullUrl);
 
-				let bedrooms = null;
-				const bedEl = container.querySelector(
-					".property-card__bedbath .property-card__bedbath-item",
-				);
-				if (bedEl) {
-					const m = bedEl.textContent.match(/(\d+)/);
-					if (m) bedrooms = parseInt(m[1]);
-				}
+		const price = parseInt(prop.priceValue || prop.price_value) || 0;
+		const bedrooms = parseInt(prop.bedrooms) || null;
+		const title =
+			prop.displayAddress || prop.display_address || prop.address_with_commas || "Property";
 
-				if (link && priceText) {
-					items.push({ link, title, priceText, bedrooms, statusText });
-				}
-			}
-			return items;
-		});
-
-		// De-duplicate properties on the same page (Hamptons often repeats featured properties)
-		const uniqueProperties = [];
-		const seenLinks = new Set();
-		for (const p of properties) {
-			if (!seenLinks.has(p.link)) {
-				seenLinks.add(p.link);
-				uniqueProperties.push(p);
-			}
+		if (!price) {
+			logger.page(pageNum, label, `Skipping (no price): ${fullUrl}`, totalPages);
+			continue;
 		}
 
-		console.log(
-			`   ✅ Found ${uniqueProperties.length} unique properties on [${label}] Page ${pageNumber}`,
+		// Use coordinates from JSON directly
+		const latitude = prop.lat ? parseFloat(prop.lat) : null;
+		const longitude = prop.lng ? parseFloat(prop.lng) : null;
+
+		const result = await updatePriceByPropertyURLOptimized(
+			fullUrl,
+			price,
+			title,
+			bedrooms,
+			AGENT_ID,
+			isRental,
 		);
 
-		for (const property of uniqueProperties) {
-			if (isSoldProperty(property.statusText || "")) {
-				console.log(`   ⏭️ Skipping sold/let: ${property.title}`);
-				continue;
-			}
+		let propertyAction = "UNCHANGED";
 
-			const price = parsePrice(property.priceText);
-			if (!price) {
-				console.log(`   ⚠️ Price not found for: ${property.title}`);
-				continue;
-			}
-
-			const updateResult = await updatePriceByPropertyURLOptimized(
-				property.link,
-				price,
-				property.title,
-				property.bedrooms,
-				AGENT_ID,
-				isRental,
-			);
-
-			if (updateResult.updated) {
-				stats.totalSaved++;
-			}
-
-			if (!updateResult.isExisting && !updateResult.error) {
-				console.log(`   🆕 New property: ${property.title} - £${price}`);
-				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-				await new Promise((r) => setTimeout(r, 2000));
-			} else {
-				// Don't log if it was an existing property to avoid noise
-			}
+		if (result && result.updated) {
+			counts.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
-		// Add delay between listing pages to avoid 429
-		await new Promise((r) => setTimeout(r, 3000));
-	} catch (error) {
-		console.error(`❌ Error in handleListingPage: ${error.message}`);
+		if (result && !result.isExisting && !result.error) {
+			// Since we have coordinates in JSON, we can skip detail page visit
+			await processPropertyWithCoordinates(
+				fullUrl,
+				price,
+				title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+				null, // No HTML needed as we have manual coords
+				latitude,
+				longitude,
+			);
+			counts.totalSaved++;
+			counts.totalScraped++;
+			if (isRental) counts.savedRentals++;
+			else counts.savedSales++;
+			propertyAction = "CREATED";
+		} else if (result && result.isExisting && result.updated) {
+			counts.totalScraped++;
+			if (isRental) counts.savedRentals++;
+			else counts.savedSales++;
+		} else if (!result || result.error) {
+			propertyAction = "ERROR";
+		}
+
+		logger.property(
+			pageNum,
+			label,
+			title.substring(0, 40),
+			formatPriceDisplay(price, isRental),
+			fullUrl,
+			isRental,
+			totalPages,
+			propertyAction,
+		);
+
+		// Add delay between API calls and processing each property to avoid rate limiting
+		await sleep(500);
 	}
 }
 
@@ -221,84 +160,115 @@ async function handleListingPage({ page, request, crawler }) {
 // CRAWLER SETUP
 // ============================================================================
 
-function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
+function createCrawler() {
+	return new CheerioCrawler({
+		maxConcurrency: 1, // Reduced for politeness
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
 		requestHandler: handleListingPage,
+		additionalMimeTypes: ["application/json"],
+		preNavigationHooks: [
+			async ({ request }) => {
+				request.headers = {
+					...request.headers,
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+					Accept:
+						"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+					"Accept-Language": "en-GB,en;q=0.9",
+					"Cache-Control": "no-cache",
+					Pragma: "no-cache",
+				};
+			},
+		],
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
+
+// Configuration for sales and lettings
+const PROPERTY_TYPES = [
+	{
+		urlPath: "properties/sales/status-available",
+		totalRecords: 2600, // Roughly based on 213 pages * 12 per page
+		recordsPerPage: 12,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		urlPath: "properties/lettings/status-available",
+		totalRecords: 1100, // Roughly based on 91 pages * 12 per page
+		recordsPerPage: 12,
+		isRental: true,
+		label: "LETTINGS",
+	},
+];
 
 // ============================================================================
 // MAIN SCRAPER LOGIC
 // ============================================================================
 
 async function scrapeHamptons() {
-	console.log(` Starting Hamptons Scraper (Agent ${AGENT_ID})...`);
+	logger.step("Starting Hamptons (JSON Extraction) scraper...");
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	const crawler = createCrawler(browserWSEndpoint);
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
-	const PROPERTY_TYPES = [
-		{
-			baseUrl: "https://www.hamptons.co.uk/properties/sales/status-available",
-			isRental: false,
-			label: "SALES",
-			totalPages: 213,
-		},
-		{
-			baseUrl: "https://www.hamptons.co.uk/properties/lettings/status-available",
-			isRental: true,
-			label: "RENTALS",
-			totalPages: 91,
-		},
-	];
+	const crawler = createCrawler();
 
+	const allRequests = [];
 	for (const type of PROPERTY_TYPES) {
-		const requests = [];
-		for (let p = 1; p <= type.totalPages; p++) {
-			const url = p === 1 ? type.baseUrl : `${type.baseUrl}/page-${p}`;
-			requests.push({
+		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+		logger.step(`Queueing ${type.label} (${totalPages} pages)`);
+
+		for (let pg = Math.max(1, startPage); pg <= totalPages; pg++) {
+			const url =
+				pg === 1
+					? `https://www.hamptons.co.uk/${type.urlPath}`
+					: `https://www.hamptons.co.uk/${type.urlPath}/page-${pg}`;
+
+			allRequests.push({
 				url,
 				userData: {
-					pageNumber: p,
+					pageNum: pg,
 					isRental: type.isRental,
 					label: type.label,
+					totalPages,
 				},
 			});
 		}
-		await crawler.addRequests(requests);
 	}
 
-	await crawler.run();
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	} else {
+		logger.warn("No requests to process.");
+	}
 
-	console.log(
-		`\n Finished Hamptons - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Hamptons - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New lettings: ${counts.savedRentals}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
 // MAIN EXECUTION
 // ============================================================================
 
-(async () => {
-	try {
-		await scrapeHamptons();
-		await updateRemoveStatus(AGENT_ID);
+scrapeHamptons()
+	.then(() => {
+		logger.step("All done!");
 		process.exit(0);
-	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
+	})
+	.catch((error) => {
+		logger.error("Unhandled scraper error", error);
 		process.exit(1);
-	}
-})();
+	});

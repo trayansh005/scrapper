@@ -1,29 +1,51 @@
 {
-  "requestsFinished": 15,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
-  "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 2,
-  "requestMinDurationMillis": 6589,
-  "requestMaxDurationMillis": 48424,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 414462,
-  "crawlerStartedAt": "2026-02-28T12:58:46.239Z",
-  "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-02-28T13:05:46.270Z",
-  "crawlerRuntimeMillis": 420611,
-  "crawlerLastStartTimestamp": 1772283525659,
+  "requestsFinished": 0,
+  "requestsFailed": 2,
+  "requestsRetries": 2,
+  "requestsFailedPerMinute": 3,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 6440,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-02T09:03:58.939Z",
+  "crawlerFinishedAt": "2026-03-02T09:04:29.445Z",
+  "statsPersistedAt": "2026-03-02T09:04:29.446Z",
+  "crawlerRuntimeMillis": 30933,
+  "crawlerLastStartTimestamp": 1772442238513,
   "requestRetryHistogram": [
-    15
+    null,
+    null,
+    2
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 27631,
-  "requestTotalDurationMillis": 414462,
-  "requestsTotal": 15,
+  "requestAvgFailedDurationMillis": 3220,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 6440,
+  "requestsTotal": 2,
   "requestsWithStatusCode": {
-    "200": 15
+    "200": 6
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "c:\\Users\\traya\\Downloads\\scrape\\backend\\scraper-agent-215.js:146:18": {
+      "missing error code": {
+        "TypeError": {
+          "Cannot read properties of undefined (reading 'updated')": {
+            "count": 2
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "c:\\Users\\traya\\Downloads\\scrape\\backend\\scraper-agent-215.js:146:18": {
+      "missing error code": {
+        "TypeError": {
+          "Cannot read properties of undefined (reading 'updated')": {
+            "count": 4
+          }
+        }
+      }
+    }
+  }
 }

@@ -1,6 +1,5 @@
 // Hawes & Co scraper using Playwright with Crawlee
 // Agent ID: 71
-//
 // Usage:
 // node backend/scraper-agent-71.js
 
@@ -10,7 +9,12 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, formatPriceDisplay } = require("./lib/property-helpers.js");
+const {
+	extractCoordinatesFromHTML,
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -45,247 +49,272 @@ const PROPERTY_TYPES = [
 	},
 ];
 
+const processedUrls = new Set();
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property) {
+	await sleep(700);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await blockNonEssentialResources(detailPage);
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		});
+
+		await detailPage.waitForTimeout(800);
+
+		const htmlContent = await detailPage.content();
+		const coords = await extractCoordinatesFromHTML(htmlContent);
+
+		return {
+			coords: {
+				latitude: coords.latitude || null,
+				longitude: coords.longitude || null,
+			},
+		};
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}`, error);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
+
+	try {
+		await page.waitForSelector(".property", { timeout: 30000 });
+	} catch (e) {
+		logger.error("Property selector not found", e, pageNum, label);
+	}
+
+	const properties = await page.$$eval(".property", (listings) => {
+		const results = [];
+		const seenLinks = new Set();
+
+		listings.forEach((listing) => {
+			try {
+				// Extract link from data-link attribute
+				const innerWrapper = listing.querySelector(".inner_wrapper");
+				let link = innerWrapper ? innerWrapper.getAttribute("data-link") : null;
+				if (link && !link.startsWith("http")) {
+					link = "https://www.hawesandco.co.uk" + link;
+				}
+
+				// Extract price from .sale_price
+				const priceEl = listing.querySelector(".sale_price");
+				let priceRaw = null;
+				if (priceEl) {
+					priceRaw = priceEl.textContent.trim();
+				}
+
+				// Extract title from .blurb
+				let title = null;
+				const blurbEl = listing.querySelector(".blurb");
+				if (blurbEl) {
+					title = blurbEl.textContent.trim();
+				}
+				if (!title) {
+					const headerLinkEl = listing.querySelector(".info_section__header__left a");
+					if (headerLinkEl) {
+						title = headerLinkEl.textContent.trim();
+					}
+				}
+
+				// Extract bedrooms from .info_section__room.beds
+				let bedrooms = null;
+				const bedroomEl = listing.querySelector(".info_section__room.beds");
+				if (bedroomEl) {
+					const bedroomText = bedroomEl.textContent.trim();
+					const bedroomMatch = bedroomText.match(/(\d+)/);
+					if (bedroomMatch) {
+						bedrooms = bedroomMatch[1];
+					}
+				}
+
+				const statusText = listing.innerText || "";
+
+				if (link && priceRaw && title) {
+					results.push({
+						link: link,
+						title: title,
+						priceRaw: priceRaw,
+						bedrooms: bedrooms,
+						statusText: statusText,
+					});
+				}
+			} catch (err) {
+				// Skip problematic listings
+			}
+		});
+
+		return results;
+	});
+
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+
+	for (const property of properties) {
+		if (!property.link) continue;
+
+		if (isSoldProperty(property.statusText || "")) continue;
+
+		if (processedUrls.has(property.link)) continue;
+		processedUrls.add(property.link);
+
+		const price = parsePrice(property.priceRaw);
+		let bedrooms = null;
+		if (property.bedrooms) bedrooms = parseInt(property.bedrooms);
+
+		if (!price) {
+			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
+			continue;
+		}
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			price,
+			property.title,
+			bedrooms,
+			AGENT_ID,
+			isRental,
+		);
+
+		let propertyAction = "UNCHANGED";
+
+		if (result.updated) {
+			counts.totalSaved++;
+			propertyAction = "UPDATED";
+		}
+
+		if (!result.isExisting && !result.error) {
+			const detail = await scrapePropertyDetail(page.context(), property);
+
+			await processPropertyWithCoordinates(
+				property.link.trim(),
+				price,
+				property.title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+				null, // HTML not needed if we already have coords
+				detail?.coords?.latitude || null,
+				detail?.coords?.longitude || null,
+			);
+
+			counts.totalSaved++;
+			counts.totalScraped++;
+			if (isRental) counts.savedRentals++;
+			else counts.savedSales++;
+			propertyAction = "CREATED";
+		} else if (result.error) {
+			propertyAction = "ERROR";
+		} else if (result.isExisting) {
+			counts.totalScraped++;
+		}
+
+		logger.property(
+			pageNum,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(price, isRental),
+			property.link,
+			isRental,
+			totalPages,
+			propertyAction,
+		);
+
+		if (propertyAction !== "UNCHANGED") {
+			await sleep(500);
+		}
+	}
+}
+
 async function scrapeHawesAndCo() {
 	logger.step(`Starting Hawes & Co scraper (Agent ${AGENT_ID})...`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
-
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launchOptions: {
 				headless: true,
 			},
 		},
-
-		async requestHandler({ page, request }) {
-			const { isDetailPage, propertyData, pageNum, isRental, label } = request.userData;
-
-			if (isDetailPage) {
-				try {
-					await blockNonEssentialResources(page);
-					await page.waitForLoadState("networkidle");
-
-					const htmlContent = await page.content();
-
-					// Detect sold property
-					const sold = isSoldProperty(htmlContent);
-					if (sold) {
-						logger.step(`Skipping sold property: ${propertyData.link}`);
-						return;
-					}
-
-					const { link, price, title, bedrooms } = propertyData;
-
-					// Check if property already exists and update price if so
-					const result = await updatePriceByPropertyURLOptimized(
-						link,
-						price,
-						title,
-						bedrooms,
-						AGENT_ID,
-						isRental,
-					);
-
-					if (result.updated) {
-						counts.totalSaved++;
-						counts.totalScraped++;
-						if (isRental) counts.savedRentals++;
-						else counts.savedSales++;
-					} else if (result.isExisting) {
-						counts.totalScraped++;
-					}
-
-					let propertyAction = "UNCHANGED";
-					if (result.updated) propertyAction = "UPDATED";
-
-					if (!result.isExisting && !result.error) {
-						propertyAction = "CREATED";
-						// Insert new property — extract coordinates from the detail page HTML
-						await processPropertyWithCoordinates(
-							link,
-							price,
-							title,
-							bedrooms,
-							AGENT_ID,
-							isRental,
-							htmlContent, // pass HTML so coords are extracted inside
-						);
-						counts.totalSaved++;
-						counts.totalScraped++;
-						if (isRental) counts.savedRentals++;
-						else counts.savedSales++;
-					}
-
-					logger.property(
-						pageNum || 0,
-						label || "",
-						title.substring(0, 40),
-						formatPriceDisplay(price, isRental),
-						link,
-						isRental,
-						null,
-						propertyAction,
-					);
-				} catch (error) {
-					logger.error(`Error saving property: ${error.message}`);
-				}
-
-				return;
-			}
-
-			// ----------------------------------------------------------------
-			// Listing page handling
-			// ----------------------------------------------------------------
-			logger.page(pageNum, label, request.url);
-
-			// Wait for properties to load
-			await page.waitForTimeout(2000);
-			await page.waitForSelector(".property", { timeout: 30000 }).catch(() => {
-				logger.warn(`No properties found on page ${pageNum}`);
-			});
-
-			// Extract all properties from the page
-			const { properties, debug } = await page.$$eval(".property", (listings) => {
-				const results = [];
-				const debugData = { total: listings.length, processed: 0 };
-
-				listings.forEach((listing) => {
-					try {
-						debugData.processed++;
-
-						// Extract link from data-link attribute
-						const innerWrapper = listing.querySelector(".inner_wrapper");
-						let link = innerWrapper ? innerWrapper.getAttribute("data-link") : null;
-						if (link && !link.startsWith("http")) {
-							link = "https://www.hawesandco.co.uk" + link;
-						}
-
-						// Extract price from .sale_price
-						const priceEl = listing.querySelector(".sale_price");
-						let price = null;
-						if (priceEl) {
-							const priceText = priceEl.textContent.trim();
-							const priceMatch = priceText.match(/£([\d,]+)/);
-							if (priceMatch) {
-								price = parseInt(priceMatch[1].replace(/,/g, ""), 10);
-							}
-						}
-
-						// Extract title from .blurb
-						let title = null;
-						const blurbEl = listing.querySelector(".blurb");
-						if (blurbEl) {
-							title = blurbEl.textContent.trim();
-						}
-						if (!title) {
-							const headerLinkEl = listing.querySelector(".info_section__header__left a");
-							if (headerLinkEl) {
-								title = headerLinkEl.textContent.trim();
-							}
-						}
-
-						// Extract bedrooms from .info_section__room.beds
-						let bedrooms = null;
-						const bedroomEl = listing.querySelector(".info_section__room.beds");
-						if (bedroomEl) {
-							const bedroomText = bedroomEl.textContent.trim();
-							const bedroomMatch = bedroomText.match(/(\d+)/);
-							if (bedroomMatch) {
-								bedrooms = parseInt(bedroomMatch[1], 10);
-							}
-						}
-
-						// Store debug info for first property
-						if (results.length === 0) {
-							debugData.firstProperty = {
-								hasLink: !!link,
-								hasTitle: !!title,
-								hasPrice: !!price,
-								price: price,
-								title: title ? title.substring(0, 60) : null,
-							};
-						}
-
-						if (link && price && title) {
-							results.push({ link, title, price, bedrooms });
-						}
-					} catch (err) {
-						debugData.errors = (debugData.errors || 0) + 1;
-					}
-				});
-
-				return { properties: results, debug: debugData };
-			});
-
-			logger.step(`Extraction debug: ${JSON.stringify(debug)}`);
-			logger.page(pageNum, label, `Found ${properties.length} properties`);
-
-			// Add detail page requests to the queue with delay
-			for (let i = 0; i < properties.length; i++) {
-				const property = properties[i];
-				await crawler.addRequests([
-					{
-						url: property.link,
-						userData: {
-							isDetailPage: true,
-							propertyData: property,
-							isRental,
-							pageNum,
-							label,
-						},
-					},
-				]);
-
-				// Add delay between detail page requests to avoid rate limiting
-				if (i < properties.length - 1) {
-					await new Promise((resolve) => setTimeout(resolve, 1000));
-				}
-			}
-		},
-
+		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			logger.error(`Failed: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 
-	// Add initial listing page URLs for both sales and rentals
-	const requests = [];
-
-	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
-		logger.step(
-			`Queueing ${propertyType.label} properties (${propertyType.totalRecords} total, ${totalPages} pages)`,
-		);
-
-		for (let page = 1; page <= totalPages; page++) {
-			requests.push({
-				url: `https://www.hawesandco.co.uk/${propertyType.urlPath}/all-properties/!/page/${page}`,
+	const allRequests = [];
+	for (const type of PROPERTY_TYPES) {
+		logger.step(`Queueing ${type.label} (${type.totalRecords} pages)`);
+		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+		for (let pg = Math.max(1, startPage); pg <= totalPages; pg++) {
+			allRequests.push({
+				url: `https://www.hawesandco.co.uk/${type.urlPath}/all-properties/!/page/${pg}`,
 				userData: {
-					isDetailPage: false,
-					pageNum: page,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
+					pageNum: pg,
+					isRental: type.isRental,
+					label: type.label,
+					totalPages: totalPages,
 				},
 			});
 		}
 	}
 
-	await crawler.run(requests);
+	if (allRequests.length > 0) {
+		await crawler.run(allRequests);
+	} else {
+		logger.warn("No requests to process.");
+	}
 
 	logger.step(
 		`Completed Hawes & Co - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
+	logger.step(`Breakdown - SALES: ${counts.savedSales}, LETTINGS: ${counts.savedRentals}`);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // Main execution
 (async () => {
 	try {
-		const scrapeStartTime = new Date();
 		await scrapeHawesAndCo();
-		logger.step("Updating remove status...");
-		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
