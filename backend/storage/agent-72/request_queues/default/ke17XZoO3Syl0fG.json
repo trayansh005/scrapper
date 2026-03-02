@@ -1,0 +1,9 @@
+{
+	"id": "ke17XZoO3Syl0fG",
+	"json": "{\"id\":\"ke17XZoO3Syl0fG\",\"url\":\"https://residential.jll.co.uk/search?tenureType=sale&sortBy=price&sortDirection=desc&page=8\",\"uniqueKey\":\"https://residential.jll.co.uk/search?page=8&sortBy=price&sortDirection=desc&tenureType=sale\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNumber\":8,\"totalPages\":20,\"isRental\":false,\"label\":\"SALES\"}}",
+	"method": "GET",
+	"orderNo": 1772438101840,
+	"retryCount": 0,
+	"uniqueKey": "https://residential.jll.co.uk/search?page=8&sortBy=price&sortDirection=desc&tenureType=sale",
+	"url": "https://residential.jll.co.uk/search?tenureType=sale&sortBy=price&sortDirection=desc&page=8"
+}

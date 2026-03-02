@@ -1,26 +1,39 @@
-// Emoov scraper using Playwright with Crawlee
+// Emoov scraper using API with native fetch
 // Agent ID: 112
 // Website: emoov.co.uk
 // Usage:
-// node backend/scraper-agent-112.js
+// node backend/scraper-agent-112.js [startPage]
 
-const { PlaywrightCrawler, log } = require("crawlee");
-const { processPropertyWithCoordinates } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
-
-// Disable Crawlee's verbose logging
-log.setLevel(log.LEVELS.ERROR);
+const { isSoldProperty, parsePrice, formatPriceUk } = require("./lib/property-helpers.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { updateRemoveStatus } = require("./db.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 const AGENT_ID = 112;
 const EMOOV_API_BASE = "https://apiv2.emoov.co.uk:8443/api";
 const EMOOV_API_KEY = process.env.EMOOV_API_KEY || "b8bcad0edf7c247f5e774b174c5fc452";
 
+const logger = createAgentLogger(AGENT_ID);
+
 const stats = {
+	totalFound: 0,
 	totalScraped: 0,
 	totalSaved: 0,
+	totalSkipped: 0,
 };
 
-async function fetchEmoovPage(isRental, pageNumber, limit = 8) {
+const scrapeStartTime = new Date();
+const startPageArgument = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
+const isPartialRun = startPageArgument > 1;
+
+async function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchEmoovPage(isRental, pageNumber, limit = 20) {
 	const endpoint = isRental
 		? `${EMOOV_API_BASE}/lettings/search`
 		: `${EMOOV_API_BASE}/properties/search`;
@@ -55,21 +68,6 @@ async function fetchEmoovPage(isRental, pageNumber, limit = 8) {
 	return { properties, pagination };
 }
 
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
 function stripTags(text) {
 	if (!text) return "";
 	return text
@@ -80,6 +78,7 @@ function stripTags(text) {
 
 async function scrapePropertyDetail(property, isRental) {
 	try {
+		logger.property(property.link, "DETAIL", "Scraping coordinates...");
 		const response = await fetch(property.link, {
 			headers: {
 				referer: "https://emoov.co.uk/",
@@ -107,16 +106,17 @@ async function scrapePropertyDetail(property, isRental) {
 			html,
 			title:
 				stripTags(h1Match?.[1]) || stripTags(h2Match?.[1]) || property.title || "Emoov Property",
-			statusText: stripTags(statusMatch?.[1]).toLowerCase(),
+			statusText: stripTags(statusMatch?.[1]) || "",
 		};
 
-		const status = detailData.statusText || property.statusText || "";
+		const status = (detailData.statusText || property.statusText || "").toLowerCase();
 		if (isSoldProperty(status)) {
-			console.log(`    ⏭️ Skipping non-available: ${property.link} (${status})`);
+			logger.property(property.link, "SKIP", `Status is: ${status}`);
+			stats.totalSkipped++;
 			return;
 		}
 
-		await processPropertyWithCoordinates(
+		const dbResult = await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			detailData.title,
@@ -128,158 +128,121 @@ async function scrapePropertyDetail(property, isRental) {
 			detailData.lng,
 		);
 
+		if (dbResult.isExisting && !dbResult.updated) {
+			logger.property(property.link, "UNCHANGED");
+		} else {
+			logger.property(property.link, dbResult.updated ? "UPDATED" : "CREATED");
+			stats.totalSaved++;
+			await sleep(100); // Politeness during write
+		}
 		stats.totalScraped++;
-		stats.totalSaved++;
 	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
 	}
 }
 
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
+async function run() {
+	logger.step(`Starting Emoov API scraper (Agent ${AGENT_ID})`);
+	if (isPartialRun) {
+		logger.step(`Partial run starting from page ${startPageArgument}`);
+	}
 
-async function handleListingPage({ page, request }) {
-	const { isRental, label, area } = request.userData;
-	console.log(`\n Loading [${label}] ${area}: ${request.url}`);
+	const modes = [
+		{ isRental: false, label: "SALES" },
+		{ isRental: true, label: "RENTALS" },
+	];
 
-	try {
-		await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
-
-		const properties = [];
-		let pageNumber = 1;
+	for (const mode of modes) {
+		logger.step(`Processing ${mode.label}...`);
+		let pageNumber = startPageArgument;
 		let totalPages = 1;
 
 		do {
-			const { properties: pageItems, pagination } = await fetchEmoovPage(isRental, pageNumber, 8);
-			totalPages = pagination?.totalPages || totalPages;
+			logger.page(pageNumber, totalPages, `Fetching ${mode.label} API page`);
+			try {
+				const { properties: pageItems, pagination } = await fetchEmoovPage(
+					mode.isRental,
+					pageNumber,
+					20,
+				);
+				totalPages = pagination?.totalPages || totalPages;
 
-			for (const item of pageItems) {
-				const id = item?.id;
-				const slug = item?.property_url;
-				if (!id || !slug) continue;
+				for (const item of pageItems) {
+					const id = item?.id;
+					const slug = item?.property_url;
+					if (!id || !slug) continue;
 
-				const link = isRental
-					? `https://emoov.co.uk/letting/${id}/${slug}`
-					: `https://emoov.co.uk/property/${id}/${slug}`;
+					const link = mode.isRental
+						? `https://emoov.co.uk/letting/${id}/${slug}`
+						: `https://emoov.co.uk/property/${id}/${slug}`;
 
-				const priceText = isRental
-					? item?.new_price_pcm || item?.new_price || ""
-					: item?.new_price || item?.new_price_pcm || "";
+					const priceText = mode.isRental
+						? item?.new_price_pcm || item?.new_price || ""
+						: item?.new_price || item?.new_price_pcm || "";
 
-				const statusText = (
-					item?.listing_status_display ||
-					item?.listing_status ||
-					item?.original_listing_status ||
-					""
-				)
-					.toString()
-					.toLowerCase();
+					const statusText = (
+						item?.listing_status_display ||
+						item?.listing_status ||
+						item?.original_listing_status ||
+						""
+					)
+						.toString()
+						.toLowerCase();
 
-				const bedrooms = Number.isFinite(Number(item?.bedrooms)) ? Number(item.bedrooms) : null;
+					const bedrooms = Number.isFinite(Number(item?.bedrooms)) ? Number(item.bedrooms) : null;
+					const title = item?.portal_address || "Emoov Property";
+					const numericPrice = parsePrice(priceText);
 
-				const title = item?.portal_address || "Emoov Property";
+					stats.totalFound++;
 
-				properties.push({ link, priceText, title, statusText, bedrooms });
-			}
-
-			console.log(`    📡 Loaded API page ${pageNumber}/${totalPages} (${pageItems.length} items)`);
-			pageNumber++;
-		} while (pageNumber <= totalPages);
-
-		console.log(`    ✅ Finished API pagination - total properties found: ${properties.length}`);
-
-		// De-duplicate
-		const uniqueProperties = [];
-		const seenLinks = new Set();
-		for (const p of properties) {
-			if (!seenLinks.has(p.link)) {
-				seenLinks.add(p.link);
-				uniqueProperties.push(p);
-			}
-		}
-
-		console.log(`    Found ${uniqueProperties.length} unique properties on Emoov list for ${area}`);
-
-		// Batch processing (sequential inside each batch) for stability on Browserless
-		const batchSize = 10;
-		for (let i = 0; i < uniqueProperties.length; i += batchSize) {
-			const batch = uniqueProperties.slice(i, i + batchSize);
-			console.log(
-				`    🚀 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(uniqueProperties.length / batchSize)}...`,
-			);
-
-			for (const property of batch) {
-				try {
-					if (isSoldProperty(property.statusText)) {
+					if (isSoldProperty(statusText)) {
+						logger.property(link, "SKIP", `API status: ${statusText}`);
+						stats.totalSkipped++;
 						continue;
 					}
 
-					const jitter = Math.floor(Math.random() * 1200) + 300;
-					await new Promise((resolve) => setTimeout(resolve, jitter));
-
-					const price = parsePrice(property.priceText);
-					await scrapePropertyDetail({ ...property, price }, isRental);
-				} catch (err) {
-					console.error(`    ⚠️ Error processing ${property.link}: ${err.message}`);
+					// Optimized price check
+					const priceCheck = await updatePriceByPropertyURLOptimized(link, numericPrice, AGENT_ID);
+					if (priceCheck.isExisting) {
+						if (priceCheck.updated) {
+							logger.property(link, "UPDATED", `Price: ${formatPriceUk(numericPrice)}`);
+							stats.totalSaved++;
+							await sleep(50);
+						} else {
+							logger.property(link, "UNCHANGED");
+						}
+					} else {
+						// New property, scrape details
+						await scrapePropertyDetail(
+							{ link, price: numericPrice, title, statusText, bedrooms },
+							mode.isRental,
+						);
+					}
 				}
+
+				pageNumber++;
+			} catch (err) {
+				logger.error(`Failed to process page ${pageNumber}: ${err.message}`);
+				break;
 			}
-
-			await page.waitForTimeout(500);
-		}
-
-		// Emoov doesn't seem to have standard pagination buttons (observed for London)
-		// If it did, we would enqueue next page here.
-	} catch (error) {
-		console.error(`    ❌ Error handling listing page: ${error.message}`);
-		if (error.stack)
-			console.error(`    Stack: ${error.stack.split("\n").slice(0, 3).join("\n    ")}`);
+		} while (pageNumber <= totalPages);
 	}
+
+	// Remove status update
+	if (!isPartialRun) {
+		logger.step("Updating removed status for inactive properties...");
+		const removedCount = await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+		logger.step(`Marked ${removedCount} properties as removed`);
+	} else {
+		logger.step("Skipping remove status update (Partial run)");
+	}
+
+	logger.step(
+		`Scrape completed. Found: ${stats.totalFound}, Saved/Updated: ${stats.totalSaved}, Skipped: ${stats.totalSkipped}`,
+	);
 }
 
-// ============================================================================
-// MAIN EXECUTION
-// ============================================================================
-
-(async () => {
-	console.log(`\n Starting Agent ${AGENT_ID} - Emoov Scraper`);
-
-	const crawler = new PlaywrightCrawler({
-		requestHandler: handleListingPage,
-		maxConcurrency: 1, // Stay subtle
-		maxRequestRetries: 0,
-		requestHandlerTimeoutSecs: 7200,
-		browserPoolOptions: {
-			useFingerprints: true,
-		},
-		launchContext: {
-			launcher: require("playwright").chromium,
-			launchOptions: {
-				headless: true,
-				// Use Browserless if available
-				wsEndpoint: getBrowserlessEndpoint(),
-			},
-		},
-	});
-
-	// All properties across all locations
-	const startUrls = [
-		{
-			url: "https://emoov.co.uk/find-a-property/any-location",
-			userData: { label: "Sales", area: "All", isRental: false },
-		},
-		{
-			url: "https://emoov.co.uk/find-a-letting/any-location",
-			userData: { label: "Rentals", area: "All", isRental: true },
-		},
-	];
-
-	await crawler.run(startUrls);
-
-	console.log(`\n================================================================`);
-	console.log(`🏁 AGENT ${AGENT_ID} FINISHED`);
-	console.log(`✅ Total Scraped: ${stats.totalScraped}`);
-	console.log(`✅ Total Saved: ${stats.totalSaved}`);
-	console.log(`================================================================\n`);
-	process.exit(0);
-})();
+run().catch((err) => {
+	logger.error(`Fatal error: ${err.message}`);
+	process.exit(1);
+});

@@ -1,218 +1,195 @@
-// Harrods Estates scraper using Playwright with Crawlee
+// Harrods Estates scraper with Playwright extraction of propertyData
 // Agent ID: 215
+// Website: harrodsestates.com
 // Usage:
-// node backend/scraper-agent-215.js
+// node backend/scraper-agent-215.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
-const { updatePriceByPropertyURLOptimized, } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty, } = require("./lib/property-helpers.js");
+const { updatePriceByPropertyURLOptimized, processPropertyWithCoordinates } = require("./lib/db-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceUk } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
-
-log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 215;
 const logger = createAgentLogger(AGENT_ID);
 
-let totalScraped = 0;
-let totalSaved = 0;
+const stats = {
+	totalFound: 0,
+	totalScraped: 0,
+	totalSaved: 0,
+	totalSkipped: 0,
+};
 
-const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.harrodsestates.com/properties/sales/status-available",
-		totalPages: Math.ceil(37 / 9),
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		urlBase: "https://www.harrodsestates.com/properties/lettings/status-available",
-		totalPages: Math.ceil(54 / 9),
-		isRental: true,
-		label: "RENTALS",
-	},
-];
+const scrapeStartTime = new Date();
+const startPageArgument = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
+const isPartialRun = startPageArgument > 1;
 
-async function scrapeHarrods() {
-	console.log(`\n🚀 Starting Harrods Estates scraper (Agent ${AGENT_ID})...\n`);
+async function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 2,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 120,
+const crawler = new PlaywrightCrawler({
+	maxConcurrency: 1, // Be polite
+	maxRequestRetries: 2,
+	navigationTimeoutSecs: 90,
+	requestHandlerTimeoutSecs: 600,
 
-		launchContext: {
-			launchOptions: {
-				headless: true,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
+	launchContext: {
+		launchOptions: {
+			headless: true,
+			args: ["--no-sandbox", "--disable-setuid-sandbox"],
 		},
+	},
 
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
+	preNavigationHooks: [
+		async ({ page }) => {
+			await blockNonEssentialResources(page);
+		},
+	],
 
-		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+	async requestHandler({ page, request, crawler }) {
+		const { pageNum, isRental, label } = request.userData;
 
-			logger.page(pageNum, label, request.url);
+		logger.page(pageNum, request.userData.totalPages || "?", `Processing ${label}`);
 
-			await page.waitForSelector('[data-page-marker], a[href^="/properties/"]', {
-				timeout: 20000,
-			}).catch(() => null);
-
-			const properties = await page.evaluate(() => {
-				const items = Array.from(
-					document.querySelectorAll("[data-page-marker]")
-				);
-
-				return items
-					.map((el) => {
-						const linkEl = el.querySelector("a[href]");
-						const href = linkEl?.href || null;
-
-						const title =
-							linkEl?.querySelector(".font-serif")?.textContent?.trim() ||
-							linkEl?.getAttribute("title")?.trim() ||
-							"";
-
-						const priceText =
-							el.querySelector("div.font-sans span")?.textContent?.trim() ||
-							"";
-
-						const bedText =
-							el.querySelector("span.text-custom-5")?.textContent?.trim() ||
-							null;
-
-						return {
-							link: href,
-							title,
-							price: priceText,
-							bedrooms: bedText,
-						};
-					})
-					.filter((p) => p.link);
-			});
-
-			totalScraped += properties.length;
-
-			for (const property of properties) {
-				try {
-					if (!property.link) continue;
-
-					// Skip sold / unavailable
-					if (isSoldProperty(property.price)) continue;
-
-					const priceClean = property.price
-						? property.price.replace(/[^0-9]/g, "")
-						: null;
-
-					if (!priceClean) continue;
-
-					const formattedPrice =  Number(priceClean).toLocaleString("en-GB");
-					// Open detail page for coordinates
-					const detailPage = await page.context().newPage();
-					await blockNonEssentialResources(detailPage);
-
-					await detailPage.goto(property.link, {
-						waitUntil: "domcontentloaded",
-						timeout: 30000,
-					});
-
-					const html = await detailPage.content();
-					await detailPage.close();
-
-					let coords = extractCoordinatesFromHTML(html);
-
-					// Fallback regex if needed
-					if (!coords || !coords.latitude || !coords.longitude) {
-						const m1 = html.match(/"lat"\s*:\s*([0-9.+-]+)/i);
-						const m2 = html.match(/"lng"\s*:\s*([0-9.+-]+)/i);
-
-						if (m1 && m2) {
-							coords = {
-								latitude: parseFloat(m1[1]),
-								longitude: parseFloat(m2[1]),
-							};
+		// Extract propertyData from the script tag
+		const data = await page.evaluate(() => {
+			const scripts = Array.from(document.querySelectorAll("script"));
+			for (const s of scripts) {
+				const text = s.textContent;
+				if (text && text.includes("var propertyData =")) {
+					try {
+						const match = text.match(/var propertyData = ({.*?});/s);
+						if (match) {
+							return JSON.parse(match[1]);
 						}
+					} catch (e) {
+						// Continue to next script
 					}
-
-					await updatePriceByPropertyURLOptimized(
-						property.link.trim(),
-						formattedPrice,
-						property.title,
-						property.bedrooms,
-						AGENT_ID,
-						isRental,
-						coords?.latitude || null,
-						coords?.longitude || null
-					);
-
-					totalSaved++;
-
-					console.log(
-						`✅ [${isRental ? "RENTALS" : "SALES"}]`,
-						"\n Title:      ", property.title,
-						"\n PriceText:  ", formattedPrice,
-						"\n Bedrooms:   ", property.bedrooms,
-						"\n Latitude:   ", coords?.latitude,
-						"\n Longitude:  ", coords?.longitude,
-						"\n Link:       ", property.link,
-						"\n------------------------------------------------"
-					);
-				} catch (err) {
-					logger.error(property.link, err.message);
 				}
 			}
-		},
+			return null;
+		});
 
-		failedRequestHandler({ request }) {
-			logger.failed(request.url);
-		},
-	});
-
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(
-			`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`
-		);
-
-		const requests = [];
-
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url =
-				pg === 1
-					? `${propertyType.urlBase}/#/`
-					: `${propertyType.urlBase}/page-${pg}#/`;
-
-			requests.push({
-				url,
-				userData: {
-					pageNum: pg,
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-				},
-			});
+		if (!data || !data.properties) {
+			logger.error(`No propertyData found on page ${pageNum}`);
+			return;
 		}
 
-		await crawler.addRequests(requests);
-		await crawler.run();
+		const properties = data.properties;
+
+		// Handle pagination discovery on first page
+		if (pageNum === 1) {
+			const totalCount = data.pagination?.total_count || 0;
+			const pageSize = data.pagination?.page_size || 9;
+			const totalPages = Math.ceil(totalCount / pageSize);
+			request.userData.totalPages = totalPages;
+
+			for (let p = 2; p <= totalPages; p++) {
+				const pagedUrl = request.url.replace(/\/$/, "") + `/page-${p}#/`;
+				await crawler.addRequests([
+					{
+						url: pagedUrl,
+						userData: { ...request.userData, pageNum: p, totalPages },
+					},
+				]);
+			}
+		}
+
+		for (const item of properties) {
+			const link = item.property_url.startsWith("http")
+				? item.property_url
+				: `https://www.harrodsestates.com${item.property_url}`;
+			
+			const status = (item.status || "").toLowerCase();
+			if (isSoldProperty(status)) {
+				logger.property(link, "SKIP", `Status is: ${status}`);
+				stats.totalSkipped++;
+				continue;
+			}
+
+			const numericPrice = parsePrice(item.price);
+			const title = item.display_address || "Harrods Property";
+			const bedrooms = item.bedrooms || null;
+			const lat = item.lat || null;
+			const lng = item.lng || null;
+
+			stats.totalFound++;
+
+			// Optimized price check
+			const priceCheck = await updatePriceByPropertyURLOptimized(link, numericPrice, AGENT_ID);
+			
+			if (priceCheck.isExisting) {
+				if (priceCheck.updated) {
+					logger.property(link, "UPDATED", `Price: ${formatPriceUk(numericPrice)}`);
+					stats.totalSaved++;
+					await sleep(100);
+				} else {
+					logger.property(link, "UNCHANGED");
+				}
+			} else {
+				// We have everything in propertyData, including coordinates and bedrooms
+				// Skip details page and save directly
+				const dbResult = await processPropertyWithCoordinates(
+					link,
+					numericPrice,
+					title,
+					bedrooms,
+					AGENT_ID,
+					isRental,
+					"", // HTML not needed as we already have data
+					lat,
+					lng
+				);
+
+				if (dbResult.updated || !dbResult.isExisting) {
+					logger.property(link, dbResult.updated ? "UPDATED" : "CREATED");
+					stats.totalSaved++;
+					await sleep(200);
+				}
+				stats.totalScraped++;
+			}
+		}
+	},
+});
+
+async function run() {
+	logger.step(`Starting Harrods Estates scraper (Agent ${AGENT_ID})`);
+
+	const startUrls = [
+		{
+			url: "https://www.harrodsestates.com/properties/sales/status-available#/",
+			userData: { pageNum: 1, isRental: false, label: "SALES" },
+		},
+		{
+			url: "https://www.harrodsestates.com/properties/lettings/status-available#/",
+			userData: { pageNum: 1, isRental: true, label: "RENTALS" },
+		},
+	];
+
+	if (isPartialRun) {
+		logger.step(`Partial run detected (startPage=${startPageArgument}). Remove status update will be skipped.`);
+		// If user passes startPage, we should ideally adjust the startUrls to only include that page onwards.
+		// However, Homeflow sites usually work best when we let discovery happen from page 1.
 	}
 
-	console.log(
-		`\n✅ Completed Harrods Estates - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+	await crawler.run(startUrls);
+
+	if (!isPartialRun) {
+		logger.step("Updating removed status for inactive properties...");
+		const removedCount = await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+		logger.step(`Marked ${removedCount} properties as removed`);
+	} else {
+		logger.step("Skipping remove status update (Partial run)");
+	}
+
+	logger.step(
+		`Scrape completed. Found: ${stats.totalFound}, Saved/Updated: ${stats.totalSaved}, Skipped: ${stats.totalSkipped}`
 	);
 }
 
-(async () => {
-	try {
-		await scrapeHarrods();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
-		process.exit(1);
-	}
-})();
+run().catch((err) => {
+	logger.error(`Fatal error: ${err.message}`);
+	process.exit(1);
+});

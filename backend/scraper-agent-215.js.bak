@@ -1,0 +1,213 @@
+// Harrods Estates scraper using Playwright with Crawlee
+// Agent ID: 215
+// Usage:
+// node backend/scraper-agent-215.js
+
+const { PlaywrightCrawler, log } = require("crawlee");
+const { updateRemoveStatus } = require("./db.js");
+const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+
+log.setLevel(log.LEVELS.ERROR);
+
+const AGENT_ID = 215;
+const logger = createAgentLogger(AGENT_ID);
+
+let totalScraped = 0;
+let totalSaved = 0;
+
+const PROPERTY_TYPES = [
+	{
+		urlBase: "https://www.harrodsestates.com/properties/sales/status-available",
+		totalPages: Math.ceil(37 / 9),
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		urlBase: "https://www.harrodsestates.com/properties/lettings/status-available",
+		totalPages: Math.ceil(54 / 9),
+		isRental: true,
+		label: "RENTALS",
+	},
+];
+
+async function scrapeHarrods() {
+	console.log(`\n🚀 Starting Harrods Estates scraper (Agent ${AGENT_ID})...\n`);
+
+	const crawler = new PlaywrightCrawler({
+		maxConcurrency: 2,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 120,
+
+		launchContext: {
+			launchOptions: {
+				headless: true,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
+
+		async requestHandler({ page, request }) {
+			const { pageNum, isRental, label } = request.userData;
+
+			logger.page(pageNum, label, request.url);
+
+			await page
+				.waitForSelector('[data-page-marker], a[href^="/properties/"]', {
+					timeout: 20000,
+				})
+				.catch(() => null);
+
+			const properties = await page.evaluate(() => {
+				const items = Array.from(document.querySelectorAll("[data-page-marker]"));
+
+				return items
+					.map((el) => {
+						const linkEl = el.querySelector("a[href]");
+						const href = linkEl?.href || null;
+
+						const title =
+							linkEl?.querySelector(".font-serif")?.textContent?.trim() ||
+							linkEl?.getAttribute("title")?.trim() ||
+							"";
+
+						const priceText = el.querySelector("div.font-sans span")?.textContent?.trim() || "";
+
+						const bedText = el.querySelector("span.text-custom-5")?.textContent?.trim() || null;
+
+						return {
+							link: href,
+							title,
+							price: priceText,
+							bedrooms: bedText,
+						};
+					})
+					.filter((p) => p.link);
+			});
+
+			totalScraped += properties.length;
+
+			for (const property of properties) {
+				try {
+					if (!property.link) continue;
+
+					// Skip sold / unavailable
+					if (isSoldProperty(property.price)) continue;
+
+					const priceClean = property.price ? property.price.replace(/[^0-9]/g, "") : null;
+
+					if (!priceClean) continue;
+
+					const formattedPrice = Number(priceClean).toLocaleString("en-GB");
+					// Open detail page for coordinates
+					const detailPage = await page.context().newPage();
+					await blockNonEssentialResources(detailPage);
+
+					await detailPage.goto(property.link, {
+						waitUntil: "domcontentloaded",
+						timeout: 30000,
+					});
+
+					const html = await detailPage.content();
+					await detailPage.close();
+
+					let coords = extractCoordinatesFromHTML(html);
+
+					// Fallback regex if needed
+					if (!coords || !coords.latitude || !coords.longitude) {
+						const m1 = html.match(/"lat"\s*:\s*([0-9.+-]+)/i);
+						const m2 = html.match(/"lng"\s*:\s*([0-9.+-]+)/i);
+
+						if (m1 && m2) {
+							coords = {
+								latitude: parseFloat(m1[1]),
+								longitude: parseFloat(m2[1]),
+							};
+						}
+					}
+
+					await updatePriceByPropertyURLOptimized(
+						property.link.trim(),
+						formattedPrice,
+						property.title,
+						property.bedrooms,
+						AGENT_ID,
+						isRental,
+						coords?.latitude || null,
+						coords?.longitude || null,
+					);
+
+					totalSaved++;
+
+					console.log(
+						`✅ [${isRental ? "RENTALS" : "SALES"}]`,
+						"\n Title:      ",
+						property.title,
+						"\n PriceText:  ",
+						formattedPrice,
+						"\n Bedrooms:   ",
+						property.bedrooms,
+						"\n Latitude:   ",
+						coords?.latitude,
+						"\n Longitude:  ",
+						coords?.longitude,
+						"\n Link:       ",
+						property.link,
+						"\n------------------------------------------------",
+					);
+				} catch (err) {
+					logger.error(property.link, err.message);
+				}
+			}
+		},
+
+		failedRequestHandler({ request }) {
+			logger.failed(request.url);
+		},
+	});
+
+	for (const propertyType of PROPERTY_TYPES) {
+		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+
+		const requests = [];
+
+		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
+			const url = pg === 1 ? `${propertyType.urlBase}/#/` : `${propertyType.urlBase}/page-${pg}#/`;
+
+			requests.push({
+				url,
+				userData: {
+					pageNum: pg,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
+			});
+		}
+
+		await crawler.addRequests(requests);
+		await crawler.run();
+	}
+
+	console.log(
+		`\n✅ Completed Harrods Estates - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`,
+	);
+}
+
+(async () => {
+	try {
+		await scrapeHarrods();
+		await updateRemoveStatus(AGENT_ID);
+		console.log("\n✅ All done!");
+		process.exit(0);
+	} catch (err) {
+		console.error("❌ Fatal error:", err?.message || err);
+		process.exit(1);
+	}
+})();

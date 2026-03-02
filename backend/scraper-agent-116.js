@@ -1,334 +1,268 @@
-// Gascoigne Pees scraper using Playwright with Crawlee
+// Gascoigne Pees scraper using CheerioCrawler with JSON extraction
 // Agent ID: 116
 //
 // Usage:
 // node backend/scraper-agent-116.js
 
-const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { CheerioCrawler, log } = require("crawlee");
+const { updateRemoveStatus } = require("./db.js");
+const {
+updatePriceByPropertyURLOptimized,
+processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { isSoldProperty, formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-// Disable Crawlee's verbose logging
+// Reduce logging noise
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 116;
+const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
-	totalScraped: 0,
-	totalSaved: 0,
-	savedSales: 0,
-	savedRentals: 0,
+const counts = {
+totalScraped: 0,
+totalSaved: 0,
+savedSales: 0,
+savedRentals: 0,
 };
 
-const recentPageSignatures = new Map();
 const processedUrls = new Set();
-
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	const num = Number(price);
-	if (isNaN(num)) return "N/A";
-	return "£" + num.toLocaleString("en-GB");
-}
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
 function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "£0 pcm" : "£0";
-	// ensure price string has thousand separators
-	const num = Number(price.toString().replace(/,/g, ""));
-	const formatted = isNaN(num) ? price : num.toLocaleString("en-GB");
-	return `£${formatted}${isRental ? " pcm" : ""}`;
+return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ============================================================================
-// BROWSERLESS SETUP
+// REQUEST HANDLER
 // ============================================================================
 
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
+async function handleListingPage({ $, request }) {
+const { pageNum, isRental, label, totalPages } = request.userData;
+logger.page(pageNum, label, request.url, totalPages);
+
+const html = $.html();
+
+// Extract JSON data embedded in the script tag
+const jsonMatch =
+html.match(/var\s+propertyData\s*=\s*(\{.*?\});/s) ||
+html.match(/homeflow\.Properties\s*=\s*(\{.*?\});/s);
+
+if (!jsonMatch) {
+logger.warn(`Could not find property JSON on page ${pageNum} (${label})`);
+return;
+}
+
+let propertyData;
+try {
+propertyData = JSON.parse(jsonMatch[1]);
+} catch (e) {
+logger.error(`Error parsing JSON on page ${pageNum} (${label})`, e);
+return;
+}
+
+const properties = propertyData.properties || [];
+logger.page(pageNum, label, `Extracted ${properties.length} properties from JSON`, totalPages);
+
+for (const prop of properties) {
+const fullUrl = prop.url.startsWith("http") ? prop.url : `https://www.gpees.co.uk${prop.url}`;
+
+if (isSoldProperty(prop.status || "")) continue;
+
+if (processedUrls.has(fullUrl)) {
+logger.page(pageNum, label, `Skipping duplicate: ${fullUrl.substring(0, 60)}...`, totalPages);
+continue;
+}
+processedUrls.add(fullUrl);
+
+const price = parseInt(prop.priceValue) || 0;
+const bedrooms = parseInt(prop.bedrooms) || null;
+const title = prop.displayAddress || prop.addressWithCommas || "Property";
+
+if (!price) {
+logger.page(pageNum, label, `Skipping (no price): ${fullUrl}`, totalPages);
+continue;
+}
+
+// Use coordinates from JSON directly
+const latitude = prop.lat ? parseFloat(prop.lat) : null;
+const longitude = prop.lng ? parseFloat(prop.lng) : null;
+
+const result = await updatePriceByPropertyURLOptimized(
+fullUrl,
+price,
+title,
+bedrooms,
+AGENT_ID,
+isRental,
+);
+
+let propertyAction = "UNCHANGED";
+
+if (result && result.updated) {
+counts.totalSaved++;
+propertyAction = "UPDATED";
+}
+
+if (result && !result.isExisting && !result.error) {
+// Since we have coordinates in JSON, we can skip detail page visit
+await processPropertyWithCoordinates(
+fullUrl,
+price,
+title,
+bedrooms,
+AGENT_ID,
+isRental,
+null, // No HTML needed as we have manual coords
+latitude,
+longitude,
+);
+counts.totalSaved++;
+counts.totalScraped++;
+if (isRental) counts.savedRentals++;
+else counts.savedSales++;
+propertyAction = "CREATED";
+} else if (result && result.isExisting && result.updated) {
+counts.totalScraped++;
+if (isRental) counts.savedRentals++;
+else counts.savedSales++;
+} else if (!result || result.error) {
+propertyAction = "ERROR";
+}
+
+logger.property(
+pageNum,
+label,
+title.substring(0, 40),
+formatPriceDisplay(price, isRental),
+fullUrl,
+isRental,
+totalPages,
+propertyAction,
+);
+
+if (propertyAction !== "UNCHANGED") {
+await sleep(100);
+}
+}
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
+// CRAWLER SETUP
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
-	await sleep(700);
-	const detailPage = await browserContext.newPage();
-	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		});
-
-		await detailPage.waitForTimeout(1500);
-
-		const htmlContent = await detailPage.content();
-		// try general extractor first
-		let coords = await extractCoordinatesFromHTML(htmlContent);
-
-		// if extractor failed, fallback to Gascoigne-specific comment regex
-		if (!coords || (!coords.latitude && !coords.longitude)) {
-			const latMatch = htmlContent.match(/<!--property-latitude:"([0-9.\-]+)"-->/);
-			const lngMatch = htmlContent.match(/<!--property-longitude:"([0-9.\-]+)"-->/);
-			if (latMatch && lngMatch) {
-				coords = { latitude: parseFloat(latMatch[1]), longitude: parseFloat(lngMatch[1]) };
-			}
-		}
-
-		return {
-			coords: {
-				latitude: coords?.latitude || null,
-				longitude: coords?.longitude || null,
-			},
-		};
-	} catch (err) {
-		console.log(` Error scraping detail page ${property.link}: ${err.message}`);
-		return null;
-	} finally {
-		await detailPage.close();
-	}
+function createCrawler() {
+return new CheerioCrawler({
+maxConcurrency: 5,
+maxRequestRetries: 2,
+requestHandler: handleListingPage,
+additionalMimeTypes: ["application/json"],
+preNavigationHooks: [
+async ({ request }) => {
+request.headers = {
+...request.headers,
+"User-Agent":
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+Accept:
+"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+"Accept-Language": "en-GB,en;q=0.9",
+"Cache-Control": "no-cache",
+Pragma: "no-cache",
+};
+},
+],
+failedRequestHandler({ request }) {
+logger.error(`Failed listing page: ${request.url}`);
+},
+});
 }
 
 // Configuration for sales and lettings
 const PROPERTY_TYPES = [
-	{
-		urlPath: "properties/sales/status-available/most-recent-first",
-		totalRecords: 512,
-		recordsPerPage: 10,
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		urlPath: "properties/lettings/status-available/most-recent-first",
-		totalRecords: 70,
-		recordsPerPage: 10,
-		isRental: true,
-		label: "LETTINGS",
-	},
+{
+urlPath: "properties/sales/status-available/most-recent-first",
+totalRecords: 512,
+recordsPerPage: 10,
+isRental: false,
+label: "SALES",
+},
+{
+urlPath: "properties/lettings/status-available/most-recent-first",
+totalRecords: 70,
+recordsPerPage: 10,
+isRental: true,
+label: "LETTINGS",
+},
 ];
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
-	try {
-		await page.waitForSelector(".hf-property-results .card", { timeout: 30000 });
-	} catch (e) {
-		console.log(` Listing container not found on page ${pageNum}`);
-	}
+async function scrapeGPeews() {
+logger.step("Starting Gascoigne Pees (JSON Extraction) scraper...");
 
-	const properties = await page.evaluate(() => {
-		const results = [];
-		const cards = Array.from(document.querySelectorAll(".hf-property-results .card"));
-		for (const card of cards) {
-			try {
-				let linkEl = card.querySelector("a");
-				let link = linkEl ? linkEl.getAttribute("href") : null;
-				if (link && !link.startsWith("http")) {
-					link = "https://www.gpees.co.uk" + link;
-				}
+const args = process.argv.slice(2);
+const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+const isPartialRun = startPage > 1;
+const scrapeStartTime = new Date();
 
-				const titleEl = card.querySelector(".card__text-content");
-				const title = titleEl ? titleEl.textContent.trim() : "";
+const crawler = createCrawler();
 
-				let bedrooms = null;
-				const bedroomsEl = card.querySelector(".card-content__spec-list-number");
-				if (bedroomsEl) {
-					const bedsText = bedroomsEl.textContent.trim();
-					const m = bedsText.match(/\d+/);
-					if (m) bedrooms = m[0];
-				}
+const allRequests = [];
+for (const type of PROPERTY_TYPES) {
+const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
+logger.step(`Queueing ${type.label} (${totalPages} pages)`);
 
-				let price = null;
-				const priceEl = card.querySelector(".card__heading");
-				if (priceEl) {
-					const priceText = priceEl.textContent.trim();
-					const priceMatch = priceText.match(/£([\d,]+)/);
-					if (priceMatch) {
-						price = priceMatch[1].replace(/,/g, "");
-					}
-				}
+for (let pg = Math.max(1, startPage); pg <= totalPages; pg++) {
+const url =
+pg === 1
+? `https://www.gpees.co.uk/${type.urlPath}`
+: `https://www.gpees.co.uk/${type.urlPath}/page-${pg}`;
 
-				if (link && price && title) {
-					results.push({ link, title, price, bedrooms });
-				}
-			} catch (err) {
-				// ignore
-			}
-		}
-		return results;
-	});
-
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
-
-	const pageSignature = properties
-		.map((p) => p.link)
-		.slice(0, 5)
-		.join("|");
-	const signatureKey = isRental ? "LETTINGS" : "SALES";
-	const previousSignature = recentPageSignatures.get(signatureKey);
-	if (pageSignature && previousSignature === pageSignature) {
-		console.log(
-			` Warning: ${signatureKey} page ${pageNum} has the same leading links as previous page.`,
-		);
-	}
-	recentPageSignatures.set(signatureKey, pageSignature);
-
-	const batchSize = 2;
-	for (let i = 0; i < properties.length; i += batchSize) {
-		const batch = properties.slice(i, i + batchSize);
-		const batchActions = await Promise.all(
-			batch.map(async (property) => {
-				if (!property.link) return "UNCHANGED";
-
-				if (processedUrls.has(property.link)) return "UNCHANGED";
-				processedUrls.add(property.link);
-
-				const numericPrice = Number(property.price.toString().replace(/,/g, ""));
-				const price = numericPrice.toLocaleString("en-GB");
-				let bedrooms = null;
-				if (property.bedrooms) {
-					const m = property.bedrooms.match(/\d+/);
-					if (m) bedrooms = parseInt(m[0]);
-				}
-
-				if (!price) {
-					console.log(` Skipping update (no price found): ${property.link}`);
-					return "UNCHANGED";
-				}
-
-				const result = await updatePriceByPropertyURLOptimized(
-					property.link,
-					price,
-					property.title,
-					bedrooms,
-					AGENT_ID,
-					isRental,
-				);
-
-				let action = "UNCHANGED";
-				if (result.updated) {
-					stats.totalSaved++;
-					action = "UPDATED";
-				}
-
-				if (!result.isExisting && !result.error) {
-					const detail = await scrapePropertyDetail(page.context(), property);
-					await updatePriceByPropertyURL(
-						property.link.trim(),
-						price,
-						property.title,
-						bedrooms,
-						AGENT_ID,
-						isRental,
-						detail?.coords?.latitude || null,
-						detail?.coords?.longitude || null,
-					);
-					stats.totalSaved++;
-					stats.totalScraped++;
-					if (isRental) stats.savedRentals++;
-					else stats.savedSales++;
-					action = "CREATED";
-				}
-
-				const categoryLabel = isRental ? "LETTINGS" : "SALES";
-				console.log(
-					` [${categoryLabel}] [${action}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-						price,
-						isRental,
-					)} - ${property.link}`,
-				);
-				return action;
-			}),
-		);
-		if (batchActions.some((a) => a !== "UNCHANGED")) {
-			await sleep(500);
-		}
-	}
+allRequests.push({
+url,
+userData: {
+pageNum: pg,
+isRental: type.isRental,
+label: type.label,
+totalPages,
+},
+});
+}
 }
 
-function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
-		},
-	});
+if (allRequests.length > 0) {
+await crawler.run(allRequests);
+} else {
+logger.warn("No requests to process.");
 }
 
-async function scrapeGascoignePees() {
-	console.log(`\n Starting Gascoigne Pees scraper (Agent ${AGENT_ID})...\n`);
+logger.step(
+`Completed Gascoigne Pees - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New lettings: ${counts.savedRentals}`,
+);
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
-	const crawler = createCrawler(browserWSEndpoint);
-
-	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages = Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage);
-		const allRequests = [];
-		for (let pg = 1; pg <= totalPages; pg++) {
-			allRequests.push({
-				url: `https://www.gpees.co.uk/${propertyType.urlPath}/page-${pg}#/`,
-				userData: {
-					pageNum: pg,
-					isRental: propertyType.isRental,
-					label: `${propertyType.label}_PAGE_${pg}`,
-				},
-			});
-		}
-
-		if (allRequests.length === 0) continue;
-		console.log(` Queueing ${allRequests.length} pages for ${propertyType.label}`);
-		await crawler.addRequests(allRequests);
-		await crawler.run();
-	}
-
-	console.log(
-		`\n Completed Gascoigne Pees - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+if (!isPartialRun) {
+logger.step("Updating remove status...");
+await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+} else {
+logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+}
 }
 
-// Main execution
-(async () => {
-	try {
-		await scrapeGascoignePees();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
-		process.exit(1);
-	}
-})();
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
+scrapeGPeews()
+.then(() => {
+logger.step("All done!");
+process.exit(0);
+})
+.catch((error) => {
+logger.error("Unhandled scraper error", error);
+process.exit(1);
+});

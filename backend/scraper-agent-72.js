@@ -10,7 +10,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 // Disable Crawlee's verbose logging
@@ -25,6 +25,8 @@ const stats = {
 	savedSales: 0,
 	savedRentals: 0,
 };
+
+const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -120,44 +122,53 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNumber, label, request.url, totalPages);
 
 	try {
-		// Wait for property cards to be visible
-		await page.waitForSelector(".property-card", { timeout: 30000 }).catch(() => {
-			logger.error(`No property cards found on page ${pageNumber}`, null, pageNumber, label);
-		});
-
+		// Extract coordinates and other data from window.__NEXT_DATA__
 		const properties = await page.evaluate(() => {
-			const cards = Array.from(document.querySelectorAll(".property-card"));
-			return cards.map((card) => {
-				const linkEl = card.querySelector("a");
-				const link = linkEl ? linkEl.href : null;
+			try {
+				const nextData = window.__NEXT_DATA__;
+				if (!nextData?.props?.pageProps?.properties) return [];
 
-				// Selector discovered via browser subagent
-				const titleEl = card.querySelector(
-					".property-card__details > div:nth-child(2) > div:nth-child(1)",
-				);
-				const title = titleEl ? titleEl.textContent.trim() : "JLL Property";
+				return nextData.props.pageProps.properties.map((p) => {
+					// Price extraction
+					let priceText = "";
+					if (p.price) {
+						if (p.price.minAmount) {
+							priceText = `£${p.price.minAmount.toLocaleString()}`;
+						} else if (p.price.amount) {
+							priceText = `£${p.price.amount.toLocaleString()}`;
+						}
+					}
 
-				const detailsText = card.querySelector(".property-card__details")?.innerText || "";
+					// Bedroom extraction
+					let bedrooms = null;
+					if (p.rooms?.bedrooms?.[0]) {
+						const bedMatch = p.rooms.bedrooms[0].match(/(\d+)/);
+						if (bedMatch) bedrooms = parseInt(bedMatch[1]);
+					}
 
-				// Price extraction
-				const priceMatch = detailsText.match(/£([\d,]+)/);
-				const priceText = priceMatch ? priceMatch[0] : "";
-
-				// Bedroom extraction
-				const bedEl = card.querySelector(".property-card__details div:nth-child(3) span");
-				const bedText = bedEl ? bedEl.textContent.trim() : "";
-				const bedMatch = bedText.match(/(\d+)/);
-				const bedrooms = bedMatch ? parseInt(bedMatch[1]) : null;
-
-				return {
-					link,
-					title,
-					priceText,
-					bedrooms,
-					statusText: detailsText,
-				};
-			});
+					return {
+						link: p.pageUrl ? `https://residential.jll.co.uk${p.pageUrl}` : null,
+						title: p.title || "JLL Property",
+						priceText,
+						bedrooms,
+						statusText: p.saleLabel || p.rentLabel || "",
+						lat: p.lat || null,
+						lng: p.lng || null,
+					};
+				});
+			} catch (e) {
+				return [];
+			}
 		});
+
+		if (properties.length === 0) {
+			logger.error(
+				`No properties found in __NEXT_DATA__ on page ${pageNumber}`,
+				null,
+				pageNumber,
+				label,
+			);
+		}
 
 		logger.page(pageNumber, label, `Found ${properties.length} properties`, totalPages);
 
@@ -168,32 +179,53 @@ async function handleListingPage({ page, request }) {
 				continue;
 			}
 
+			if (processedUrls.has(property.link)) continue;
+			processedUrls.add(property.link);
+
 			const price = parsePrice(property.priceText);
 			if (!price) continue;
 
-			const updateResult = await updatePriceByPropertyURLOptimized(
-				property.link,
-				price,
-				property.title,
-				property.bedrooms,
-				AGENT_ID,
-				isRental,
-			);
+			// Use processPropertyWithCoordinates directly if we have lat/lng
+			let action = "UNCHANGED";
+			try {
+				// Optimization: Check if it exists and price is different first
+				const updateResult = await updatePriceByPropertyURLOptimized(
+					property.link,
+					price,
+					property.title,
+					property.bedrooms,
+					AGENT_ID,
+					isRental,
+				);
 
-			let action = "SEEN";
+				if (updateResult.updated) {
+					stats.totalSaved++;
+					action = "UPDATED";
+				}
 
-			if (updateResult.updated) {
-				stats.totalSaved++;
-				action = "UPDATED";
-			}
-
-			if (!updateResult.isExisting && !updateResult.error) {
-				action = "CREATED";
-				// New property, need coordinates from detail page
-				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-				// Small delay between detail pages
-				await new Promise((r) => setTimeout(r, 1000));
-			} else if (updateResult.error) {
+				if (!updateResult.isExisting && !updateResult.error) {
+					// New property, use processPropertyWithCoordinates with the coords we have
+					await processPropertyWithCoordinates(
+						property.link,
+						price,
+						property.title,
+						property.bedrooms,
+						AGENT_ID,
+						isRental,
+						"", // No HTML needed
+						property.lat,
+						property.lng,
+					);
+					stats.totalSaved++;
+					stats.totalScraped++;
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
+					action = "CREATED";
+				} else if (updateResult.error) {
+					action = "ERROR";
+				}
+			} catch (error) {
+				logger.error(`Error processing property ${property.link}: ${error.message}`);
 				action = "ERROR";
 			}
 
@@ -201,7 +233,7 @@ async function handleListingPage({ page, request }) {
 				pageNumber,
 				label,
 				property.title.substring(0, 40),
-				`£${price}`,
+				formatPriceDisplay(price, isRental),
 				property.link,
 				isRental,
 				totalPages,
@@ -249,6 +281,7 @@ function createCrawler(browserWSEndpoint) {
 async function scrapeJLL() {
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
 	const scrapeStartTime = new Date();
 
 	logger.step(`Starting JLL Residential Scraper (Agent ${AGENT_ID})...`);
@@ -283,9 +316,11 @@ async function scrapeJLL() {
 	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 
 	// Only update remove status if we did a full run
-	if (startPage === 1) {
+	if (!isPartialRun) {
 		logger.step("Updating remove status for properties not seen in this run...");
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
 	}
 }
 

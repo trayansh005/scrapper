@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 22,
-  "retiredSessionsCount": 0,
+  "usableSessionsCount": 6,
+  "retiredSessionsCount": 2,
   "sessions": [
     {
-      "id": "session_Yt2WMWsBRb",
+      "id": "session_OxpzeCPoJZ",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:48:47.886Z",
-      "createdAt": "2026-02-28T12:58:47.886Z",
+      "expiresAt": "2026-03-02T09:54:00.369Z",
+      "createdAt": "2026-03-02T09:04:00.369Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_gu6ZhOkuIs",
+      "id": "session_flmmxE9DeO",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -33,72 +33,198 @@
         "prefixSecurity": "silent",
         "cookies": [
           {
-            "key": "_ctesius2_session",
-            "value": "RFFETEp1Yzk4dmJqVXlvSmJIUTRTVURnbU52eEZxZ3gyMVp4TlM4d1RUUjJ1blU1djI0Si9ra1lFYnVWTVIwMjJETEtpZlNxM0JCeDJZeUZMUmFkdU9tQ3VEekJjTmJrQlkraGZ2OCtNT3ZnM0ttRFNxMnFYS0FzSHJZVWR5UXFPeHFzWTVwa3FQcjcwdFFBRVRvNXp3PT0tLVpmcGJHbEkrUjJYSnJDWHhRckpDdHc9PQ%3D%3D--d18e6fa8b05e5db2cc6d01048ef169e81e5b4432",
-            "expires": "2026-02-28T13:52:42.109Z",
-            "domain": "www.johndwood.co.uk",
-            "path": "/",
-            "secure": true,
-            "httpOnly": true,
+            "key": "cookieconsent_status",
+            "value": "allow",
+            "expires": "2026-03-02T09:54:11.931Z",
+            "domain": "www.harrodsestates.com",
+            "path": "/properties/sales",
             "hostOnly": true,
-            "creation": "2026-02-28T12:58:58.627Z",
-            "lastAccessed": "2026-02-28T13:02:42.110Z"
-          },
-          {
-            "key": "CookieScriptConsent",
-            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
-            "expires": "2026-03-30T13:02:41.000Z",
-            "domain": "www.johndwood.co.uk",
-            "path": "/",
-            "secure": true,
-            "hostOnly": true,
-            "creation": "2026-02-28T12:58:58.630Z",
-            "lastAccessed": "2026-02-28T13:02:42.110Z"
-          },
-          {
-            "key": "_ga",
-            "value": "GA1.1.114069553.1772283539",
-            "expires": "2027-04-04T12:58:59.413Z",
-            "domain": "johndwood.co.uk",
-            "path": "/",
-            "hostOnly": false,
-            "creation": "2026-02-28T12:59:26.616Z",
-            "lastAccessed": "2026-02-28T13:02:42.110Z"
-          },
-          {
-            "key": "_ga_C3P21H1KS9",
-            "value": "GS2.1.s1772283538$o1$g1$t1772283562$j36$l0$h1773614018",
-            "expires": "2027-04-04T12:59:22.846Z",
-            "domain": "johndwood.co.uk",
-            "path": "/",
-            "hostOnly": false,
-            "creation": "2026-02-28T12:59:26.631Z",
-            "lastAccessed": "2026-02-28T13:02:42.110Z"
+            "creation": "2026-03-02T09:04:08.087Z",
+            "lastAccessed": "2026-03-02T09:04:15.600Z"
           },
           {
             "key": "page_layout_action_taken",
             "value": "false",
-            "expires": "2026-03-07T13:01:21.653Z",
-            "domain": "www.johndwood.co.uk",
+            "expires": "2026-03-09T09:04:04.107Z",
+            "domain": "www.harrodsestates.com",
             "path": "/",
             "secure": true,
             "hostOnly": true,
-            "creation": "2026-02-28T13:01:48.316Z",
-            "lastAccessed": "2026-02-28T13:02:37.977Z"
+            "creation": "2026-03-02T09:04:08.088Z",
+            "lastAccessed": "2026-03-02T09:04:15.600Z"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "OEN5U25hTUtVRmVJZXd1NnZINWxtVStvZjkvVUw2N1h3VG9JRHUxTjErZGltaTRjZjJrYVZ2TFovb29ITDhlUGo4YUpaN0FpR3lKd1RKQ0xvbWdVNEF6dU95QnN0Y0JEeTEySlhXWXFtc1RCeE1VaE9IcmtuaDdaSHZnelJJVUxFUzlySVRXMzEwTWROTWZkd0xOMVJnPT0tLXZiVit3ZnZVV3NpcG9HOHc5QUJpeGc9PQ%3D%3D--d3e63e9128780234303f678edbeaf23595b7c266",
+            "expires": "2026-03-02T09:54:15.599Z",
+            "domain": "www.harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-02T09:04:08.088Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "bm_sz",
+            "value": "84F86B8EA2B71E37A47D468628A7DA1E~YAAQTzzXF0zC+3acAQAAVnzKrR5E5bFuekAxoZAvynqCqFho5gtXBb5r8IVlb9cP9aTYpsQU+Lje/5U7H6oPqXXpWcAxkO1y7w8Ko29Xtznj7zelCCZ2iJyGMzCzW+qkurihAUl4MVDsJG4daieJYky83F7LuyG0BLZwGtjH7qJMin5rzW6CoZN1b6zrHE5ZlbV3KnA2KM3y0ixgTkrU/ZCMvdxdpx4qKTiq2YXTgaLn4iRNfqgJR4lzPy21qH3PgvJn+fMiPlZ/6kvfVg7EYScimg08368AcRNkcxbayVq3j3ciN9RH1zVBO3RANxVU8gtlyNVwX70s359RbRjqyvtGazEmildE7yW57SV7g2+IM1spMTO+Nvx2HzAWyEmSJRH7IZwUGBFRbCiJvC8zWK54ruDi40KAxALBGLYl40IvbbWrQ08eZWX1uibZilqATT5FGr81DT0=~4342339~3551794",
+            "expires": "2026-03-02T13:04:04.355Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.088Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "PIM-SESSION-ID",
+            "value": "NFWoLA4JLNFKpSmU",
+            "expires": "2026-03-02T09:54:08.083Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.095Z",
+            "lastAccessed": "2026-03-02T09:04:15.600Z"
+          },
+          {
+            "key": "ak_bmsc",
+            "value": "07AC56A0FD5792B4445ED5CC32A841E0~000000000000000000000000000000~YAAQTzzXF5a/+3acAQAAcXTKrR5Dkkq0bJ26AdPo+yZvhiHP/HIFKdy2EO7Ipa6rIY3x27g4XB7HaL4hqoqCUCJ2ZsO1y91sHBWkolDDDBthQW7DpJEoxmybBWWt9JJgbox6PTVilLSazHRUrrIBwDxtDJC9a5+o0RMWSSejAITGfmgX8Uz5WQZ57+RJ6ujg0o0YJkeFEjiSeTvbxuGbHNBFggK5wxuBIVIFfUY4PMaSjRgAtdY0/7LP/cLmxyuqyoLhLkv5HwjV6Xs8lDQAeYRWzF2kLVBsrY7LVdoEK8xlrF6DnjTVlHiB0W5GQzIHfbSg8PSrPxdfPtGIAwiNbXMNk6vuu/OOW684uxwS0foKx1jPYPal4XP1xluJ2aa3y1feyQvyGIe2G8EleyOhtQ0D3h2/YyDon/LAdOuVdxnqmKYOJ/RAez3FRjGl1uMoMKVD2YY9mSCNrHHhGMh5KGp2pOBuvHn2B0OMROilJ6M9S/5bkpuWKU0RS31v2jDq2YBOOJoE069fQBUJyG3V9+iMEIk56zJz67Tim/aK4fN6jMqKVNb1ZL88vEUBMNCe14AZMDJ8",
+            "expires": "2026-03-02T11:04:04.346Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.097Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "_ga_NW593KB467",
+            "value": "GS2.1.s1772442246$o1$g1$t1772442254$j52$l0$h0",
+            "expires": "2027-04-06T09:04:14.780Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.097Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1406716060.1772442247",
+            "expires": "2027-04-06T09:04:14.781Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.097Z",
+            "lastAccessed": "2026-03-02T09:04:15.600Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1772442246675.356506628652134937",
+            "expires": "2026-05-31T09:04:14.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.098Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "_abck",
+            "value": "29045B09A80D7AAB7F2764D99045FE43~-1~YAAQTzzXF4/E+3acAQAAHIHKrQ8sTf7TQEkaAjenLo7mp5jh1zO2/eEb8dtTokovkEPjF8NHCPGu5l6VQUeWBAPKEXxsa7Hu8q/Fbjk2BoxwW0i0/m1jsbxC5oZCvENj4bbavOcrG2jnYoUQ5Unt63wPYZNJR0EdMpZOnDg3GrEqupu8WBYf45TqgTfZ6AgNW7JfTD0o7KPHe8ZqV3B/+Ip2bft30604TK5nt9o6+251oDHA38M48iEkeioqMaCwTXaG303lD2Fyq3bQYjd4ST7lGNydbo0HEDUofETNXDgLPyMSLKnIp1/Yt7Nj7H7BGEpMx5pmcQJAJtlj3QIuw98SVLLT4plXULWe8hDpbbaUFmvqvdSaKeUHJjcilkhlHT08ZR2QVg3DsWmtwNK22aposTrAH2GsbcRgMwZvGEV4TVx4s0iMsCGI+alpNIqzaJWXX65V79VX7lGazicZ0/tjq8tZN/B1k7+MYdak1Ipsp25cUHAzjRuVoEjkk3gb5A9kieeXGyf3YDa/TjTf5GeJjMjL18eytqx9pXWQ0cr80RD7mhUjiSN6OBIO9tH0Z7/aJDUuiooOb4Y=~-1~-1~-1~AAQAAAAF%2f%2f%2f%2f%2f+kP%2frGNTtMChlghnjEIrVoo7UDfotonFXzKrMOhGHR8yEzUBQQsSeBQcHrwPgnRNpaKaSaM0Xdylc5IeZ3o07c3njDOEh4FCw4I~-1",
+            "expires": "2027-03-02T09:04:14.638Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.098Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "_clck",
+            "value": "xuci7f%5E2%5Eg40%5E0%5E2252",
+            "expires": "2027-03-02T09:04:07.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.098Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.725423239.1772442247",
+            "expires": "2026-05-31T09:04:07.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.099Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "didomi_token",
+            "value": "eyJ1c2VyX2lkIjoiMTljYWRjYTYtMDk4Ni02MzU1LWJhOTItMjE2N2VjMjE1MTJhIiwiY3JlYXRlZCI6IjIwMjYtMDMtMDJUMDk6MDQ6MDcuMzIwWiIsInVwZGF0ZWQiOiIyMDI2LTAzLTAyVDA5OjA0OjA3LjMyMFoiLCJ2ZXJzaW9uIjpudWxsfQ==",
+            "expires": "2026-09-01T09:04:07.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:08.099Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "cookieconsent_status",
+            "value": "allow",
+            "expires": "2026-03-02T09:54:15.599Z",
+            "domain": "www.harrodsestates.com",
+            "path": "/properties/lettings",
+            "hostOnly": true,
+            "creation": "2026-03-02T09:04:11.931Z",
+            "lastAccessed": "2026-03-02T09:04:15.600Z"
+          },
+          {
+            "key": "bm_mi",
+            "value": "72C2F0E5CAD94C15B5145FA5E637AC26~YAAQTzzXF7G9+3acAQAA2G7KrR4fh5xJ1iD/lQ9vKzoS+owDV2m7rNEZrWnXvkqr5UJGzcrQdDYBJwXoGlUoPwTzaokjQi5Es9dw3nTRsVzCSTKUcMHtLTRgvv46wDcVmd7vYkBx6Auzg8RHf4GlvAbu5U5sj2/TrZ/rDiHClFEqBjuyg2WNY6f6wqlIulgHMjLumUYea7+dNiq0vtxGvCX/P6YzQW1vgy1hVRTp6JyYntiFUwSmw2uPmnpMN2Ed8qDAl9x1/e00CSgWIaEuxrs6F8B2g94NycoMwAW+HaCPf/Qb24AftyYczNLkSQC8PWbk3jzuRMnpDhXRSWk4WKpYoIdIwm3sYDDknFJK77ZoUEdqN3XUtWU=~1",
+            "expires": "2026-03-02T11:04:04.901Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:11.934Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "bm_sv",
+            "value": "62F071FEE00E4B96757A29FD4EC7B707~YAAQTzzXF0vC+3acAQAAVnzKrR6gciNAHht7+gKeYBNk8bsyruQ0IvncsRhUBHOxU0ZFXMK32J80HHRLdm5fIF9UuSERRUHmygFtkIcpY2TMOflJk0wG74JlToW4cfuyql+ZTPBmqtPP7sU5WpdQ9B0mg2I53n/NoaurObuAb4YefP0P2L5AlsIoSLHignPuI/73KjgxFWE7lrLf9Hia9YH8zc671ruKRFiSLOhRdVEThvgNULDKQZW1NrSZYGS0Awvh8PcARgw=~1",
+            "expires": "2026-03-02T11:04:08.355Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:11.934Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "6a25zr%5E1772442255093%5E3%5E1%5Eb.clarity.ms%2Fcollect",
+            "expires": "2026-03-03T09:04:15.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:11.935Z",
+            "lastAccessed": "2026-03-02T09:04:15.601Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:48:47.896Z",
-      "createdAt": "2026-02-28T12:58:47.896Z",
-      "usageCount": 9,
+      "expiresAt": "2026-03-02T09:54:00.375Z",
+      "createdAt": "2026-03-02T09:04:00.375Z",
+      "usageCount": 4,
       "maxUsageCount": 50,
-      "errorScore": 0
+      "errorScore": 6
     },
     {
-      "id": "session_bv75YTNDsQ",
+      "id": "session_whZBbtBuAV",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -111,14 +237,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:49:22.874Z",
-      "createdAt": "2026-02-28T12:59:22.873Z",
+      "expiresAt": "2026-03-02T09:54:08.976Z",
+      "createdAt": "2026-03-02T09:04:08.976Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_gfcweWxiZz",
+      "id": "session_NOne1COhRc",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -131,14 +257,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:49:58.109Z",
-      "createdAt": "2026-02-28T12:59:58.109Z",
+      "expiresAt": "2026-03-02T09:54:12.314Z",
+      "createdAt": "2026-03-02T09:04:12.314Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_767RuzrZgE",
+      "id": "session_WeqcbAgZOH",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -151,214 +277,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:50:24.487Z",
-      "createdAt": "2026-02-28T13:00:24.487Z",
+      "expiresAt": "2026-03-02T09:54:16.405Z",
+      "createdAt": "2026-03-02T09:04:16.405Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_Ylp2ypeT9I",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:50:50.575Z",
-      "createdAt": "2026-02-28T13:00:50.575Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_kDdChvXYLr",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:51:14.260Z",
-      "createdAt": "2026-02-28T13:01:14.260Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_rRxfufxgwc",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:51:45.285Z",
-      "createdAt": "2026-02-28T13:01:45.285Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_1LjI1rwWSf",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:52:13.115Z",
-      "createdAt": "2026-02-28T13:02:13.115Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_X6VrtslPSH",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:52:13.124Z",
-      "createdAt": "2026-02-28T13:02:13.124Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_LtTalGUiPw",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:52:13.133Z",
-      "createdAt": "2026-02-28T13:02:13.133Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_dD6E5hwM3l",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:52:13.140Z",
-      "createdAt": "2026-02-28T13:02:13.140Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_1MQPkNR9Kq",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:52:13.154Z",
-      "createdAt": "2026-02-28T13:02:13.154Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_uv9cXcyxQT",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:52:37.812Z",
-      "createdAt": "2026-02-28T13:02:37.812Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_vFQkRcMrNt",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:53:05.856Z",
-      "createdAt": "2026-02-28T13:03:05.856Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_wBJon0iJZA",
+      "id": "session_sv344SWD3m",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -368,72 +294,187 @@
         "prefixSecurity": "silent",
         "cookies": [
           {
+            "key": "cookieconsent_status",
+            "value": "allow",
+            "expires": "2026-03-02T09:54:24.782Z",
+            "domain": "www.harrodsestates.com",
+            "path": "/properties/lettings",
+            "hostOnly": true,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
             "key": "page_layout_action_taken",
             "value": "false",
-            "expires": "2026-03-07T13:03:08.993Z",
-            "domain": "www.johndwood.co.uk",
+            "expires": "2026-03-09T09:04:18.895Z",
+            "domain": "www.harrodsestates.com",
             "path": "/",
             "secure": true,
             "hostOnly": true,
-            "creation": "2026-02-28T13:03:17.474Z",
-            "lastAccessed": "2026-02-28T13:05:43.216Z"
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "bm_sz",
+            "value": "8B31897A05495971183E646C69D51785~YAAQTjzXF5rRkqacAQAAgq7KrR4pBIy1Wz7Ay0NGFjPpYCqNKrKRzypvTS6JqZldYjPqPfY6Z+Q70bVzhwJHmXcIPeMi5Y4d8SCMnpPbd1pNzit1cciZt2LyfHzXFI3daU0agrdNlovcRJOgV8Jnko4On+3rXKVr22aReBZmKaaYGX5/R4RWxrLOIkzGKGQXUknONHff4/hZURdUnurDQXyP2PsvhfkEo5h7MB99mM7uLoK0fUo9RVTkolr/M5lZxv7ROlLZxoNuSBiZ4e8WRhmk9Mflv7SLv7sukTzbmguwrZw+v6z2uRlqdytdxUfBeLGhjeX8ex41BlaOwNGRT8bPHesOTb+4yR5z4n0pT3yLAcVMetD6m8ikWPatmpNs6YHM0bt39jsAyhYdoIRzrnuYPXAhYzaDWsMyHfsHzeJbmj5RxzeEKqxrPR4xDApMhfpi/LG8uyQ=~4599876~3356225",
+            "expires": "2026-03-02T13:04:18.201Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "PIM-SESSION-ID",
+            "value": "RFDh70iTsK9g5g0f",
+            "expires": "2026-03-02T09:54:21.484Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1772442259864.68154857577816140",
+            "expires": "2026-05-31T09:04:27.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "bm_sv",
+            "value": "7705EBCC25F19E6F39117ECF3D4575CA~YAAQTjzXF5nRkqacAQAAgq7KrR71ohXlgbbK8gjo6zX0014Hd1VqpCnwOb58JRbD9LzSL1rX1V+kU0JFhb6PeJSkDuppcCQrwRmU5GV6Xx/+EV6FdSBf5AyyYNuixH4cRjZumfOqepkni0FMZVTxEq13llFNvFuA5rYAmQZJhwbsCSC5K2Fr24wT1gLYUzGFEwX3W+C8aXFKBKRj2gv+YtGKLkAAxLdopDhjUjFp+MU1ScJjyOIspB5LUboGwdW+jiNwjo4dfnQ=~1",
+            "expires": "2026-03-02T11:04:19.201Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "_ga_NW593KB467",
+            "value": "GS2.1.s1772442259$o1$g1$t1772442267$j52$l0$h0",
+            "expires": "2027-04-06T09:04:27.295Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.094Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.2021843982.1772442260",
+            "expires": "2027-04-06T09:04:27.296Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
           },
           {
             "key": "_ctesius2_session",
-            "value": "S2RJSnVIdStjdVprM2laQkpOWmNvL0oyWjZaUXhzSDRMOG5PMmxOUE9BbXlqeFJYOE5UVE9zL09XeiszY0sva1FENEh3ZEptVVdmWS8zZGRqYzQ0V1dWZHNJcXdHZ0JCL0dWRFhCRjdySm9GUGc5cFgxUWlFWGpQWlJmYmlIRmgyZm9xS0liTGt3QzJJRm50cUhNVVBRPT0tLUxiWWF1N2gxd3lLWGozZ0hsK1M2L3c9PQ%3D%3D--64867f5ba5d7206dcb668c8a8507b842bebb1465",
-            "expires": "2026-02-28T13:55:38.957Z",
-            "domain": "www.johndwood.co.uk",
+            "value": "eEJSSHRQMVNWWnVyeFRaWFo4Mjg3R0VFSzU5RHcwNzBPdTdmbFBvQjA3OG5PT0Fyc3JNRzZKejZncGdUSUdaRTd0SXEyZnBRdjE4TjJURlM4eW84aUQ3aXluZnRSb28rOUtURHlOZTNQUmxzbWVXeURicnI0UjFwbU0rTDdQRWN6eTZTdmJReGxtRDR1dGwyTDdPN3VnPT0tLUlFMjNKSlpNdlVzMkI2c3JYNko1OVE9PQ%3D%3D--ab2484fe75bf95a7ee1779245f05d4b730476735",
+            "expires": "2026-03-02T09:54:28.093Z",
+            "domain": "www.harrodsestates.com",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-02-28T13:03:17.475Z",
-            "lastAccessed": "2026-02-28T13:05:43.216Z"
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.094Z"
           },
           {
-            "key": "_ga",
-            "value": "GA1.1.1724332076.1772283798",
-            "expires": "2027-04-04T13:03:18.510Z",
-            "domain": "johndwood.co.uk",
-            "path": "/",
-            "hostOnly": false,
-            "creation": "2026-02-28T13:03:55.359Z",
-            "lastAccessed": "2026-02-28T13:05:43.216Z"
-          },
-          {
-            "key": "CookieScriptConsent",
-            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"},\"bannershown\":1}",
-            "expires": "2026-03-30T13:05:38.000Z",
-            "domain": "www.johndwood.co.uk",
+            "key": "ak_bmsc",
+            "value": "8AB937B0F7CA0CBAF2CFABE2CFE7FB30~000000000000000000000000000000~YAAQTjzXF1rJkqacAQAA7pbKrR4obTRUJCKV4bfbcDT7wrsGz50tlwqm87DbdX3kdOBLIXEucQhuKBf/+vD6h8R3cu/gOUI2fs0U+uDdN3cFsTfkQI/+0DhjfCzodxEEqMPw6/EpyZrrR4PF92BqNvqE7/k04qWcQ1qZAztKV6PVk/NgeAue+E0eTDV+ZpjmGsuGtxS+EnsDtmGxwWZlFsUtLenvcEAu80r0Zz1X2q3kaFvVBkn8PT0OzeSo4PVmbgO8ifDB9ATzTB9NZeSkxZPq/RhmAkV3PO5O+FUmB652db39k043Vbyxx/ReuC6b0z/CcebQpcam0Te6Fn0PW5pWEva6Udy6aSVLjcfAQyitVMvJ1yOflKvJM/99H1RLdY9jFLVQFFmduQlH0A02u2gVaWe+/+sIXqwptu3RfAfpoFq2m7Um9E80IdMQLzwG1WTPSH2FCItBzKK/gzyNXoCjXrpZJ0XvyTxAkfNMgblA9xjvAzNIkCNvWNwyxoA=",
+            "expires": "2026-03-02T11:04:18.180Z",
+            "domain": "harrodsestates.com",
             "path": "/",
             "secure": true,
-            "hostOnly": true,
-            "creation": "2026-02-28T13:03:55.360Z",
-            "lastAccessed": "2026-02-28T13:05:43.216Z"
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
           },
           {
-            "key": "_ga_C3P21H1KS9",
-            "value": "GS2.1.s1772283797$o1$g1$t1772283831$j26$l0$h1268552221",
-            "expires": "2027-04-04T13:03:51.181Z",
-            "domain": "johndwood.co.uk",
+            "key": "_clck",
+            "value": "11axapi%5E2%5Eg40%5E0%5E2252",
+            "expires": "2027-03-02T09:04:20.000Z",
+            "domain": "harrodsestates.com",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-02-28T13:03:55.360Z",
-            "lastAccessed": "2026-02-28T13:05:43.216Z"
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.942785835.1772442260",
+            "expires": "2026-05-31T09:04:20.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "didomi_token",
+            "value": "eyJ1c2VyX2lkIjoiMTljYWRjYTktNTlhMi02ZTJjLTk0YTktOWE4MWZkMzYwZjJkIiwiY3JlYXRlZCI6IjIwMjYtMDMtMDJUMDk6MDQ6MjAuODkwWiIsInVwZGF0ZWQiOiIyMDI2LTAzLTAyVDA5OjA0OjIwLjg5MVoiLCJ2ZXJzaW9uIjpudWxsfQ==",
+            "expires": "2026-09-01T09:04:20.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "_abck",
+            "value": "9C3B0953D2C20694C78D0CE2DB0BCECC~-1~YAAQTjzXFyTTkqacAQAAn7LKrQ+3Odk05cnAfr2jetx7kk/t7t/oJBT4ZK3ipe/h+8KV2hJfJkIWMMVyg78EXqWV72ogpR5GcFsaSij3oZ0TuiV8ZK53mnEYcf41WTLdZi7m4JKTckeFlMa6GuLNBi5Dq5eMvY44JL+ypvw0hZEB0W6C0ZOqF+XHDPiLLOjju4k74m3G3et68rkr1WlnDBGwGYVhtRi9HkR99sFpN2FXbrT0VHo+5TSKAHCEEcyJ34RgpSEHE/24srFo8MB2k61ZhUJ6iSilqdmLi2VpCpyo1H3D/FGlGDnu7uOAqbT6lNjI5UQkrBXNC9OIuKXoxkByDSzubo8XONJUCwq+t9RblJc7dFSWLP1KdHY/GxZB1hOoB7ZKXLaBikxxJ0EePTJbkd312oT+yCGjynRxHUaSMTcuawXl1UV4justzVABTlAwbDvP237RtvmKh+Ih3MRwAP/grABsqfeYplTn/RkOJnKAVhIg3ry2GDC9/9JDUKolM4lbRIQ667Uu3WZlAllGLdIsVG3BP355pFX0gM4mT1/Xy2KnukIxRD+rlt+BETeYDi+WoLB+mAbs2vwtBoC5MytvbVTjeM+Bb19UKrhcsPnLu7PSQrprUPyGoaMs7CxXrsATBurhmNyiMxzFDcXtEDoQQzdpQKuAxA==~-1~-1~-1~AAQAAAAF%2f%2f%2f%2f%2fyW2FX6blhaAEs2toO+X+iH3YVVUPFgG+C6m+fCeoGq3YLI5xaRTmaKvS1GC7VnVurSPDKOgMCDzbMVC7bvnmcV6rNLA4HLO58J7~-1",
+            "expires": "2027-03-02T09:04:27.262Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:21.484Z",
+            "lastAccessed": "2026-03-02T09:04:28.094Z"
+          },
+          {
+            "key": "cookieconsent_status",
+            "value": "allow",
+            "expires": "2026-03-02T09:54:28.093Z",
+            "domain": "www.harrodsestates.com",
+            "path": "/properties/sales",
+            "hostOnly": true,
+            "creation": "2026-03-02T09:04:24.783Z",
+            "lastAccessed": "2026-03-02T09:04:28.093Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "c8ffrs%5E1772442267586%5E3%5E1%5Eb.clarity.ms%2Fcollect",
+            "expires": "2026-03-03T09:04:27.000Z",
+            "domain": "harrodsestates.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-02T09:04:24.784Z",
+            "lastAccessed": "2026-03-02T09:04:28.094Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:53:05.860Z",
-      "createdAt": "2026-02-28T13:03:05.860Z",
-      "usageCount": 6,
+      "expiresAt": "2026-03-02T09:54:16.407Z",
+      "createdAt": "2026-03-02T09:04:16.407Z",
+      "usageCount": 4,
       "maxUsageCount": 50,
-      "errorScore": 0
+      "errorScore": 6
     },
     {
-      "id": "session_Yewxcft48c",
+      "id": "session_cPRXxjDS3d",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -446,14 +487,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:53:51.211Z",
-      "createdAt": "2026-02-28T13:03:51.211Z",
+      "expiresAt": "2026-03-02T09:54:21.964Z",
+      "createdAt": "2026-03-02T09:04:21.964Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_bqMvlMUb3E",
+      "id": "session_b7rlbBuhEG",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -466,88 +507,8 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:54:30.127Z",
-      "createdAt": "2026-02-28T13:04:30.127Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_DxuCukvHSz",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:55:18.593Z",
-      "createdAt": "2026-02-28T13:05:18.593Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_ZFkp7HB6u9",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:55:29.201Z",
-      "createdAt": "2026-02-28T13:05:29.201Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_FbkW8oqnBu",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:55:35.831Z",
-      "createdAt": "2026-02-28T13:05:35.831Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_oeD2Yu0y6U",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-02-28T13:55:43.115Z",
-      "createdAt": "2026-02-28T13:05:43.115Z",
+      "expiresAt": "2026-03-02T09:54:25.567Z",
+      "createdAt": "2026-03-02T09:04:25.567Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
