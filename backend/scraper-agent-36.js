@@ -27,12 +27,12 @@ const counts = {
 // ============================================================================
 
 const PROPERTY_TYPES = [
-	// {
-	// 	channel: "Sales",
-	// 	channelId: "7f45d0b8-2d58-4403-a338-2f99b676254f",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
+	{
+		channel: "Sales",
+		channelId: "7f45d0b8-2d58-4403-a338-2f99b676254f",
+		isRental: false,
+		label: "SALES",
+	},
 	{
 		channel: "Lettings",
 		channelId: "582f4a53-fa70-4ee2-b45b-7b2b41545a0a",
@@ -101,12 +101,13 @@ async function scrapeWinkworth() {
 				break;
 			}
 
-			// Detection for looping or end of results
-			if (properties.length === resultsOnPreviousPage) {
-				// Sometimes sites show the last results repeated or just stick at the end
-				// But Winkworth usually returns 20 per page.
+			// Detection for looping or end of results (Map API returns same 300 results)
+			const currentSignature = properties.map((p) => p.propertyUrl || p.id).join("|");
+			if (resultsOnPreviousPage === currentSignature) {
+				logger.step(`Results on page ${currentPage} are identical to previous page, stopping.`);
+				break;
 			}
-			resultsOnPreviousPage = properties.length;
+			resultsOnPreviousPage = currentSignature;
 
 			logger.page(currentPage, typeInfo.label, `Found ${properties.length} properties via API`);
 
