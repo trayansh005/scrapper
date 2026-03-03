@@ -1,41 +1,42 @@
-// Douglas Allen scraper using Playwright with Crawlee
+// Douglas Allen property scraper using Starberry GraphQL API
 // Agent ID: 47
 // Usage:
-// node backend/scraper-agent-47.js
+//   node backend/scraper-agent-47.js [startPage]
+//
+// Coordinate strategy: fetches all property listings (incl. latitude/longitude)
+// from the Starberry GraphQL API — no browser/detail page visits needed.
+// Architecture: 100% API-first using native Node.js fetch.
+// SALES: ~280 listings, RENTALS: ~4 listings (paginated, 100 per request)
 
-const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const {
-	extractCoordinatesFromHTML,
-	isSoldProperty,
-	parsePrice,
-	formatPriceDisplay,
-} = require("./lib/property-helpers.js");
+const { formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
-
-log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 47;
 const logger = createAgentLogger(AGENT_ID);
 
+const GRAPHQL_ENDPOINT = "https://arunestates-feed.q.starberry.com/graphql";
+const BASE_URL = "https://www.douglasallen.co.uk/property";
+// Long-lived JWT hardcoded in the Douglas Allen site JS (exp 2034)
+const BEARER_TOKEN =
+	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3NjExNjc4MmU3OGY3MjcyOGJjZDk3ZiIsImlhdCI6MTczNDQxNjExMSwiZXhwIjoyMDQ5OTkyMTExfQ.DzgFnykDv4Sd1zFwi14x3ovMq1Q13dkMehNjQWfTsAE";
+
 const PROPERTY_TYPES = [
 	{
-		baseUrl:
-			"https://www.douglasallen.co.uk/property/for-sale/in-chipping-ognar-essex/radius-30-miles/",
-		totalPages: 50, // Updated estimate from server-backup
-		isRental: false,
 		label: "SALES",
+		isRental: false,
+		searchType: "sales",
+		buildUrl: (crm_id) => `${BASE_URL}/for-sale/${crm_id}/`,
 	},
 	{
-		baseUrl:
-			"https://www.douglasallen.co.uk/property/to-rent/in-chipping-ognar-essex/radius-30-miles/",
-		totalPages: 10, // Estimate for rentals
-		isRental: true,
 		label: "RENTALS",
+		isRental: true,
+		searchType: "lettings",
+		buildUrl: (crm_id) => `${BASE_URL}/to-rent/${crm_id}/`,
 	},
 ];
 
@@ -46,8 +47,6 @@ const counts = {
 	savedRentals: 0,
 };
 
-const processedUrls = new Set();
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -56,131 +55,122 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function blockNonEssentialResources(page) {
-	return page.route("**/*", (route) => {
-		const resourceType = route.request().resourceType();
-		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-			return route.abort();
-		}
-		return route.continue();
-	});
+function buildTitle(item) {
+	const parts = [];
+	if (item.bedroom) {
+		parts.push(`${item.bedroom} bed`);
+	}
+	if (item.building) {
+		parts.push(item.building);
+	}
+	if (item.area) {
+		parts.push(item.area);
+	}
+	if (item.display_address) {
+		parts.push(item.display_address);
+	}
+	return parts.join(", ") || item.title || "Property";
+}
+
+function parsePrice(priceStr) {
+	if (!priceStr) return null;
+	const cleanPrice = priceStr.toString().replace(/[^\d]/g, "");
+	const price = parseInt(cleanPrice);
+	return price > 0 ? price : null;
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
+// GRAPHQL API FETCH
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
-	await sleep(700);
+async function fetchPropertiesFromAPI(searchType) {
+	logger.step(`Fetching ${searchType} properties from Starberry GraphQL API (paginated)...`);
 
-	const detailPage = await browserContext.newPage();
+	const allProperties = [];
+	let start = 0;
+	const pageSize = 100;
 
 	try {
-		await blockNonEssentialResources(detailPage);
+		while (true) {
+			const gqlQuery = `{
+  properties(where: { brand_id: "da", publish: true, search_type: "${searchType}" }, start: ${start}, limit: ${pageSize}) {
+    id crm_id title display_address address price price_qualifier search_type
+    building bedroom bathroom reception latitude longitude description area status
+  }
+}`;
 
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		});
-
-		await detailPage.waitForTimeout(1000);
-
-		const htmlContent = await detailPage.content();
-		const coords = await extractCoordinatesFromHTML(htmlContent);
-
-		return {
-			coords: {
-				latitude: coords?.latitude || null,
-				longitude: coords?.longitude || null,
-			},
-		};
-	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}`, error);
-		return null;
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
-
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label, totalPages } = request.userData;
-	logger.page(pageNum, label, request.url, totalPages);
-
-	try {
-		await page.waitForSelector(".property-card", { timeout: 20000 });
-	} catch (e) {
-		logger.error("Listing container .property-card not found", e, pageNum, label);
-		return;
-	}
-
-	const properties = await page.evaluate(() => {
-		try {
-			const results = [];
-			const cards = document.querySelectorAll(".property-card");
-
-			cards.forEach((card) => {
-				const linkEl = card.querySelector("a");
-				let href = linkEl ? linkEl.getAttribute("href") : null;
-				if (!href) return;
-
-				const link = href.startsWith("http")
-					? href.split("?")[0]
-					: new URL(href, window.location.origin).origin + href.split("?")[0];
-
-				const title = card.querySelector(".properties-info h2")?.innerText?.trim() || "Property";
-				const priceRaw = card.querySelector(".property-price")?.innerText?.trim() || "";
-
-				// Extract bedrooms from icon-bedroom siblings or parent text
-				let bedText = "";
-				const bedIcon = card.querySelector(".icon-bedroom");
-				if (bedIcon) {
-					bedText = bedIcon.parentElement?.innerText || "";
-				}
-
-				const statusText = card.querySelector(".card-line")?.innerText?.trim() || "";
-
-				results.push({ link, title, priceRaw, bedText, statusText });
+			const response = await fetch(GRAPHQL_ENDPOINT, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Origin: "https://www.douglasallen.co.uk",
+					Referer: "https://www.douglasallen.co.uk/",
+					Authorization: `Bearer ${BEARER_TOKEN}`,
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+				},
+				body: JSON.stringify({ query: gqlQuery }),
 			});
-			return results;
-		} catch (e) {
-			return [];
+
+			if (!response.ok) {
+				logger.step(`API fetch failed with status ${response.status} (start=${start})`);
+				break;
+			}
+
+			const json = await response.json();
+
+			if (json?.errors) {
+				logger.step(`GraphQL errors: ${JSON.stringify(json.errors)}`);
+				break;
+			}
+
+			const page = json?.data?.properties || [];
+			if (!page.length) break;
+
+			allProperties.push(...page);
+			logger.step(
+				`Fetched ${page.length} ${searchType} properties (start=${start}, total=${allProperties.length})`,
+			);
+
+			if (page.length < pageSize) break;
+			start += pageSize;
 		}
-	});
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+		return allProperties;
+	} catch (err) {
+		logger.step(`API fetch error: ${err.message}`);
+		return allProperties;
+	}
+}
 
-	for (const property of properties) {
-		if (!property.link) continue;
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
 
-		if (isSoldProperty(property.statusText || "")) {
-			// logger.page(pageNum, label, `Skipping: Sold/Agreed - ${property.link}`, totalPages);
-			continue;
-		}
+async function processProperties(properties, typeConfig) {
+	for (const item of properties) {
+		if (!item.crm_id) continue;
 
-		if (processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
-
-		const price = parsePrice(property.priceRaw);
-		let bedrooms = null;
-		const bedMatch = property.bedText.match(/(\d+)\s*bed/i) || property.bedText.match(/(\d+)/);
-		if (bedMatch) bedrooms = parseInt(bedMatch[1]);
+		// Build property URL and get market data
+		const propertyUrl = typeConfig.buildUrl(item.crm_id);
+		const price = parsePrice(item.price);
+		const bedrooms = item.bedroom ? parseInt(item.bedroom) : null;
+		const title = buildTitle(item);
+		const latitude = item.latitude ? parseFloat(item.latitude) : null;
+		const longitude = item.longitude ? parseFloat(item.longitude) : null;
 
 		if (!price) {
-			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
+			logger.page(1, typeConfig.label, `Skipping (no price): ${propertyUrl}`, 1);
 			continue;
 		}
 
 		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
+			propertyUrl,
 			price,
-			property.title,
+			title,
 			bedrooms,
 			AGENT_ID,
-			isRental,
+			typeConfig.isRental,
 		);
 
 		let propertyAction = "UNCHANGED";
@@ -191,23 +181,22 @@ async function handleListingPage({ page, request }) {
 		}
 
 		if (!result.isExisting && !result.error) {
-			const detail = await scrapePropertyDetail(page.context(), property);
-
+			// Coordinates come directly from GraphQL API — no detail page visit needed
 			await processPropertyWithCoordinates(
-				property.link.trim(),
+				propertyUrl,
 				price,
-				property.title,
+				title,
 				bedrooms,
 				AGENT_ID,
-				isRental,
-				null, // HTML not needed if we already have coords
-				detail?.coords?.latitude || null,
-				detail?.coords?.longitude || null,
+				typeConfig.isRental,
+				null,
+				latitude,
+				longitude,
 			);
 
 			counts.totalSaved++;
 			counts.totalScraped++;
-			if (isRental) counts.savedRentals++;
+			if (typeConfig.isRental) counts.savedRentals++;
 			else counts.savedSales++;
 			propertyAction = "CREATED";
 		} else if (result.error) {
@@ -215,102 +204,60 @@ async function handleListingPage({ page, request }) {
 		}
 
 		logger.property(
-			pageNum,
-			label,
-			property.title.substring(0, 40),
-			formatPriceDisplay(price, isRental),
-			property.link,
-			isRental,
-			totalPages,
+			1,
+			typeConfig.label,
+			title.substring(0, 40),
+			formatPriceDisplay(price, typeConfig.isRental),
+			propertyUrl,
+			typeConfig.isRental,
+			1,
 			propertyAction,
 		);
 
 		if (propertyAction !== "UNCHANGED") {
-			await sleep(500);
+			await sleep(300);
 		}
 	}
 }
-
-// ============================================================================
-// CRAWLER SETUP
-// ============================================================================
-
-function createCrawler() {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		navigationTimeoutSecs: 90,
-		requestHandlerTimeoutSecs: 300,
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-				viewport: { width: 1920, height: 1080 },
-			},
-		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			logger.error(`Failed listing page: ${request.url}`);
-		},
-	});
-}
-
-// ============================================================================
-// MAIN SCRAPER LOGIC
-// ============================================================================
 
 async function scrapeDouglasAllen() {
 	logger.step("Starting Douglas Allen (Agent 47) scraper...");
 
 	const args = process.argv.slice(2);
-	const startPageArg = args.length > 0 ? parseInt(args[0]) || 1 : 1;
-	const isPartialRun = startPageArg > 1;
+	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
+	const isPartialRun = startPage > 1;
 	const scrapeStartTime = new Date();
 
-	const crawler = createCrawler();
-	const initialRequests = [];
-
 	for (const type of PROPERTY_TYPES) {
-		// Queue up to totalPages starting from startPage if applicable
-		for (let i = startPageArg; i <= type.totalPages; i++) {
-			initialRequests.push({
-				url: `${type.baseUrl}page-${i}/`,
-				userData: {
-					pageNum: i,
-					isRental: type.isRental,
-					label: type.label,
-					totalPages: type.totalPages,
-				},
-			});
-		}
+		logger.step(`Queueing ${type.label}...`);
+		const properties = await fetchPropertiesFromAPI(type.searchType);
+		await processProperties(properties, type);
 	}
 
-	if (initialRequests.length === 0) {
-		logger.step("No pages to scrape.");
-		return;
-	}
-
-	await crawler.run(initialRequests);
-
-	logger.step("Scraping completed.");
-	console.log(`\n--- Agent 47 Summary ---`);
-	console.log(`Total Saved:   ${counts.totalSaved}`);
-	console.log(`Total Scraped: ${counts.totalScraped}`);
-	console.log(`Sales Saved:   ${counts.savedSales}`);
-	console.log(`Rentals Saved: ${counts.savedRentals}`);
-	console.log(`------------------------\n`);
+	logger.step(
+		`Completed Douglas Allen - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`,
+	);
+	logger.step(`Breakdown - SALES: ${counts.savedSales}, RENTALS: ${counts.savedRentals}`);
 
 	if (!isPartialRun) {
+		logger.step("Updating remove status...");
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
 	}
 }
 
-scrapeDouglasAllen().catch((err) => {
-	logger.error("Fatal error in scraper", err);
-	process.exit(1);
-});
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
+(async () => {
+	try {
+		await scrapeDouglasAllen();
+		logger.step("All done!");
+		process.exit(0);
+	} catch (err) {
+		logger.error("Fatal error", err);
+		process.exit(1);
+	}
+})();
