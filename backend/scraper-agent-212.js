@@ -135,14 +135,12 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNumber, label, request.url, totalPages);
 
 	try {
-		await page
-			.waitForSelector('[class*="SearchResultCard_searchItem"]', { timeout: 30000 })
-			.catch(() => {
-				logger.error(`No property cards found on page ${pageNumber}`, null, pageNumber, label);
-			});
+		await page.waitForSelector('[class*="__searchItem"]', { timeout: 30000 }).catch(() => {
+			logger.error(`No property cards found on page ${pageNumber}`, null, pageNumber, label);
+		});
 
 		const properties = await page.evaluate(() => {
-			const items = Array.from(document.querySelectorAll('[class*="SearchResultCard_searchItem"]'));
+			const items = Array.from(document.querySelectorAll('[class*="__searchItem"]'));
 			return items.map((el) => {
 				const linkEl = el.querySelector("a[href]");
 				const href = linkEl ? linkEl.getAttribute("href") : null;
@@ -152,21 +150,28 @@ async function handleListingPage({ page, request }) {
 						: "https://manningstainton.co.uk" + href
 					: null;
 
+				// Mobile h3 has full "Street, City, Postcode"; desktop splits into title + address
+				const mobileH3 = el.querySelector('[class*="__contactWidget"] h3')?.textContent?.trim();
+				const desktopTitle = el.querySelector('[class*="__title"] h3')?.textContent?.trim() || "";
+				const desktopAddress = el.querySelector('[class*="__address"]')?.textContent?.trim() || "";
 				const title =
-					el.querySelector('[class*="SearchResultCard_title"] h3')?.textContent?.trim() ||
-					el.querySelector("h3")?.textContent?.trim() ||
-					"";
-				const address =
-					el.querySelector('[class*="SearchResultCard_address"]')?.textContent?.trim() || "";
+					mobileH3 ||
+					(desktopTitle && desktopAddress
+						? `${desktopTitle}, ${desktopAddress}`
+						: desktopTitle || desktopAddress);
+
+				// Price: prefer h3 inside price container (e.g. "£800,000")
 				const priceText =
-					el.querySelector('[class*="SearchResultCard_price"]')?.textContent?.trim() || "";
+					el.querySelector('[class*="__price"] h3')?.textContent?.trim() ||
+					el.querySelector('[class*="__price"]')?.textContent?.trim() ||
+					"";
 
 				const bedLi = el.querySelector(".htype1");
 				const bedrooms = bedLi ? parseInt(bedLi.textContent.replace(/\D+/g, "")) : null;
 
 				const statusText = el.innerText || "";
 
-				return { link, title: title || address, priceText, bedrooms, statusText };
+				return { link, title: title || "", priceText, bedrooms, statusText };
 			});
 		});
 
