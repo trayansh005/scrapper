@@ -64,8 +64,8 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			html,
 		);
 
-		stats.totalScraped++;
-		stats.totalSaved++;
+		counts.totalScraped++;
+		counts.totalSaved++;
 		if (isRental) counts.savedRentals++;
 		else counts.savedSales++;
 	} catch (error) {
@@ -217,10 +217,10 @@ async function handleListingPage({ page, request }) {
 			let propertyAction = "UNCHANGED";
 
 			if (updateResult.updated) {
-				stats.totalSaved++;
+				counts.totalSaved++;
 				propertyAction = "UPDATED";
 			} else if (updateResult.isExisting) {
-				stats.totalScraped++;
+				counts.totalScraped++;
 			}
 
 			if (!updateResult.isExisting && !updateResult.error) {
@@ -339,7 +339,7 @@ async function scrapeKFH() {
 	await crawler.run(allRequests);
 
 	logger.step(
-		`Finished KFH - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
+		`Finished KFH - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
 	);
 
 	if (!isPartialRun) {

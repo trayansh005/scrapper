@@ -57,7 +57,6 @@ function getBrowserlessEndpoint() {
 
 async function scrapePropertyDetail(browserContext, property) {
 	logger.step(`[Detail] Scraping coordinates for: ${property.title}`);
-	await sleep(1200);
 
 	const detailPage = await browserContext.newPage();
 
@@ -278,10 +277,6 @@ function createCrawler(browserWSEndpoint) {
 		preNavigationHooks: [
 			async ({ page, request }) => {
 				await blockNonEssentialResources(page);
-
-				// Add random jitter to avoid patterns (2-5 seconds)
-				const jitter = Math.floor(Math.random() * 3000) + 2000;
-				await page.waitForTimeout(jitter);
 
 				// Rotate User-Agent to a common desktop one
 				const userAgents = [

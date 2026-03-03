@@ -53,6 +53,10 @@ async function extractCoordinatesFromHTML(html) {
 	let latitude = null;
 	let longitude = null;
 
+	if (!html || typeof html !== "string") {
+		return { latitude, longitude };
+	}
+
 	try {
 		// Try eapowmapoptions pattern (Map Estate Agents): var eapowmapoptions = { lat: "50.2063...", lon: "-5.4937...", ...}
 		const eapowMatch = html.match(
@@ -137,6 +141,12 @@ async function extractCoordinatesFromHTML(html) {
 		const latCommentMatch2 = html.match(/property-latitude:"([0-9.-]+)"/);
 		const lngCommentMatch2 = html.match(/property-longitude:"([0-9.-]+)"/);
 
+		// Try Locrating / Douglas Allen iframe pattern: lat=51.67161&lng=0.11565
+		const locratingMatch = html.match(/lat=([0-9.-]+)[\s\S]*?lng=([0-9.-]+)/);
+
+		// Try Google Maps Street View pattern (Haart): cbll=51.452255,-0.068368
+		const googleMapsStreetViewMatch = html.match(/cbll=([0-9.-]+),([0-9.-]+)/);
+
 		// Try Nestseekers geo attribute as a fallback in regex
 		const geoAttrMatch = html.match(/geo=['"](\{[\s\S]*?\})['"]/);
 		if (geoAttrMatch) {
@@ -190,6 +200,12 @@ async function extractCoordinatesFromHTML(html) {
 		} else if (latCommentMatch2 && lngCommentMatch2) {
 			latitude = parseFloat(latCommentMatch2[1]);
 			longitude = parseFloat(lngCommentMatch2[1]);
+		} else if (locratingMatch) {
+			latitude = parseFloat(locratingMatch[1]);
+			longitude = parseFloat(locratingMatch[2]);
+		} else if (googleMapsStreetViewMatch) {
+			latitude = parseFloat(googleMapsStreetViewMatch[1]);
+			longitude = parseFloat(googleMapsStreetViewMatch[2]);
 		}
 	} catch (error) {
 		console.error("Error extracting coordinates:", error.message);

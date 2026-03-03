@@ -1,8 +1,8 @@
 {
 	"id": "cbps0rlCRiqzpEE",
-	"json": "{\"id\":\"cbps0rlCRiqzpEE\",\"url\":\"https://www.sequencehome.co.uk/properties/sales/page-6\",\"uniqueKey\":\"https://www.sequencehome.co.uk/properties/sales/page-6\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":6,\"isRental\":false,\"label\":\"SALES_PAGE_6\"}}",
+	"json": "{\"id\":\"cbps0rlCRiqzpEE\",\"url\":\"https://www.sequencehome.co.uk/properties/sales/page-6\",\"loadedUrl\":\"https://www.sequencehome.co.uk/properties/sales/page-5\",\"uniqueKey\":\"https://www.sequencehome.co.uk/properties/sales/page-6\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":6,\"isRental\":false,\"label\":\"SALES_PAGE_6\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-03T07:38:25.958Z\"}",
 	"method": "GET",
-	"orderNo": 1772520422758,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.sequencehome.co.uk/properties/sales/page-6",
 	"url": "https://www.sequencehome.co.uk/properties/sales/page-6"
