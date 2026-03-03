@@ -87,7 +87,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 									};
 							}
 						}
-					} catch (e) {}
+					} catch (e) { }
 				}
 
 				// fallback keyword search
@@ -99,7 +99,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 					if (latM && lngM)
 						return { lat: parseFloat(latM[1]), lng: parseFloat(lngM[1]), html: all };
 				}
-			} catch (e) {}
+			} catch (e) { }
 			return { lat: null, lng: null, html: document.documentElement.innerHTML };
 		});
 
