@@ -1,0 +1,53 @@
+{
+  "requestsFinished": 9,
+  "requestsFailed": 15,
+  "requestsRetries": 15,
+  "requestsFailedPerMinute": 1,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 19427,
+  "requestMaxDurationMillis": 48727,
+  "requestTotalFailedDurationMillis": 70862,
+  "requestTotalFinishedDurationMillis": 331935,
+  "crawlerStartedAt": "2026-03-03T07:35:06.689Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-03-03T07:48:06.673Z",
+  "crawlerRuntimeMillis": 783985,
+  "crawlerLastStartTimestamp": 1772523302688,
+  "requestRetryHistogram": [
+    9,
+    null,
+    null,
+    15
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": 4724,
+  "requestAvgFinishedDurationMillis": 36882,
+  "requestTotalDurationMillis": 402797,
+  "requestsTotal": 24,
+  "requestsWithStatusCode": {
+    "200": 9,
+    "403": 89
+  },
+  "errors": {
+    "C:\\Users\\traya\\Downloads\\scrape\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:903:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 403 status code.": {
+            "count": 15
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "C:\\Users\\traya\\Downloads\\scrape\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:903:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 403 status code.": {
+            "count": 74
+          }
+        }
+      }
+    }
+  }
+}

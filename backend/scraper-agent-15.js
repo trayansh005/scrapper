@@ -4,8 +4,11 @@
 // node backend/scraper-agent-15.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
@@ -49,12 +52,11 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
+// DETAIL PAGE SCRAPING (Fallback if API lacks coordinates)
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property) {
 	logger.step(`[Detail] Scraping coordinates for: ${property.title}`);
-	await sleep(1200);
 
 	const detailPage = await browserContext.newPage();
 
@@ -100,68 +102,78 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNum, label, request.url);
 
 	const finalUrl = page.url();
-	if (!finalUrl.includes(`page-${pageNum}`)) {
+	const isExpectedFirstPageRedirect =
+		pageNum === 1 && /\/properties\/(sales|lettings)\/?$/.test(finalUrl);
+	if (!finalUrl.includes(`page-${pageNum}`) && !isExpectedFirstPageRedirect) {
 		logger.page(pageNum, label, `Pagination mismatch: landed on ${finalUrl}`);
 	}
 
 	try {
 		await page.waitForLoadState("networkidle");
-		await page.waitForTimeout(4000);
+		await page.waitForTimeout(2000);
 	} catch (e) {
-		logger.error(`Listing container not found on page ${pageNum}`, e);
+		logger.error(`Network loading failed on page ${pageNum}`, e);
 	}
 
-	const properties = await page.evaluate((rentalMode) => {
-		try {
-			const results = [];
-			const seenLinks = new Set();
+	// Fetch JSON API from within browser context to bypass Cloudflare
+	const properties = await page.evaluate(
+		async ({ channel, pageNum }) => {
+			try {
+				const fragment = pageNum > 1 ? `/page-${pageNum}` : "";
+				const apiUrl = `https://www.sequencehome.co.uk/search.ljson?channel=${channel}&fragment=${encodeURIComponent(fragment)}`;
+				const response = await fetch(apiUrl, {
+					headers: {
+						Accept: "application/json",
+						"User-Agent": navigator.userAgent,
+					},
+					credentials: "include", // Include cookies/auth from browser session
+				});
 
-			// const cards = Array.from(
-			// 	document.querySelectorAll(".property-item-card, .property-card, .listing-item"),
-			// );
+				if (!response.ok) {
+					console.error(`API error: ${response.status}`);
+					return [];
+				}
 
-			const cards = Array.from(
-				document.querySelectorAll("#search-results-container a[href*='/properties/']"),
-			).map((a) => a.closest("div"));
+				const data = await response.json();
+				const results = [];
 
-			for (const card of cards) {
-				const linkEl = card.querySelector("a[href*='/properties/']");
-				let href = linkEl?.getAttribute("href");
-				if (!href) continue;
+				if (Array.isArray(data.properties)) {
+					for (const prop of data.properties) {
+						const rawLink = prop.property_url || null;
+						if (!rawLink) continue;
 
-				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
-				const expectedPathPart = rentalMode ? "/lettings/" : "/sales/";
-				if (!link.includes(expectedPathPart)) continue;
+						const link = rawLink.startsWith("http")
+							? rawLink
+							: `https://www.sequencehome.co.uk${rawLink}`;
+						const title = prop.display_address || prop.short_description || "Property";
+						const priceRaw = Number.isFinite(prop.price_value) ? String(prop.price_value) : "";
+						const bedrooms = Number.isFinite(prop.bedrooms) ? prop.bedrooms : null;
+						const statusText = prop.status || "";
+						const latitude = Number.isFinite(prop.lat) ? prop.lat : null;
+						const longitude = Number.isFinite(prop.lng) ? prop.lng : null;
 
-				if (seenLinks.has(link)) continue;
-				seenLinks.add(link);
-
-				const title = card.querySelector(".property-title, h3")?.textContent?.trim() || "Property";
-				// const priceRaw = card.querySelector(".property-price, .price")?.textContent?.trim() || "";
-
-				let priceRaw = "";
-
-				const allTextElements = Array.from(card.querySelectorAll("*"));
-
-				for (const el of allTextElements) {
-					const text = el.textContent?.trim();
-					if (text && text.includes("£")) {
-						priceRaw = text;
-						break;
+						results.push({
+							link,
+							title,
+							priceRaw,
+							bedrooms,
+							statusText,
+							latitude,
+							longitude,
+						});
 					}
 				}
-				const bedText = card.querySelector(".property-beds, .beds")?.textContent?.trim() || "";
-				const statusText = card.innerText || "";
 
-				results.push({ link, title, priceRaw, bedText, statusText });
+				return results;
+			} catch (e) {
+				console.error(`API fetch error: ${e.message}`);
+				return [];
 			}
-			return results;
-		} catch (e) {
-			return [];
-		}
-	}, isRental);
+		},
+		{ channel: isRental ? "lettings" : "sales", pageNum },
+	);
 
-	logger.page(pageNum, label, `Processing ${properties.length} properties found on page`);
+	logger.page(pageNum, label, `Processing ${properties.length} properties from API`);
 
 	for (const property of properties) {
 		if (!property.link) {
@@ -180,10 +192,8 @@ async function handleListingPage({ page, request }) {
 		}
 		processedUrls.add(property.link);
 
-		const price = formatPriceUk(property.priceRaw);
-		let bedrooms = null;
-		const bedMatch = property.bedText.match(/\d+/);
-		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+		const price = property.priceRaw ? parseInt(property.priceRaw) : null;
+		const bedrooms = property.bedrooms || null;
 
 		if (!price) {
 			logger.page(pageNum, label, `Skipped: No price found for ${property.link}`);
@@ -203,18 +213,28 @@ async function handleListingPage({ page, request }) {
 			stats.totalSaved++;
 		}
 
-		if (!result.isExisting && !result.error) {
-			const detail = await scrapePropertyDetail(page.context(), property);
+		let latitude = property.latitude;
+		let longitude = property.longitude;
 
-			await updatePriceByPropertyURL(
+		// If API provides coordinates, use them directly; otherwise scrape detail page
+		if (!result.isExisting && !result.error) {
+			if (!latitude || !longitude) {
+				const detail = await scrapePropertyDetail(page.context(), property);
+				latitude = detail?.coords?.latitude || null;
+				longitude = detail?.coords?.longitude || null;
+			}
+
+			// Save new property with coordinates
+			await processPropertyWithCoordinates(
 				property.link.trim(),
 				price,
 				property.title,
 				bedrooms,
 				AGENT_ID,
 				isRental,
-				detail?.coords?.latitude || null,
-				detail?.coords?.longitude || null,
+				null,
+				latitude,
+				longitude,
 			);
 
 			stats.totalSaved++;
@@ -237,8 +257,8 @@ async function handleListingPage({ page, request }) {
 			propertyAction,
 		);
 
-		if (propertyAction !== "UNCHANGED") {
-			// Randomize delay between processing properties (1.5s - 3.5s)
+		// Conditional sleep: only pause on CREATE/UPDATE, skip UNCHANGED for rapid processing
+		if (propertyAction !== "SEEN") {
 			const propertyJitter = Math.floor(Math.random() * 2000) + 1500;
 			await sleep(propertyJitter);
 		}
@@ -257,10 +277,6 @@ function createCrawler(browserWSEndpoint) {
 		preNavigationHooks: [
 			async ({ page, request }) => {
 				await blockNonEssentialResources(page);
-
-				// Add random jitter to avoid patterns (2-5 seconds)
-				const jitter = Math.floor(Math.random() * 3000) + 2000;
-				await page.waitForTimeout(jitter);
 
 				// Rotate User-Agent to a common desktop one
 				const userAgents = [

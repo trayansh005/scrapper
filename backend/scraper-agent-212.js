@@ -10,7 +10,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 // Reduce verbosity
@@ -19,7 +19,7 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 212;
 const logger = createAgentLogger(AGENT_ID);
 
-const counts = {
+const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
@@ -115,10 +115,10 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			detailData.lng,
 		);
 
-		counts.totalSaved++;
-		counts.totalScraped++;
-		if (isRental) counts.savedRentals++;
-		else counts.savedSales++;
+		stats.totalScraped++;
+		stats.totalSaved++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
 	} finally {
@@ -135,19 +135,14 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNumber, label, request.url, totalPages);
 
 	try {
-		await page
-			.waitForSelector('[class*="__searchItem"]', { timeout: 30000 })
-			.catch(() => {
-				logger.warn(`No listing container found on page ${pageNumber}`);
-			});
+		await page.waitForSelector('[class*="__searchItem"]', { timeout: 30000 }).catch(() => {
+			logger.error(`No property cards found on page ${pageNumber}`, null, pageNumber, label);
+		});
 
 		const properties = await page.evaluate(() => {
-			// CSS modules generate hashed class names — match by the stable suffix after '__'
 			const items = Array.from(document.querySelectorAll('[class*="__searchItem"]'));
 			return items.map((el) => {
-				// Link — prefer detail page hrefs (relative paths like /property-for-sale/...)
-				const linkEl = el.querySelector('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]') ||
-					el.querySelector("a[href]");
+				const linkEl = el.querySelector("a[href]");
 				const href = linkEl ? linkEl.getAttribute("href") : null;
 				const link = href
 					? href.startsWith("http")
@@ -155,33 +150,28 @@ async function handleListingPage({ page, request }) {
 						: "https://manningstainton.co.uk" + href
 					: null;
 
-				// Title: h3 inside the title div (desktop version)
+				// Mobile h3 has full "Street, City, Postcode"; desktop splits into title + address
+				const mobileH3 = el.querySelector('[class*="__contactWidget"] h3')?.textContent?.trim();
+				const desktopTitle = el.querySelector('[class*="__title"] h3')?.textContent?.trim() || "";
+				const desktopAddress = el.querySelector('[class*="__address"]')?.textContent?.trim() || "";
 				const title =
-					el.querySelector('[class*="__title"] h3')?.textContent?.trim() ||
-					el.querySelector("h3.d-none")?.textContent?.trim() ||
-					el.querySelector("h3")?.textContent?.trim() ||
-					"";
+					mobileH3 ||
+					(desktopTitle && desktopAddress
+						? `${desktopTitle}, ${desktopAddress}`
+						: desktopTitle || desktopAddress);
 
-				// Address: the __address div
-				const address =
-					el.querySelector('[class*="__address"]')?.textContent?.trim() || "";
-
-				// Price: £NNN,NNN inside __price; h3 holds the formatted price
+				// Price: prefer h3 inside price container (e.g. "£800,000")
 				const priceText =
 					el.querySelector('[class*="__price"] h3')?.textContent?.trim() ||
 					el.querySelector('[class*="__price"]')?.textContent?.trim() ||
 					"";
 
-				// Bedrooms: .htype1 li contains "3 <i class=fa-bed>" 
 				const bedLi = el.querySelector(".htype1");
 				const bedrooms = bedLi ? parseInt(bedLi.textContent.replace(/\D+/g, "")) : null;
 
 				const statusText = el.innerText || "";
 
-				// Use title + address as full label
-				const fullTitle = [title, address].filter(Boolean).join(", ") || title || address;
-
-				return { link, title: fullTitle, priceText, bedrooms, statusText };
+				return { link, title: title || "", priceText, bedrooms, statusText };
 			});
 		});
 
@@ -204,15 +194,10 @@ async function handleListingPage({ page, request }) {
 				isRental,
 			);
 
-			let action = "UNCHANGED";
+			let action = "SEEN";
 			if (updateResult.updated) {
-				counts.totalSaved++;
-				counts.totalScraped++;
-				if (isRental) counts.savedRentals++;
-				else counts.savedSales++;
+				stats.totalSaved++;
 				action = "UPDATED";
-			} else if (updateResult.isExisting) {
-				counts.totalScraped++;
 			}
 
 			if (!updateResult.isExisting && !updateResult.error) {
@@ -227,7 +212,7 @@ async function handleListingPage({ page, request }) {
 				pageNumber,
 				label,
 				property.title.substring(0, 40),
-				formatPriceDisplay(price, isRental),
+				`£${price}`,
 				property.link,
 				isRental,
 				totalPages,
@@ -321,9 +306,9 @@ async function scrapeManningStainton() {
 	await crawler.run();
 
 	logger.step(
-		`Finished Manning Stainton - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`,
+		`Finished Manning Stainton - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	logger.step(`Breakdown - SALES: ${counts.savedSales}, RENTALS: ${counts.savedRentals}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, RENTALS: ${stats.savedRentals}`);
 
 	if (startPage === 1) {
 		logger.step("Updating remove status for properties not seen in this run...");

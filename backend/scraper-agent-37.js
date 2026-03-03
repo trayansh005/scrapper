@@ -1,338 +1,326 @@
-// Chase Evans scraper using Playwright with Crawlee
+// Chase Evans scraper using direct API extraction (Algolia via fetch)
 // Agent ID: 37
 //
 // Usage:
-// node backend/scraper-agent-37.js
+// node backend/scraper-agent-37.js [startPage]
 
-const { PlaywrightCrawler, log } = require("crawlee");
-const { promisePool, updateRemoveStatus } = require("./db.js");
-
-log.setLevel(log.LEVELS.ERROR);
+const { updateRemoveStatus } = require("./db.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
+const { formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 const AGENT_ID = 37;
-let totalScraped = 0;
-let totalSaved = 0;
+const logger = createAgentLogger(AGENT_ID);
 
-// Small helper utilities to avoid rate-limiting
-const userAgents = [
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
-	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-];
+const counts = {
+	totalFound: 0,
+	totalScraped: 0,
+	totalSaved: 0,
+	totalSkipped: 0,
+};
 
-function sleep(ms) {
-	return new Promise((res) => setTimeout(res, ms));
-}
+const processedUrls = new Set();
 
-function randBetween(min, max) {
-	return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+const ALGOLIA_ENDPOINT =
+	"https://ajxmbs3l60-2.algolianet.com/1/indexes/prod_properties/query?x-algolia-agent=Algolia%20for%20JavaScript%20(4.26.0)%3B%20Browser%20(lite)&x-algolia-api-key=c289da67dd593fa5f9d618502fa0cc9d&x-algolia-application-id=AJXMBS3L60";
 
-function formatPrice(raw) {
-	if (!raw) return null;
-	const digits = raw.replace(/[^0-9]/g, "");
-	if (!digits) return null;
-	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-// Start page
-const START_PAGE = 1;
+const REQUEST_HEADERS = {
+	"Content-Type": "application/json",
+	Accept: "application/json",
+	"User-Agent":
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+};
 
 const PROPERTY_TYPES = [
 	{
-		// Sales
-		urlBase: "https://www.chaseevans.com/property/for-sale/in-london/exclude-sale-agreed/",
-		isRental: false,
 		label: "SALES",
-		totalRecords: 263,
-		recordsPerPage: 18,
+		isRental: false,
+		searchType: "sales",
+		pathRoot: "property-for-sale",
 	},
-	// {
-	// 	// Rent
-	// 	urlBase: "https://www.chaseevans.com/property/to-rent/in-london/exclude-let-agreed/",
-	// 	isRental: true,
-	// 	label: "LETTINGS",
-	// 	totalRecords: 118,
-	// 	recordsPerPage: 18,
-	// },
+	{
+		label: "RENTALS",
+		isRental: true,
+		searchType: "lettings",
+		pathRoot: "property-to-rent",
+	},
 ];
 
-async function scrapeChaseEvans() {
-	console.log(`\n🚀 Starting Chase Evans scraper (Agent ${AGENT_ID})...\n`);
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 5,
-		requestHandlerTimeoutSecs: 300,
+function getStartPage() {
+	const value = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
+	if (!Number.isFinite(value) || value < 1) return 1;
+	return Math.floor(value);
+}
 
-		launchContext: {
-			launchOptions: {
-				headless: false,
-			},
-		},
+function toNumber(value) {
+	const number = Number(value);
+	return Number.isFinite(number) ? number : null;
+}
 
-		async requestHandler({ page, request }) {
-			// Small randomized delay to avoid bursts
-			await sleep(randBetween(1200, 3200));
-			try {
-				await page.setExtraHTTPHeaders({ "accept-language": "en-GB,en;q=0.9" });
-			} catch (e) {}
+function buildPropertyLink(hit, typeConfig) {
+	const slug = (hit?.slug || "").toString().trim();
+	const id = hit?.objectID ? hit.objectID.toString().trim() : null;
+	if (!slug) return null;
+	return `https://www.chaseevans.com/${typeConfig.pathRoot}/${slug}-${id}`;
+}
 
-			const { pageNum, isRental, label } = request.userData || {};
+function mapHitToProperty(hit, typeConfig) {
+	const link = buildPropertyLink(hit, typeConfig);
+	if (!link) return null;
 
-			// Listing page
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+	const price = toNumber(hit?.price);
+	if (!price || price <= 0) return null;
 
-			await page.waitForTimeout(2000);
-			await page.waitForSelector(".sales-wrapper", { timeout: 30000 }).catch(() => {
-				console.log(`⚠️ No properties found on page ${pageNum}`);
-			});
+	const title = (hit?.display_address || hit?.title || slugFromLink(link)).toString().trim();
+	if (!title) return null;
 
-			// Extract properties from .sales-wrapper
-			const properties = await page.$$eval(".sales-wrap", (cards) => {
-				const results = [];
-				cards.forEach((c) => {
-					try {
-						// Link - find main link in the card
-						const linkEl = c.querySelector("a[href]");
-						if (!linkEl) return;
-						let href = linkEl.getAttribute("href");
-						if (!href) return;
-						if (!href.startsWith("http")) href = "https://www.chaseevans.com" + href;
+	return {
+		link,
+		title,
+		price,
+		bedrooms: toNumber(hit?.bedroom),
+		latitude: toNumber(hit?._geoloc?.lat),
+		longitude: toNumber(hit?._geoloc?.lng),
+	};
+}
 
-						// Price
-						let price = null;
-						const priceEl = c.querySelector(".highlight-text");
-						if (priceEl) {
-							const txt = priceEl.textContent || "";
-							price = formatPrice(txt);
-						}
+function slugFromLink(link) {
+	try {
+		const url = new URL(link);
+		const parts = url.pathname.split("/").filter(Boolean);
+		return parts[parts.length - 1] || "Property";
+	} catch {
+		return "Property";
+	}
+}
 
-						// Title - from h3
-						let title = "";
-						const titleEl = c.querySelector("h3");
-						if (titleEl) title = titleEl.textContent.trim();
+async function fetchListingPage(typeConfig, pageNum) {
+	const algoliaPage = Math.max(0, pageNum - 1);
+	const body = {
+		query: "",
+		page: algoliaPage,
+		hitsPerPage: 24,
+		filters: `department:residential AND search_type:${typeConfig.searchType} AND publish:true`,
+	};
 
-						// Bedrooms - look for bed icon span
-						let bedrooms = null;
-						const bedElems = c.querySelectorAll(".icon-bed");
-						if (bedElems.length > 0) {
-							const bedSpan = bedElems[0].nextElementSibling;
-							if (bedSpan) bedrooms = bedSpan.textContent.trim();
-						}
-
-						if (href && title && price) results.push({ link: href, title, price, bedrooms });
-					} catch (e) {
-						// skip
-					}
-				});
-				return results;
-			});
-
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
-
-			if (properties.length === 0) return;
-
-			// Process detail pages
-			const chunkSize = 1;
-			for (let start = 0; start < properties.length; start += chunkSize) {
-				const chunk = properties.slice(start, start + chunkSize);
-				await Promise.all(
-					chunk.map(async (p) => {
-						const detailPage = await page.context().newPage();
-						try {
-							// rotate UA and add delay
-							try {
-								const ua = userAgents[Math.floor(Math.random() * userAgents.length)];
-								await detailPage.setUserAgent(ua);
-								await detailPage.setExtraHTTPHeaders({
-									"accept-language": "en-GB,en;q=0.9",
-									referer: request.url,
-								});
-							} catch (e) {}
-							await sleep(randBetween(800, 1800));
-							const resp = await detailPage.goto(p.link, {
-								waitUntil: "domcontentloaded",
-								timeout: 30000,
-							});
-							if (resp && resp.status && resp.status() === 429) {
-								console.warn(`⚠️ 429 on ${p.link} — backing off`);
-								await sleep(60000);
-								throw new Error("429");
-							}
-							await detailPage.waitForTimeout(1000);
-
-							// Extract coordinates from Street View Google Maps URL
-							let latitude = null;
-							let longitude = null;
-
-							try {
-								console.log(`🔍 DEBUG: Attempting to extract coordinates for ${p.title}`);
-
-								// Method 1: Look for Google Maps iframe with lat/lng parameters
-								console.log(`🔍 DEBUG: Checking for iframe with location data...`);
-								const coordsFromIframe = await detailPage.evaluate(() => {
-									const iframes = document.querySelectorAll("iframe");
-									console.log(`Found ${iframes.length} iframes`);
-									for (const iframe of iframes) {
-										const src = iframe.getAttribute("src") || iframe.getAttribute("data-src");
-										if (src) {
-											console.log(`Iframe src: ${src.substring(0, 100)}`);
-											// Look for lat and lng parameters
-											const latMatch = src.match(/[&?]lat=([\d.-]+)/);
-											const lngMatch = src.match(/[&?]lng=([\d.-]+)/);
-											if (latMatch && lngMatch) {
-												return {
-													lat: latMatch[1],
-													lng: lngMatch[1],
-												};
-											}
-										}
-									}
-									return null;
-								});
-
-								if (coordsFromIframe && coordsFromIframe.lat && coordsFromIframe.lng) {
-									latitude = parseFloat(coordsFromIframe.lat);
-									longitude = parseFloat(coordsFromIframe.lng);
-									console.log(
-										`✅ DEBUG: Extracted coords from iframe URL: ${latitude}, ${longitude}`
-									);
-								} else {
-									console.log(`⚠️ DEBUG: No coords found in iframe URL parameters`);
-								}
-							} catch (e) {
-								console.error(`❌ DEBUG: Error extracting coords: ${e.message}`);
-							}
-
-							const tableName = isRental ? "property_for_rent" : "property_for_sale";
-
-							const [existingRows] = await promisePool.query(
-								`SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
-								[p.link.trim(), AGENT_ID]
-							);
-							const [otherAgentRows] = await promisePool.query(
-								`SELECT agent_id, property_name FROM ${tableName} WHERE property_url = ? AND agent_id != ?`,
-								[p.link.trim(), AGENT_ID]
-							);
-
-							if (existingRows.length > 0) {
-								await promisePool.query(
-									`UPDATE ${tableName} SET price = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE property_url = ? AND agent_id = ?`,
-									[p.price, latitude, longitude, p.link.trim(), AGENT_ID]
-								);
-								console.log(
-									`✅ Updated: ${p.link.substring(0, 60)}... | Price: £${
-										p.price
-									} | Coords: ${latitude}, ${longitude}`
-								);
-							} else if (otherAgentRows.length > 0) {
-								const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-								const logo = isRental ? "property_for_rent/logo.png" : "property_for_sale/logo.png";
-								const currentTime = new Date();
-								await promisePool.query(insertQuery, [
-									p.title,
-									AGENT_ID,
-									p.price,
-									p.bedrooms,
-									p.link.trim(),
-									logo,
-									latitude,
-									longitude,
-									currentTime,
-									currentTime,
-								]);
-								console.log(
-									`✅ Created: ${p.link.substring(0, 60)}... | Price: £${
-										p.price
-									} | Coords: ${latitude}, ${longitude}`
-								);
-							} else {
-								const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-								const logo = isRental ? "property_for_rent/logo.png" : "property_for_sale/logo.png";
-								const currentTime = new Date();
-								await promisePool.query(insertQuery, [
-									p.title,
-									AGENT_ID,
-									p.price,
-									p.bedrooms,
-									p.link.trim(),
-									logo,
-									latitude,
-									longitude,
-									currentTime,
-									currentTime,
-								]);
-								console.log(
-									`✅ Created: ${p.link.substring(0, 60)}... | Price: £${
-										p.price
-									} | Coords: ${latitude}, ${longitude}`
-								);
-							}
-
-							totalSaved++;
-							totalScraped++;
-
-							if (latitude && longitude) {
-								console.log(`✅ ${p.title} - £${p.price} - ${latitude}, ${longitude}`);
-							} else {
-								console.log(`✅ ${p.title} - £${p.price} - No coords`);
-							}
-						} catch (err) {
-							console.error(`❌ Error processing ${p.link}: ${err.message}`);
-						} finally {
-							await detailPage.close();
-						}
-					})
-				);
-
-				await new Promise((r) => setTimeout(r, 500));
-			}
-		},
-
-		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
-		},
+	const response = await fetch(ALGOLIA_ENDPOINT, {
+		method: "POST",
+		headers: REQUEST_HEADERS,
+		body: JSON.stringify(body),
 	});
 
-	// Queue pages per property type
-	for (const propertyType of PROPERTY_TYPES) {
-		const totalPages =
-			propertyType.totalRecords && propertyType.recordsPerPage
-				? Math.ceil(propertyType.totalRecords / propertyType.recordsPerPage)
-				: 1;
-		console.log(`🏠 Queueing ${propertyType.label} pages: ${totalPages} pages`);
-		const requests = [];
-		const startPage = Math.max(1, START_PAGE);
-		for (let page = startPage; page <= totalPages; page++) {
-			// Chase Evans uses /page-N/ path format
-			const baseWithoutTrailingSlash = propertyType.urlBase.replace(/\/$/, "");
-			const url = page === 1 ? propertyType.urlBase : `${baseWithoutTrailingSlash}/page-${page}/`;
-			const uniqueKey = `${propertyType.label}_page_${page}`;
-			requests.push({
-				url,
-				uniqueKey,
-				userData: { pageNum: page, isRental: propertyType.isRental, label: propertyType.label },
-			});
-		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
+	if (!response.ok) {
+		throw new Error(`API request failed (${response.status})`);
 	}
 
-	console.log(
-		`\n✅ Completed Chase Evans - Total scraped: ${totalScraped}, Total saved: ${totalSaved}`
+	const data = await response.json();
+	const hits = Array.isArray(data?.hits) ? data.hits : [];
+	const totalPages = Number.isFinite(data?.nbPages) ? Number(data.nbPages) : pageNum;
+
+	return {
+		hits,
+		totalPages: Math.max(1, totalPages),
+	};
+}
+
+async function processPage(typeConfig, pageNum, totalPages) {
+	logger.page(pageNum, typeConfig.label, `Fetching API page ${pageNum}`, totalPages);
+
+	const { hits } = await fetchListingPage(typeConfig, pageNum);
+	logger.page(pageNum, typeConfig.label, `Found ${hits.length} properties`, totalPages);
+
+	for (const hit of hits) {
+		const property = mapHitToProperty(hit, typeConfig);
+		if (!property) {
+			counts.totalSkipped++;
+			continue;
+		}
+
+		if (processedUrls.has(property.link)) {
+			continue;
+		}
+		processedUrls.add(property.link);
+
+		counts.totalFound++;
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			typeConfig.isRental,
+		);
+
+		let action = "UNCHANGED";
+
+		if (result.updated) {
+			action = "UPDATED";
+			counts.totalSaved++;
+			counts.totalScraped++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			await processPropertyWithCoordinates(
+				property.link,
+				property.price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				typeConfig.isRental,
+				null,
+				property.latitude,
+				property.longitude,
+			);
+
+			action = "CREATED";
+			counts.totalSaved++;
+			counts.totalScraped++;
+		} else if (result.error) {
+			action = "ERROR";
+			counts.totalSkipped++;
+		}
+
+		logger.property(
+			pageNum,
+			typeConfig.label,
+			property.title.substring(0, 60),
+			formatPriceDisplay(property.price, typeConfig.isRental),
+			property.link,
+			typeConfig.isRental,
+			totalPages,
+			action,
+		);
+
+		if (action !== "UNCHANGED") {
+			await sleep(120);
+		}
+	}
+}
+
+async function scrapeType(typeConfig, startPage) {
+	const firstPage = await fetchListingPage(typeConfig, startPage);
+	const totalPages = firstPage.totalPages;
+
+	logger.page(startPage, typeConfig.label, `Found total pages: ${totalPages}`, totalPages);
+
+	for (const hit of firstPage.hits) {
+		// console.log(hit);
+		const property = mapHitToProperty(hit, typeConfig);
+		if (!property) {
+			counts.totalSkipped++;
+			continue;
+		}
+
+		if (processedUrls.has(property.link)) {
+			continue;
+		}
+		processedUrls.add(property.link);
+
+		counts.totalFound++;
+
+		const result = await updatePriceByPropertyURLOptimized(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms,
+			AGENT_ID,
+			typeConfig.isRental,
+		);
+
+		let action = "UNCHANGED";
+
+		if (result.updated) {
+			action = "UPDATED";
+			counts.totalSaved++;
+			counts.totalScraped++;
+		}
+
+		if (!result.isExisting && !result.error) {
+			await processPropertyWithCoordinates(
+				property.link,
+				property.price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				typeConfig.isRental,
+				null,
+				property.latitude,
+				property.longitude,
+			);
+
+			action = "CREATED";
+			counts.totalSaved++;
+			counts.totalScraped++;
+		} else if (result.error) {
+			action = "ERROR";
+			counts.totalSkipped++;
+		}
+
+		logger.property(
+			startPage,
+			typeConfig.label,
+			property.title.substring(0, 60),
+			formatPriceDisplay(property.price, typeConfig.isRental),
+			property.link,
+			typeConfig.isRental,
+			totalPages,
+			action,
+		);
+
+		if (action !== "UNCHANGED") {
+			await sleep(120);
+		}
+	}
+
+	if (startPage < totalPages) {
+		for (let pageNum = startPage + 1; pageNum <= totalPages; pageNum++) {
+			await processPage(typeConfig, pageNum, totalPages);
+		}
+	}
+}
+
+async function scrapeChaseEvans() {
+	logger.step(`Starting Chase Evans scraper (Agent ${AGENT_ID})...`);
+
+	const startPage = getStartPage();
+	const scrapeStartTime = new Date();
+	const isPartialRun = startPage > 1;
+
+	if (isPartialRun) {
+		logger.step(
+			`Partial run detected (startPage=${startPage}). Remove status update will be skipped.`,
+		);
+	}
+
+	for (const typeConfig of PROPERTY_TYPES) {
+		await scrapeType(typeConfig, startPage);
+	}
+
+	if (!isPartialRun) {
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.step("Skipping remove status update (Partial run)");
+	}
+
+	logger.step(
+		`Completed Chase Evans - Found: ${counts.totalFound}, Scraped: ${counts.totalScraped}, Saved: ${counts.totalSaved}, Skipped: ${counts.totalSkipped}`,
 	);
 }
 
-(async () => {
-	try {
-		await scrapeChaseEvans();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+scrapeChaseEvans()
+	.then(() => {
+		logger.step("All done!");
 		process.exit(0);
-	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+	})
+	.catch((error) => {
+		logger.error("Fatal error", error);
 		process.exit(1);
-	}
-})();
+	});

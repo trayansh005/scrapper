@@ -249,16 +249,34 @@ function createCrawler(browserWSEndpoint) {
 		requestHandlerTimeoutSecs: 600,
 		preNavigationHooks: [
 			async ({ page }) => {
+				// Hide automation fingerprint so StackCDN doesn't block VPS IP
+				await page.addInitScript(() => {
+					Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+				});
 				await blockNonEssentialResources(page);
 				await page.setExtraHTTPHeaders({
 					"User-Agent":
-						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+					Accept:
+						"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+					"Accept-Language": "en-GB,en;q=0.9",
+					"Accept-Encoding": "gzip, deflate, br",
+					"Cache-Control": "no-cache",
+					Pragma: "no-cache",
 				});
 			},
 		],
 		launchContext: {
 			launcher: undefined,
-			launchOptions: { browserWSEndpoint, args: ["--no-sandbox", "--disable-setuid-sandbox"] },
+			launchOptions: {
+				browserWSEndpoint,
+				args: [
+					"--no-sandbox",
+					"--disable-setuid-sandbox",
+					"--disable-blink-features=AutomationControlled",
+				],
+				viewport: { width: 1920, height: 1080 },
+			},
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {

@@ -1,9 +1,9 @@
 {
 	"id": "dsGasoehUAMljnE",
-	"json": "{\"id\":\"dsGasoehUAMljnE\",\"url\":\"https://www.harrodsestates.com/properties/sales/status-available/page-3#/\",\"uniqueKey\":\"https://www.harrodsestates.com/properties/sales/status-available/page-3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"dsGasoehUAMljnE\",\"url\":\"https://www.harrodsestates.com/properties/sales/status-available/page-3\",\"loadedUrl\":\"https://www.harrodsestates.com/properties/sales/status-available/page-3#/\",\"uniqueKey\":\"https://www.harrodsestates.com/properties/sales/status-available/page-3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"TypeError: Cannot read properties of undefined (reading 'updated')\\n    at PlaywrightCrawler.requestHandler [as userProvidedRequestHandler] (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\scraper-agent-215.js:254:18)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\\n    at async wrap (C:\\\\Users\\\\traya\\\\Downloads\\\\scrape\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"pageNum\":3,\"startPage\":1,\"isRental\":false,\"label\":\"SALES\",\"apiBase\":\"https://www.harrodsestates.com/properties/sales/status-available\",\"totalPages\":3,\"__crawlee\":{\"state\":5}}}",
 	"method": "GET",
-	"orderNo": 1772427902610,
-	"retryCount": 0,
+	"orderNo": 1772522317809,
+	"retryCount": 1,
 	"uniqueKey": "https://www.harrodsestates.com/properties/sales/status-available/page-3",
-	"url": "https://www.harrodsestates.com/properties/sales/status-available/page-3#/"
+	"url": "https://www.harrodsestates.com/properties/sales/status-available/page-3"
 }

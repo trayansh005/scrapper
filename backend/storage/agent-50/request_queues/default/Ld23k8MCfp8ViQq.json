@@ -1,0 +1,9 @@
+{
+	"id": "Ld23k8MCfp8ViQq",
+	"json": "{\"id\":\"Ld23k8MCfp8ViQq\",\"url\":\"https://www.foxtons.co.uk/_next/data/3zUAu8NCbfNYRsrOvMpx7/properties-for-sale/south-east-england.json?order_by=price_desc&radius=5&available_for_auction=0&sold=0&page=60\",\"uniqueKey\":\"https://www.foxtons.co.uk/_next/data/3zUAu8NCbfNYRsrOvMpx7/properties-for-sale/south-east-england.json?available_for_auction=0&order_by=price_desc&page=60&radius=5&sold=0\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":60,\"startPage\":1,\"totalPages\":67,\"isRental\":false,\"label\":\"SALES\",\"typeConfig\":{\"discoveryUrl\":\"https://www.foxtons.co.uk/properties-for-sale/south-east-england?order_by=price_desc&radius=5&available_for_auction=0&sold=0\",\"slug\":\"properties-for-sale/south-east-england\",\"query\":{\"order_by\":\"price_desc\",\"radius\":\"5\",\"available_for_auction\":\"0\",\"sold\":\"0\"},\"label\":\"SALES\",\"isRental\":false},\"buildId\":\"3zUAu8NCbfNYRsrOvMpx7\"}}",
+	"method": "GET",
+	"orderNo": 1772516113642,
+	"retryCount": 0,
+	"uniqueKey": "https://www.foxtons.co.uk/_next/data/3zUAu8NCbfNYRsrOvMpx7/properties-for-sale/south-east-england.json?available_for_auction=0&order_by=price_desc&page=60&radius=5&sold=0",
+	"url": "https://www.foxtons.co.uk/_next/data/3zUAu8NCbfNYRsrOvMpx7/properties-for-sale/south-east-england.json?order_by=price_desc&radius=5&available_for_auction=0&sold=0&page=60"
+}
