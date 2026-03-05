@@ -1,0 +1,9 @@
+{
+	"id": "RlFkh5WMf1djzXl",
+	"json": "{\"id\":\"RlFkh5WMf1djzXl\",\"url\":\"https://www.abodeweb.co.uk/properties/sales\",\"loadedUrl\":\"https://www.abodeweb.co.uk/properties/sales\",\"uniqueKey\":\"https://www.abodeweb.co.uk/properties/sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":15,\"isRental\":false,\"label\":\"SALES\",\"apiUrl\":\"https://www.abodeweb.co.uk/properties/sales.ljson\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-05T05:30:21.710Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.abodeweb.co.uk/properties/sales",
+	"url": "https://www.abodeweb.co.uk/properties/sales"
+}

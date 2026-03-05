@@ -110,7 +110,6 @@ async function handleListingPage({ page, request }) {
 
 	try {
 		await page.waitForLoadState("networkidle");
-		await page.waitForTimeout(2000);
 	} catch (e) {
 		logger.error(`Network loading failed on page ${pageNum}`, e);
 	}
@@ -243,7 +242,7 @@ async function handleListingPage({ page, request }) {
 			else stats.savedSales++;
 		}
 
-		let propertyAction = "SEEN";
+		let propertyAction = "UNCHANGED";
 		if (result.updated) propertyAction = "UPDATED";
 		if (!result.isExisting && !result.error) propertyAction = "CREATED";
 		logger.property(
@@ -256,13 +255,12 @@ async function handleListingPage({ page, request }) {
 			0,
 			propertyAction,
 		);
-
-		// Conditional sleep: only pause on CREATE/UPDATE, skip UNCHANGED for rapid processing
-		if (propertyAction !== "SEEN") {
-			const propertyJitter = Math.floor(Math.random() * 2000) + 1500;
-			await sleep(propertyJitter);
-		}
 	}
+
+	// Delay before the next page/API call to avoid rate-limiting
+	const pageJitter = Math.floor(Math.random() * 2000) + 2000;
+	logger.step(`Waiting ${pageJitter}ms before next API call...`);
+	await sleep(pageJitter);
 }
 
 // ============================================================================
