@@ -1,70 +1,38 @@
 {
-  "requestsFinished": 232,
+  "requestsFinished": 1,
   "requestsFailed": 0,
-  "requestsRetries": 4,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 12,
-  "requestMinDurationMillis": 2312,
-  "requestMaxDurationMillis": 22432,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 81803,
+  "requestMaxDurationMillis": 81803,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1076324,
-  "crawlerStartedAt": "2026-03-05T07:12:42.967Z",
-  "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-03-05T07:31:43.309Z",
-  "crawlerRuntimeMillis": 1140559,
-  "crawlerLastStartTimestamp": 1772694762750,
+  "requestTotalFinishedDurationMillis": 81803,
+  "crawlerStartedAt": "2026-03-05T10:46:03.774Z",
+  "crawlerFinishedAt": "2026-03-05T10:47:48.188Z",
+  "statsPersistedAt": "2026-03-05T10:47:48.188Z",
+  "crawlerRuntimeMillis": 104587,
+  "crawlerLastStartTimestamp": 1772707563601,
   "requestRetryHistogram": [
-    228,
-    3,
+    null,
+    null,
     1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 4639,
-  "requestTotalDurationMillis": 1076324,
-  "requestsTotal": 232,
-  "requestsWithStatusCode": {},
+  "requestAvgFinishedDurationMillis": 81803,
+  "requestTotalDurationMillis": 81803,
+  "requestsTotal": 1,
+  "requestsWithStatusCode": {
+    "200": 1
+  },
   "errors": {},
   "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\http\\internals\\http-crawler.js:461:23": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:166:17": {
       "missing error code": {
         "Error": {
-          "Detected a session error, rotating session... ": {
-            "count": 3
-          }
-        }
-      }
-    },
-    "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:813:107": {
-      "ECONNRESET": {
-        "RequestError": {
-          "read ECONNRESET": {
-            "count": 1
-          }
-        }
-      },
-      "ENOTFOUND": {
-        "RequestError": {
-          "getaddrinfo ENOTFOUND www.ableestates.com": {
-            "count": 1
-          }
-        }
-      }
-    },
-    "node:internal/stream_base_commons:217:20": {
-      "ECONNRESET": {
-        "Error": {
-          "read ECONNRESET": {
-            "count": 1
-          }
-        }
-      }
-    },
-    "node:dns:118:26": {
-      "ENOTFOUND": {
-        "Error": {
-          "getaddrinfo ENOTFOUND www.ableestates.com": {
-            "count": 1
+          "page.goto: net::ERR_EMPTY_RESPONSE at https://www.meyersestates.com/property-search/?department=residential-sales&per_page=13&view=list&page=1": {
+            "count": 2
           }
         }
       }
