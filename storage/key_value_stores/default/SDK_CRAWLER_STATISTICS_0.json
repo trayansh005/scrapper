@@ -1,27 +1,73 @@
 {
-  "requestsFinished": 15,
+  "requestsFinished": 232,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 4,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 7,
-  "requestMinDurationMillis": 2558,
-  "requestMaxDurationMillis": 18766,
+  "requestsFinishedPerMinute": 12,
+  "requestMinDurationMillis": 2312,
+  "requestMaxDurationMillis": 22432,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 109626,
+  "requestTotalFinishedDurationMillis": 1076324,
   "crawlerStartedAt": "2026-03-05T07:12:42.967Z",
   "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-03-05T07:14:42.982Z",
-  "crawlerRuntimeMillis": 120232,
+  "statsPersistedAt": "2026-03-05T07:31:43.309Z",
+  "crawlerRuntimeMillis": 1140559,
   "crawlerLastStartTimestamp": 1772694762750,
   "requestRetryHistogram": [
-    15
+    228,
+    3,
+    1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 7308,
-  "requestTotalDurationMillis": 109626,
-  "requestsTotal": 15,
+  "requestAvgFinishedDurationMillis": 4639,
+  "requestTotalDurationMillis": 1076324,
+  "requestsTotal": 232,
   "requestsWithStatusCode": {},
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\http\\internals\\http-crawler.js:461:23": {
+      "missing error code": {
+        "Error": {
+          "Detected a session error, rotating session... ": {
+            "count": 3
+          }
+        }
+      }
+    },
+    "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:813:107": {
+      "ECONNRESET": {
+        "RequestError": {
+          "read ECONNRESET": {
+            "count": 1
+          }
+        }
+      },
+      "ENOTFOUND": {
+        "RequestError": {
+          "getaddrinfo ENOTFOUND www.ableestates.com": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "node:internal/stream_base_commons:217:20": {
+      "ECONNRESET": {
+        "Error": {
+          "read ECONNRESET": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "node:dns:118:26": {
+      "ENOTFOUND": {
+        "Error": {
+          "getaddrinfo ENOTFOUND www.ableestates.com": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }

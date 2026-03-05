@@ -1,0 +1,9 @@
+{
+	"id": "k2y1USioBHNbT8K",
+	"json": "{\"id\":\"k2y1USioBHNbT8K\",\"url\":\"https://www.ableestates.com/properties.aspx?Mode=0&PropertyTypeGroup=0&PriceMin=0&PriceMax=0&Bedrooms=0&Statusid=0&searchstatus=1&ShowSearch=1&Page=80\",\"loadedUrl\":\"https://www.ableestates.com/properties.aspx?Mode=0&PropertyTypeGroup=0&PriceMin=0&PriceMax=0&Bedrooms=0&Statusid=0&searchstatus=1&ShowSearch=1&Page=80\",\"uniqueKey\":\"https://www.ableestates.com/properties.aspx?Bedrooms=0&Mode=0&Page=80&PriceMax=0&PriceMin=0&PropertyTypeGroup=0&ShowSearch=1&Statusid=0&searchstatus=1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: Detected a session error, rotating session... \\nread ECONNRESET\\n\\n    at CheerioCrawler._requestFunction (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\http\\\\internals\\\\http-crawler.js:461:23)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\\n    at async wrap (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"pageNum\":80,\"startPage\":1,\"isRental\":false,\"label\":\"SALES\",\"typeConfig\":{\"label\":\"SALES\",\"isRental\":false},\"__crawlee\":{\"state\":4,\"sessionRotationCount\":1}},\"handledAt\":\"2026-03-05T07:25:56.456Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 1,
+	"uniqueKey": "https://www.ableestates.com/properties.aspx?Bedrooms=0&Mode=0&Page=80&PriceMax=0&PriceMin=0&PropertyTypeGroup=0&ShowSearch=1&Statusid=0&searchstatus=1",
+	"url": "https://www.ableestates.com/properties.aspx?Mode=0&PropertyTypeGroup=0&PriceMin=0&PriceMax=0&Bedrooms=0&Statusid=0&searchstatus=1&ShowSearch=1&Page=80"
+}
