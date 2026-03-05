@@ -1,67 +1,27 @@
 {
-  "requestsFinished": 131,
-  "requestsFailed": 2,
-  "requestsRetries": 2,
+  "requestsFinished": 15,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 12,
-  "requestMinDurationMillis": 2300,
-  "requestMaxDurationMillis": 11356,
-  "requestTotalFailedDurationMillis": 11126,
-  "requestTotalFinishedDurationMillis": 516802,
-  "crawlerStartedAt": "2026-03-05T06:49:04.138Z",
-  "crawlerFinishedAt": "2026-03-05T06:59:51.177Z",
-  "statsPersistedAt": "2026-03-05T06:59:51.177Z",
-  "crawlerRuntimeMillis": 647519,
-  "crawlerLastStartTimestamp": 1772693343658,
+  "requestsFinishedPerMinute": 7,
+  "requestMinDurationMillis": 2558,
+  "requestMaxDurationMillis": 18766,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 109626,
+  "crawlerStartedAt": "2026-03-05T07:12:42.967Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-03-05T07:14:42.982Z",
+  "crawlerRuntimeMillis": 120232,
+  "crawlerLastStartTimestamp": 1772694762750,
   "requestRetryHistogram": [
-    131,
-    null,
-    2
+    15
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 5563,
-  "requestAvgFinishedDurationMillis": 3945,
-  "requestTotalDurationMillis": 527928,
-  "requestsTotal": 133,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 7308,
+  "requestTotalDurationMillis": 109626,
+  "requestsTotal": 15,
   "requestsWithStatusCode": {},
-  "errors": {
-    "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:813:107": {
-      "ENOTFOUND": {
-        "RequestError": {
-          "getaddrinfo ENOTFOUND www.ableestates.com": {
-            "count": 2
-          }
-        }
-      }
-    },
-    "node:dns:118:26": {
-      "ENOTFOUND": {
-        "Error": {
-          "getaddrinfo ENOTFOUND www.ableestates.com": {
-            "count": 2
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
-      "missing error code": {
-        "Error": {
-          "request timed out after 30 seconds.": {
-            "count": 3
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\http\\internals\\http-crawler.js:461:23": {
-      "missing error code": {
-        "Error": {
-          "Detected a session error, rotating session... ": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }

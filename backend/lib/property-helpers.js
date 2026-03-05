@@ -144,6 +144,9 @@ async function extractCoordinatesFromHTML(html) {
 		// Try Locrating / Douglas Allen iframe pattern: lat=51.67161&lng=0.11565
 		const locratingMatch = html.match(/lat=([0-9.-]+)[\s\S]*?lng=([0-9.-]+)/);
 
+		// Try Able Estates / Acquaint CRM iframe location pattern: location=51.509033,0.130544
+		const locationParamMatch = html.match(/location=([0-9.-]+),([0-9.-]+)/);
+
 		// Try Google Maps Street View pattern (Haart): cbll=51.452255,-0.068368
 		const googleMapsStreetViewMatch = html.match(/cbll=([0-9.-]+),([0-9.-]+)/);
 
@@ -158,7 +161,7 @@ async function extractCoordinatesFromHTML(html) {
 				if (!isNaN(latitude) && !isNaN(longitude)) {
 					return { latitude, longitude };
 				}
-			} catch (e) {}
+			} catch (e) { }
 		}
 
 		if (googleMapsDirMatch) {
@@ -203,6 +206,9 @@ async function extractCoordinatesFromHTML(html) {
 		} else if (locratingMatch) {
 			latitude = parseFloat(locratingMatch[1]);
 			longitude = parseFloat(locratingMatch[2]);
+		} else if (locationParamMatch) {
+			latitude = parseFloat(locationParamMatch[1]);
+			longitude = parseFloat(locationParamMatch[2]);
 		} else if (googleMapsStreetViewMatch) {
 			latitude = parseFloat(googleMapsStreetViewMatch[1]);
 			longitude = parseFloat(googleMapsStreetViewMatch[2]);
