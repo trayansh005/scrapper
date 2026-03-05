@@ -1,51 +1,27 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 2,
-  "requestsRetries": 2,
-  "requestsFailedPerMinute": 3,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 6440,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-03-02T09:03:58.939Z",
-  "crawlerFinishedAt": "2026-03-02T09:04:29.445Z",
-  "statsPersistedAt": "2026-03-02T09:04:29.446Z",
-  "crawlerRuntimeMillis": 30933,
-  "crawlerLastStartTimestamp": 1772442238513,
+  "requestsFinished": 8,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 8,
+  "requestMinDurationMillis": 746,
+  "requestMaxDurationMillis": 27531,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 58505,
+  "crawlerStartedAt": "2026-03-05T05:57:02.973Z",
+  "crawlerFinishedAt": "2026-03-05T05:58:03.174Z",
+  "statsPersistedAt": "2026-03-05T05:58:03.174Z",
+  "crawlerRuntimeMillis": 60319,
+  "crawlerLastStartTimestamp": 1772690222855,
   "requestRetryHistogram": [
-    null,
-    null,
-    2
+    8
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 3220,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 6440,
-  "requestsTotal": 2,
-  "requestsWithStatusCode": {
-    "200": 6
-  },
-  "errors": {
-    "c:\\Users\\traya\\Downloads\\scrape\\backend\\scraper-agent-215.js:146:18": {
-      "missing error code": {
-        "TypeError": {
-          "Cannot read properties of undefined (reading 'updated')": {
-            "count": 2
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "c:\\Users\\traya\\Downloads\\scrape\\backend\\scraper-agent-215.js:146:18": {
-      "missing error code": {
-        "TypeError": {
-          "Cannot read properties of undefined (reading 'updated')": {
-            "count": 4
-          }
-        }
-      }
-    }
-  }
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 7313,
+  "requestTotalDurationMillis": 58505,
+  "requestsTotal": 8,
+  "requestsWithStatusCode": {},
+  "errors": {},
+  "retryErrors": {}
 }

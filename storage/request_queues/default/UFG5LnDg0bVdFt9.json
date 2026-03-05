@@ -1,0 +1,9 @@
+{
+	"id": "UFG5LnDg0bVdFt9",
+	"json": "{\"id\":\"UFG5LnDg0bVdFt9\",\"url\":\"https://cowandco-london.com/property-search/page/1/?orderby&instruction_type=sale&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off\",\"loadedUrl\":\"https://cowandco-london.com/property-search/?orderby&instruction_type=sale&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off\",\"uniqueKey\":\"https://cowandco-london.com/property-search/page/1?address_keyword=&instruction_type=sale&maxprice=&min_bedrooms=&minprice=&orderby=&property_type=&showstc=off\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"startPage\":1,\"isRental\":false,\"label\":\"SALES\",\"typeConfig\":{\"label\":\"SALES\",\"isRental\":false},\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-05T05:57:11.098Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://cowandco-london.com/property-search/page/1?address_keyword=&instruction_type=sale&maxprice=&min_bedrooms=&minprice=&orderby=&property_type=&showstc=off",
+	"url": "https://cowandco-london.com/property-search/page/1/?orderby&instruction_type=sale&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off"
+}
