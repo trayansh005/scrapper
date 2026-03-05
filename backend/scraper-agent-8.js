@@ -1,7 +1,8 @@
 // Jackie Quinn scraper using Playwright with Crawlee
 // Agent ID: 8
+// Website: www.jackiequinn.co.uk
 // Usage:
-// node backend/scraper-agent-8.js
+// node backend/scraper-agent-8.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
@@ -11,15 +12,25 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, extractBedroomsFromHTML } = require("./lib/property-helpers.js");
+const {
+	isSoldProperty,
+	extractBedroomsFromHTML,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
+// Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 8;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedLettings: 0,
 };
 
 const processedUrls = new Set();
@@ -31,15 +42,6 @@ const processedUrls = new Set();
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "£0 pcm" : "£0";
-	return `£${price}${isRental ? " pcm" : ""}`;
-}
-
-// ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
 
 function getBrowserlessEndpoint() {
 	return (
@@ -53,19 +55,10 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -96,8 +89,10 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 		stats.totalSaved++;
+		if (isRental) stats.savedLettings++;
+		else stats.savedSales++;
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
 	} finally {
 		await detailPage.close();
 	}
@@ -144,8 +139,8 @@ function parseListingPage(htmlContent) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental } = request.userData;
-	console.log(`📋 Page ${pageNum}/13 - ${request.url}`);
+	const { pageNumber, totalPages, isRental, label } = request.userData;
+	logger.page(pageNumber, label, request.url, totalPages);
 
 	await page.waitForTimeout(2000);
 	await page.waitForSelector(".propertyBox", { timeout: 30000 }).catch(() => {});
@@ -153,11 +148,28 @@ async function handleListingPage({ page, request }) {
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(
+		pageNumber,
+		label,
+		`Found ${properties.length} properties on page ${pageNumber}`,
+		totalPages,
+	);
 
 	for (const property of properties) {
 		if (!property.link) continue;
-		if (processedUrls.has(property.link)) continue;
+		if (processedUrls.has(property.link)) {
+			logger.property(
+				pageNumber,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				"SKIPPED: ALREADY PROCESSED",
+			);
+			continue;
+		}
 		processedUrls.add(property.link);
 
 		const result = await updatePriceByPropertyURLOptimized(
@@ -173,11 +185,15 @@ async function handleListingPage({ page, request }) {
 		if (result.updated) propertyAction = "UPDATED";
 		if (!result.isExisting && !result.error) propertyAction = "CREATED";
 
-		console.log(
-			`✅ [${propertyAction}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-				property.price,
-				isRental,
-			)} - ${property.link}`,
+		logger.property(
+			pageNumber,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(property.price, isRental),
+			property.link,
+			isRental,
+			totalPages,
+			propertyAction,
 		);
 
 		if (propertyAction !== "UNCHANGED") {
@@ -194,7 +210,13 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -204,7 +226,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -214,35 +236,54 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeJackieQuinn() {
-	console.log(`\n🚀 Starting Jackie Quinn scraper (Agent ${AGENT_ID})...\n`);
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
+
+	logger.step(`Starting Jackie Quinn scraper (Agent ${AGENT_ID})...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
+	const totalPages = 11;
 	const requests = [];
-	for (let pageNum = 1; pageNum <= 11; pageNum++) {
+	for (let pageNum = Math.max(1, startPage); pageNum <= totalPages; pageNum++) {
 		requests.push({
 			url: `https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=${pageNum}`,
-			userData: { pageNum, isRental: false },
+			userData: {
+				pageNumber: pageNum,
+				totalPages,
+				isRental: false,
+				label: "SALES",
+			},
 		});
 	}
 
-	await crawler.addRequests(requests);
-	await crawler.run();
+	if (requests.length > 0) {
+		logger.step(`Queueing ${requests.length} listing pages starting from page ${startPage}...`);
+		await crawler.run(requests);
+	}
 
-	console.log(
-		`\n✅ Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 (async () => {
 	try {
 		await scrapeJackieQuinn();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

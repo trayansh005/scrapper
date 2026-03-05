@@ -1,27 +1,34 @@
-// Moveli scraper using Playlist with Crawlee
+// Moveli scraper using Playwright with Crawlee
 // Agent ID: 18
-//
+// Website: www.moveli.co.uk
 // Usage:
-// node backend/scraper-agent-18.js
+// node backend/scraper-agent-18.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
-const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const { isSoldProperty, formatPriceDisplay } = require("./lib/property-helpers.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 18;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedLettings: 0,
 };
+
+const processedUrls = new Set();
 
 const SELECTORS = {
 	PROPERTY_CARD: "a.property_card",
@@ -31,38 +38,12 @@ const SELECTORS = {
 	BEDROOMS: "p.inline_text",
 };
 
-const PROPERTY_TYPES = [
-	// {
-	// 	urlBase:
-	// 		"https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=For%20Sale&maxPrice=any&minBeds=any&sortOrder=price-desc",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// },
-	{
-		urlBase:
-			"https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=For%20Rent&maxPrice=any&minBeds=any&sortOrder=price-desc",
-		isRental: true,
-		label: "LETTINGS",
-	},
-];
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function randBetween(min, max) {
-	return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function formatPriceUK(price) {
-	if (!price && price !== 0) return "£0";
-	// If price is already a string with commas, just add the symbol
-	if (typeof price === "string" && price.includes(",")) return "£" + price;
-	return "£" + Number(price).toLocaleString("en-GB");
 }
 
 function parsePrice(priceText) {
@@ -72,13 +53,8 @@ function parsePrice(priceText) {
 	const priceClean = priceMatch.join("").replace(/[^0-9]/g, "");
 	if (!priceClean) return null;
 
-	// Return formated as string with commas for UK style as requested for DB
+	// Return formatted as string with commas for UK style
 	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-function parseBedrooms(cardText) {
-	const bedroomsMatch = cardText.match(/(\d+)\s*beds?/i);
-	return bedroomsMatch ? bedroomsMatch[1] : null;
 }
 
 function parsePropertyCard($card, $) {
@@ -93,10 +69,9 @@ function parsePropertyCard($card, $) {
 		const title = $card.find(SELECTORS.PROPERTY_HEADING).text().trim();
 		if (!title) return null;
 
-		// Get status - only include AVAILABLE properties
-		const status = $card.find(SELECTORS.STATUS_LABEL).text().trim().toUpperCase();
-		if (status !== "" && status !== "AVAILABLE") {
-			// If status is present but not AVAILABLE, skip
+		// Get status
+		const statusText = $card.find(SELECTORS.STATUS_LABEL).text().trim();
+		if (isSoldProperty(statusText)) {
 			return null;
 		}
 
@@ -105,7 +80,7 @@ function parsePropertyCard($card, $) {
 		const price = parsePrice(priceText);
 		if (!price) return null;
 
-		// Get bedrooms - find the number element
+		// Get bedrooms
 		let bedrooms = null;
 		$card.find(SELECTORS.BEDROOMS).each((i, el) => {
 			const text = $(el).text().trim();
@@ -121,7 +96,7 @@ function parsePropertyCard($card, $) {
 			bedrooms,
 		};
 	} catch (error) {
-		console.error(`Error parsing card: ${error.message}`);
+		logger.error(`Error parsing card: ${error.message}`);
 		return null;
 	}
 }
@@ -142,47 +117,25 @@ function parseListingPage(htmlContent) {
 }
 
 // ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
 	const detailPage = await browserContext.newPage();
 
 	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
-		const response = await detailPage.goto(property.link, {
+		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 30000,
+			timeout: 60000,
 		});
 
 		// Wait for dynamic content to load
-		await detailPage.waitForTimeout(1500);
+		await detailPage.waitForTimeout(2000);
 
 		// Get HTML content and extract coordinates
 		const htmlContent = await detailPage.content();
-		const coords = await extractCoordinatesFromHTML(htmlContent);
 
 		// Save property to database
 		await processPropertyWithCoordinates(
@@ -197,11 +150,10 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 		stats.totalSaved++;
-
-		const coordsStr =
-			coords.latitude && coords.longitude ? `${coords.latitude}, ${coords.longitude}` : "No coords";
-
-		console.log(`✅ ${property.title} - ${formatPriceUK(property.price)} - ${coordsStr}`);
+		if (isRental) stats.savedLettings++;
+		else stats.savedSales++;
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
 	} finally {
 		await detailPage.close();
 	}
@@ -212,34 +164,41 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { isRental, label } = request.userData || {};
-
-	console.log(`📋 ${label} - ${request.url}`);
-
-	await page.goto(request.url, {
-		waitUntil: "domcontentloaded",
-		timeout: 30000,
-	});
+	const { isRental, label, pageNumber, totalPages } = request.userData || {};
+	logger.page(pageNumber || 1, label, request.url, totalPages || 1);
 
 	// Wait for properties to load
 	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
-		console.log(`⚠️ No properties found`);
+		logger.error(`No properties found on ${request.url}`);
 	});
 
-	// Wait for dynamic content (React/Vue to render)
+	// Wait for dynamic content
 	await page.waitForTimeout(3000);
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`🔗 Found ${properties.length} properties`);
+	logger.page(pageNumber || 1, label, `Found ${properties.length} properties`, totalPages || 1);
 
 	// Process each property
 	for (const property of properties) {
-		console.log(`📍 Found: ${property.title} - ${formatPriceUK(property.price)}`);
+		if (processedUrls.has(property.link)) {
+			logger.property(
+				pageNumber || 1,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental),
+				property.link,
+				isRental,
+				totalPages || 1,
+				"SKIPPED: ALREADY PROCESSED",
+			);
+			continue;
+		}
+		processedUrls.add(property.link);
 
-		// Update price in database (or insert minimal record if new)
+		// Update price in database
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
 			property.price,
@@ -249,10 +208,30 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
-		// If new property, scrape full details immediately
+		let action = "UNCHANGED";
+		if (result.updated) action = "UPDATED";
+
+		// If new property, scrape full details
 		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
+			action = "CREATED";
 			await scrapePropertyDetail(page.context(), property, isRental);
+		} else if (result.error) {
+			action = "ERROR";
+		}
+
+		logger.property(
+			pageNumber || 1,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(property.price, isRental),
+			property.link,
+			isRental,
+			totalPages || 1,
+			action,
+		);
+
+		if (action !== "UNCHANGED") {
+			await sleep(500);
 		}
 	}
 }
@@ -265,29 +244,23 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-		preNavigationHooks: [
-			async ({ page }) => {
-				// Block unnecessary resources for listing pages
-				await page.route("**/*", (route) => {
-					const resourceType = route.request().resourceType();
-					if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-						route.abort();
-					} else {
-						route.continue();
-					}
-				});
-			},
-		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -297,31 +270,56 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeMoveli() {
-	console.log(`\n🚀 Starting Moveli scraper (Agent ${AGENT_ID})...\n`);
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Starting Moveli scraper (Agent ${AGENT_ID})...`);
 
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv";
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [];
-	// Process each property type
-	for (const propertyType of PROPERTY_TYPES) {
-		allRequests.push({
-			url: propertyType.urlBase,
-			userData: {
-				isRental: propertyType.isRental,
-				label: propertyType.label,
-			},
-		});
+	const propertyTypes = [
+		{
+			url: "https://www.moveli.co.uk/test/properties?category=for-sale&searchKeywords=&status=For%20Sale&maxPrice=any&minBeds=any&sortOrder=price-desc",
+			isRental: false,
+			label: "SALES",
+		},
+		{
+			url: "https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=For%20Rent&maxPrice=any&minBeds=any&sortOrder=price-desc",
+			isRental: true,
+			label: "LETTINGS",
+		},
+	];
+
+	const requests = propertyTypes.map((pt) => ({
+		url: pt.url,
+		userData: {
+			isRental: pt.isRental,
+			label: pt.label,
+			pageNumber: 1,
+			totalPages: 1,
+		},
+	}));
+
+	if (requests.length > 0) {
+		logger.step(`Queueing ${requests.length} listing categories...`);
+		await crawler.run(requests);
 	}
 
-	await crawler.addRequests(allRequests);
-	await crawler.run();
-
-	console.log(
-		`\n✅ Completed Moveli - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Moveli - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -331,11 +329,10 @@ async function scrapeMoveli() {
 (async () => {
 	try {
 		await scrapeMoveli();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (error) {
-		console.error("❌ Fatal error:", error?.message || error);
+		logger.error("Fatal error", error);
 		process.exit(1);
 	}
 })();

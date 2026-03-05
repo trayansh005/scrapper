@@ -1,0 +1,9 @@
+{
+	"id": "2xghqATs1gKPSNi",
+	"json": "{\"id\":\"2xghqATs1gKPSNi\",\"url\":\"https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=For%20Rent&maxPrice=any&minBeds=any&sortOrder=price-desc\",\"uniqueKey\":\"https://www.moveli.co.uk/test/properties?category=for-rent&maxPrice=any&minBeds=any&searchKeywords=&sortOrder=price-desc&status=For+Rent\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"LETTINGS\"}}",
+	"method": "GET",
+	"orderNo": 1772713410798,
+	"retryCount": 0,
+	"uniqueKey": "https://www.moveli.co.uk/test/properties?category=for-rent&maxPrice=any&minBeds=any&searchKeywords=&sortOrder=price-desc&status=For+Rent",
+	"url": "https://www.moveli.co.uk/test/properties?category=for-rent&searchKeywords=&status=For%20Rent&maxPrice=any&minBeds=any&sortOrder=price-desc"
+}
