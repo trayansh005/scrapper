@@ -122,93 +122,81 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
-		await page.waitForSelector("div[class*='property'], article[class*='property'], a[href*='/properties/']", {
-			timeout: 15000,
-		});
+		await page.waitForSelector("article.property", { timeout: 15000 });
 	} catch (e) {
 		logger.error("Listing container not found", e, pageNum, label);
 	}
 
 	const properties = await page.evaluate(() => {
-		try {
-			const results = [];
-			const seenLinks = new Set();
+	try {
+		const results = [];
+		const seenLinks = new Set();
 
-			// Try multiple selectors to find property links
-			const selectors = [
-				'a[href*="/properties/"]',
-				'a[href*="/property/"]',
-				'div[class*="property"] a',
-				'article[class*="property"] a',
-			];
+		const propertyCards = document.querySelectorAll("article.property");
 
-			let propertyElements = [];
-			for (const selector of selectors) {
-				const found = Array.from(document.querySelectorAll(selector));
-				if (found.length > 0) {
-					propertyElements = found;
-					break;
-				}
+		for (const card of propertyCards) {
+
+			// PROPERTY LINK
+			const linkEl = card.querySelector("a.property__link");
+			if (!linkEl) continue;
+
+			let href = linkEl.getAttribute("href");
+			if (!href) continue;
+
+			const link = href.startsWith("http")
+				? href
+				: new URL(href, window.location.origin).href;
+
+			if (seenLinks.has(link)) continue;
+			seenLinks.add(link);
+
+
+			// PROPERTY TITLE
+			let title = "Property";
+			const titleEl = card.querySelector("h2, h3");
+
+			if (titleEl && titleEl.textContent.trim()) {
+				title = titleEl.textContent.trim();
 			}
 
-			for (const linkEl of propertyElements) {
-				let href = linkEl.getAttribute("href");
-				if (!href) continue;
 
-				const link = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
+			// PROPERTY PRICE
+			let priceRaw = "";
+			const priceEl = card.querySelector(".property__price");
 
-				// Skip if not a property detail page
-				if (!link.includes("/properties/") && !link.includes("/property/")) continue;
-				if (seenLinks.has(link)) continue;
-				seenLinks.add(link);
-
-				// Extract title - try various selectors
-				let title = "Property";
-				const titleSelectors = [
-					"h1",
-					"h2",
-					"h3",
-					'[class*="title"]',
-					'[class*="name"]',
-				];
-				for (const selector of titleSelectors) {
-					const titleEl = linkEl.querySelector(selector);
-					if (titleEl && titleEl.textContent.trim()) {
-						title = titleEl.textContent.trim();
-						break;
-					}
-				}
-
-				// If no title found in children, try parent or use link text
-				if (title === "Property") {
-					title = linkEl.textContent.trim().substring(0, 100) || "Property";
-				}
-
-				// Extract price - look for £ symbol
-				let priceRaw = "";
-				const allText = linkEl.textContent;
-				const priceMatch = allText.match(/£[\d,]+/);
-				if (priceMatch) {
-					priceRaw = priceMatch[0];
-				}
-
-				// Extract bedrooms - look for bed/bedroom indicators
-				let bedText = "";
-				const bedMatch = allText.match(/(\d+)\s*(?:bed|br|bed\.)/i);
-				if (bedMatch) {
-					bedText = bedMatch[0];
-				}
-
-				const statusText = allText || "";
-
-				results.push({ link, title, priceRaw, bedText, statusText });
+			if (priceEl) {
+				priceRaw = priceEl.textContent.trim();
 			}
 
-			return results;
-		} catch (e) {
-			return [];
+
+			// BEDROOMS
+			let bedText = "";
+			const bedMatch = card.innerText.match(/(\d+)\s*bed/i);
+
+			if (bedMatch) {
+				bedText = bedMatch[0];
+			}
+
+
+			// STATUS TEXT (used for SOLD/STC detection)
+			const statusText = card.innerText || "";
+
+
+			results.push({
+				link,
+				title,
+				priceRaw,
+				bedText,
+				statusText,
+			});
 		}
-	});
+
+		return results;
+
+	} catch (e) {
+		return [];
+	}
+});
 
 	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
