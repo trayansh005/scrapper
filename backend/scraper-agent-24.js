@@ -1,8 +1,8 @@
 // Haboodle scraper using Playwright with Crawlee
 // Agent ID: 24
-//
+// Website: www.haboodle.co.uk
 // Usage:
-// node backend/scraper-agent-24.js
+// node backend/scraper-agent-24.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
@@ -11,16 +11,24 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 24;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedLettings: 0,
 };
+
+const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -72,6 +80,7 @@ function parsePropertyCard($card) {
 			bedrooms,
 		};
 	} catch (error) {
+		logger.error(`Error parsing card: ${error.message}`);
 		return null;
 	}
 }
@@ -92,35 +101,14 @@ function parseListingPage(htmlContent) {
 }
 
 // ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
 	const detailPage = await browserContext.newPage();
 
 	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -131,7 +119,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		const htmlContent = await detailPage.content();
 
 		// Save property to database
-		await processPropertyWithCoordinates(
+		const dbResult = await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
@@ -143,8 +131,13 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 		stats.totalSaved++;
+		if (isRental) stats.savedLettings++;
+		else stats.savedSales++;
+
+		return dbResult || { latitude: null, longitude: null };
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		return { latitude: null, longitude: null };
 	} finally {
 		await detailPage.close();
 	}
@@ -155,20 +148,35 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
 	// Wait for results to load
-	await page.waitForTimeout(2000);
+	await page.waitForSelector("li.type-property", { timeout: 15000 }).catch(() => {});
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	// Process each property
 	for (const property of properties) {
+		if (processedUrls.has(property.link)) {
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				"SKIPPED: ALREADY PROCESSED",
+			);
+			continue;
+		}
+		processedUrls.add(property.link);
+
 		// Update price in database (or insert minimal record if new)
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
@@ -179,35 +187,41 @@ async function handleListingPage({ page, request, crawler }) {
 			isRental,
 		);
 
+		let action = "UNCHANGED";
+		let coords = { latitude: null, longitude: null };
+
 		if (result.updated) {
+			action = "UPDATED";
 			stats.totalSaved++;
 		}
 
 		// If new property, scrape full details immediately
 		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), property, isRental);
+			action = "CREATED";
+			coords = await scrapePropertyDetail(page.context(), property, isRental);
+		} else if (result.error) {
+			action = "ERROR";
+		}
+
+		logger.property(
+			pageNum,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(property.price, isRental),
+			property.link,
+			isRental,
+			totalPages,
+			action,
+			coords.latitude,
+			coords.longitude,
+		);
+
+		if (action === "CREATED") {
+			await sleep(1000);
 		}
 	}
 
-	// Pagination
-	const $ = cheerio.load(htmlContent);
-	const nextLink = $("a.next.page-numbers");
-	if (nextLink.length > 0) {
-		const nextUrl = nextLink.attr("href");
-		if (nextUrl) {
-			await crawler.addRequests([
-				{
-					url: nextUrl,
-					userData: {
-						pageNum: pageNum + 1,
-						isRental,
-						label,
-					},
-				},
-			]);
-		}
-	}
+	// Pagination (only if on initial load batch, crawler handles the queue)
 }
 
 // ============================================================================
@@ -218,16 +232,23 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -237,15 +258,17 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeHaboodle() {
-	console.log(`\n🚀 Starting Haboodle scraper (Agent ${AGENT_ID})...\n`);
-
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
+
+	logger.step(`Starting Haboodle scraper (Agent ${AGENT_ID})...`);
+
 	const totalSalesPages = 10;
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv";
 	const crawler = createCrawler(browserWSEndpoint);
 
 	const allRequests = [];
@@ -258,24 +281,31 @@ async function scrapeHaboodle() {
 			}`,
 			userData: {
 				pageNum: p,
+				totalPages: totalSalesPages,
 				isRental: false,
-				label: `SALES_PAGE_${p}`,
+				label: "SALES",
 			},
 		});
 	}
 
 	if (allRequests.length === 0) {
-		console.log("⚠️ No pages to scrape with current arguments.");
+		logger.warn("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-	console.log(
-		`\n✅ Completed Haboodle - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Haboodle - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -285,11 +315,10 @@ async function scrapeHaboodle() {
 (async () => {
 	try {
 		await scrapeHaboodle();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

@@ -51,10 +51,13 @@ function createAgentLogger(agentId) {
 		isRental = false,
 		totalPages = null,
 		action = "UNCHANGED",
+		lat = null,
+		lng = null,
 	) {
 		const icon = isRental ? "🏢" : "🏡";
+		const coordsPart = lat && lng ? ` (${lat}, ${lng})` : "";
 		console.log(
-			`${icon} ${prefix(pageNum, label, totalPages)} ${actionBadge(action)} ✦ ${title} • ${price}`,
+			`${icon} ${prefix(pageNum, label, totalPages)} ${actionBadge(action)} ✦ ${title} • ${price}${coordsPart}`,
 		);
 		console.log(`   🔗 ${url}`);
 	}

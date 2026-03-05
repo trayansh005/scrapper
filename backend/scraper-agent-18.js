@@ -138,7 +138,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		const htmlContent = await detailPage.content();
 
 		// Save property to database
-		await processPropertyWithCoordinates(
+		const dbResult = await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
@@ -152,8 +152,11 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		stats.totalSaved++;
 		if (isRental) stats.savedLettings++;
 		else stats.savedSales++;
+
+		return dbResult || { latitude: null, longitude: null };
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		return { latitude: null, longitude: null };
 	} finally {
 		await detailPage.close();
 	}
@@ -173,7 +176,7 @@ async function handleListingPage({ page, request }) {
 	});
 
 	// Wait for dynamic content
-	await page.waitForTimeout(3000);
+	await page.waitForTimeout(500);
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
@@ -209,12 +212,14 @@ async function handleListingPage({ page, request }) {
 		);
 
 		let action = "UNCHANGED";
+		let coords = { latitude: null, longitude: null };
+
 		if (result.updated) action = "UPDATED";
 
 		// If new property, scrape full details
 		if (!result.isExisting && !result.error) {
 			action = "CREATED";
-			await scrapePropertyDetail(page.context(), property, isRental);
+			coords = await scrapePropertyDetail(page.context(), property, isRental);
 		} else if (result.error) {
 			action = "ERROR";
 		}
@@ -228,10 +233,12 @@ async function handleListingPage({ page, request }) {
 			isRental,
 			totalPages || 1,
 			action,
+			coords.latitude,
+			coords.longitude,
 		);
 
-		if (action !== "UNCHANGED") {
-			await sleep(500);
+		if (action === "CREATED") {
+			await sleep(1000);
 		}
 	}
 }

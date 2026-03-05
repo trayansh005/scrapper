@@ -130,9 +130,11 @@ async function processPropertyWithCoordinates(
 				}`,
 			);
 		}
+
+		return { latitude, longitude };
 	} catch (error) {
 		console.error(`❌ Failed ${url}:`, error.message);
-		// Don't throw - just log the error
+		return { latitude: null, longitude: null };
 	}
 }
 

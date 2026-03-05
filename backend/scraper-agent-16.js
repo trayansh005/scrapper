@@ -1,9 +1,8 @@
 // Romans scraper using Playwright with Crawlee
 // Agent ID: 16
-//
+// Website: www.romans.co.uk
 // Usage:
 // node backend/scraper-agent-16.js [startPage]
-// Example: node backend/scraper-agent-16.js 10 (starts from page 10)
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
@@ -28,26 +27,15 @@ EventEmitter.defaultMaxListeners = 100;
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
 const AGENT_ID = 16;
 const logger = createAgentLogger(AGENT_ID);
-const START_PAGE = 1;
-
-const USER_AGENTS = [
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
-	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-];
 
 const TIMING = {
 	PAGE_DELAY_MIN: 500,
 	PAGE_DELAY_MAX: 1200,
 	DETAIL_DELAY_MIN: 400,
 	DETAIL_DELAY_MAX: 900,
-	AFTER_GOTO: 2000,
+	AFTER_GOTO: 500,
 	COOKIE_BANNER: 1000,
 	STREETVIEW_LOAD: 4000,
 	STREETVIEW_RETRY: 1500,
@@ -91,8 +79,10 @@ const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
 	savedSales: 0,
-	savedRentals: 0,
+	savedLettings: 0,
 };
+
+const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -106,10 +96,6 @@ function randBetween(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function getRandomUserAgent() {
-	return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-}
-
 function getBrowserlessEndpoint() {
 	return (
 		process.env.BROWSERLESS_WS_ENDPOINT ||
@@ -117,25 +103,9 @@ function getBrowserlessEndpoint() {
 	);
 }
 
-function getStartingPage(args) {
-	const startPageArg = args.length > 0 ? parseInt(args[0]) : START_PAGE;
-	return !isNaN(startPageArg) && startPageArg > 0 ? startPageArg : START_PAGE;
-}
-
 // ============================================================================
 // PAGE SETUP HELPERS
 // ============================================================================
-
-async function setupPageHeaders(page) {
-	try {
-		await page.setUserAgent(getRandomUserAgent());
-		await page.setExtraHTTPHeaders({
-			"accept-language": "en-GB,en;q=0.9",
-		});
-	} catch (error) {
-		// Silently fail - headers are nice-to-have
-	}
-}
 
 async function dismissCookieBanner(page) {
 	try {
@@ -151,42 +121,20 @@ async function dismissCookieBanner(page) {
 	}
 }
 
-async function navigateToPage(page, url) {
-	await sleep(randBetween(TIMING.PAGE_DELAY_MIN, TIMING.PAGE_DELAY_MAX));
-
-	const response = await page.goto(url, {
-		waitUntil: "domcontentloaded",
-		timeout: 30000,
-	});
-
-	if (response?.status?.() === 429) {
-		console.warn(`⚠️ 429 on ${url} — backing off`);
-		await sleep(TIMING.RATE_LIMIT_BACKOFF);
-		throw new Error("429 Rate Limit");
-	}
-
-	await page.waitForTimeout(TIMING.AFTER_GOTO);
-	return response;
-}
-
 // ============================================================================
 // COORDINATE EXTRACTION
 // ============================================================================
 
 async function extractCoordinatesFromStreetview(page) {
-	logger.step(`Trying Streetview button for coordinates`);
-
 	try {
 		const streetviewBtn = await page.locator(SELECTORS.STREETVIEW_BUTTON).first();
 		const isVisible = await streetviewBtn.isVisible({ timeout: 5000 }).catch(() => false);
 
 		if (!isVisible) {
-			logger.page(0, "", `Streetview button not visible`);
 			return { latitude: null, longitude: null };
 		}
 
 		await streetviewBtn.click();
-		logger.page(0, "", `Clicked Streetview button, waiting for Google Maps`);
 		await page.waitForTimeout(TIMING.STREETVIEW_LOAD);
 
 		// Retry coordinate extraction up to 5 times
@@ -207,11 +155,6 @@ async function extractCoordinatesFromStreetview(page) {
 			});
 
 			if (googleMapsCoords?.lat && googleMapsCoords?.lng) {
-				logger.page(
-					0,
-					"",
-					`Found coords from Streetview: ${googleMapsCoords.lat}, ${googleMapsCoords.lng}`,
-				);
 				return {
 					latitude: googleMapsCoords.lat,
 					longitude: googleMapsCoords.lng,
@@ -219,15 +162,13 @@ async function extractCoordinatesFromStreetview(page) {
 			}
 
 			if (retry < 4) {
-				logger.page(0, "", `Retry ${retry + 1}/5 waiting for coords`);
 				await page.waitForTimeout(TIMING.STREETVIEW_RETRY);
 			}
 		}
 
-		logger.page(0, "", `No coords found after retries`);
 		return { latitude: null, longitude: null };
 	} catch (error) {
-		logger.error(`Could not extract streetview coords`, error);
+		logger.error(`Could not extract streetview coords: ${error.message}`);
 		return { latitude: null, longitude: null };
 	}
 }
@@ -237,7 +178,6 @@ async function extractCoordinates(htmlContent, detailPage) {
 	const htmlCoords = await extractCoordinatesFromHTML(htmlContent);
 
 	if (htmlCoords.latitude && htmlCoords.longitude) {
-		logger.page(0, "", `Found coords in HTML: ${htmlCoords.latitude}, ${htmlCoords.longitude}`);
 		return htmlCoords;
 	}
 
@@ -324,16 +264,17 @@ function parseListingPage(htmlContent) {
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
-	await sleep(1000);
-
+async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await setupPageHeaders(detailPage);
-		await sleep(randBetween(TIMING.DETAIL_DELAY_MIN, TIMING.DETAIL_DELAY_MAX));
+		await blockNonEssentialResources(detailPage);
 
-		const response = await navigateToPage(detailPage, property.link);
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
+
 		await dismissCookieBanner(detailPage);
 
 		// Get HTML content and extract coordinates
@@ -341,13 +282,13 @@ async function scrapePropertyDetail(browserContext, property) {
 		const coords = await extractCoordinates(htmlContent, detailPage);
 
 		// Save property to database
-		await processPropertyWithCoordinates(
+		const dbResult = await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
 			property.bedrooms || null,
 			AGENT_ID,
-			property.isRental,
+			isRental,
 			htmlContent,
 			coords.latitude,
 			coords.longitude,
@@ -355,17 +296,13 @@ async function scrapePropertyDetail(browserContext, property) {
 
 		counts.totalScraped++;
 		counts.totalSaved++;
+		if (isRental) counts.savedLettings++;
+		else counts.savedSales++;
 
-		logger.property(
-			0,
-			"",
-			property.title ? property.title.substring(0, 40) : "",
-			formatPriceDisplay(property.price, property.isRental),
-			property.link,
-			property.isRental,
-			0,
-			"CREATED",
-		);
+		return dbResult;
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		return { latitude: null, longitude: null };
 	} finally {
 		await detailPage.close();
 	}
@@ -376,26 +313,49 @@ async function scrapePropertyDetail(browserContext, property) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label, totalPages } = request.userData || {};
+	const { pageNumber, isRental, label, totalPages } = request.userData || {};
+	logger.page(pageNumber, label, request.url, totalPages);
 
-	logger.page(pageNum, label, request.url, totalPages);
+	const response = await page.goto(request.url, {
+		waitUntil: "domcontentloaded",
+		timeout: 60000,
+	});
 
-	await setupPageHeaders(page);
-	await navigateToPage(page, request.url);
+	if (response?.status?.() === 429) {
+		logger.warn(`429 on ${request.url} — backing off`);
+		await sleep(TIMING.RATE_LIMIT_BACKOFF);
+		throw new Error("429 Rate Limit");
+	}
+
+	await page.waitForTimeout(TIMING.AFTER_GOTO);
+	await dismissCookieBanner(page);
 
 	// Wait for properties to load
-	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {
-		logger.page(pageNum, label, `No properties found on page ${pageNum}`);
-	});
+	await page.waitForSelector(SELECTORS.PROPERTY_CARD, { timeout: 30000 }).catch(() => {});
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+	logger.page(pageNumber, label, `Found ${properties.length} properties`, totalPages);
 
 	// Process each property
 	for (const property of properties) {
-		// Update price in database (or insert minimal record if new)
+		if (processedUrls.has(property.link)) {
+			logger.property(
+				pageNumber,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				"SKIPPED: ALREADY PROCESSED",
+			);
+			continue;
+		}
+		processedUrls.add(property.link);
+
+		// Update price in database
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
 			property.price,
@@ -405,36 +365,37 @@ async function handleListingPage({ page, request }) {
 			isRental,
 		);
 
+		let action = "UNCHANGED";
+		let coords = { latitude: null, longitude: null };
+
+		if (result.updated) {
+			action = "UPDATED";
+			counts.totalSaved++;
+		}
+
 		// If new property, scrape full details immediately
 		if (!result.isExisting && !result.error) {
-			logger.property(
-				pageNum,
-				label,
-				property.title.substring(0, 40),
-				formatPriceDisplay(property.price, isRental),
-				property.link,
-				isRental,
-				totalPages,
-				"CREATED",
-			);
-			await scrapePropertyDetail(page.context(), {
-				...property,
-				isRental,
-			});
-		} else {
-			let propertyAction = result.updated ? "UPDATED" : "UNCHANGED";
-			if (result.updated) counts.totalSaved++;
+			action = "CREATED";
+			coords = await scrapePropertyDetail(page.context(), property, isRental);
+		} else if (result.error) {
+			action = "ERROR";
+		}
 
-			logger.property(
-				pageNum,
-				label,
-				property.title.substring(0, 40),
-				formatPriceDisplay(property.price, isRental),
-				property.link,
-				isRental,
-				totalPages,
-				propertyAction,
-			);
+		logger.property(
+			pageNumber,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(property.price, isRental),
+			property.link,
+			isRental,
+			totalPages,
+			action,
+			coords.latitude,
+			coords.longitude,
+		);
+
+		if (action === "CREATED") {
+			await sleep(1000);
 		}
 	}
 }
@@ -447,41 +408,37 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 3,
-		requestHandlerTimeoutSecs: 120,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
 		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
-
-// ============================================================================
-// PAGE QUEUEING
-// ============================================================================
 
 // ============================================================================
 // MAIN SCRAPER LOGIC
 // ============================================================================
 
 async function scrapeRomans() {
-	logger.step(`Starting Romans scraper...`);
-	logMemoryUsage("START");
-
 	const args = process.argv.slice(2);
-	const startPage = getStartingPage(args);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 	const isPartialRun = startPage > 1;
 	const scrapeStartTime = new Date();
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Starting Romans scraper (Agent ${AGENT_ID})...`);
+	logMemoryUsage("START");
 
+	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
 	const allRequests = [];
@@ -495,7 +452,7 @@ async function scrapeRomans() {
 			allRequests.push({
 				url: `${type.urlBase}/page-${pg}/`,
 				userData: {
-					pageNum: pg,
+					pageNumber: pg,
 					totalPages,
 					isRental: type.isRental,
 					label: type.label,
@@ -515,7 +472,7 @@ async function scrapeRomans() {
 	);
 
 	if (!isPartialRun) {
-		logger.step("Updating remove status...");
+		logger.step("Updating remove status for properties not seen in this run...");
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 	} else {
 		logger.warn("Partial run detected. Skipping updateRemoveStatus.");

@@ -1,8 +1,8 @@
 // Marriott Vernon scraper using Playwright with Crawlee
 // Agent ID: 25
-//
+// Website: www.marriottvernon.com
 // Usage:
-// node backend/scraper-agent-25.js
+// node backend/scraper-agent-25.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
@@ -11,16 +11,24 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 25;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
+	savedSales: 0,
+	savedLettings: 0,
 };
+
+const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -61,14 +69,14 @@ function parsePropertyCard($, element) {
 		const bedroomsMatch = h4Text.match(/(\d+)\s*Bed/i);
 		const bedrooms = bedroomsMatch ? bedroomsMatch[1] : null;
 
-		// Extract title and price from h5
+		// Extract title from lines in h5
 		const lines = h5Text
 			.split("\n")
 			.map((l) => l.trim())
 			.filter((l) => l);
 		const title = lines[0] || null;
 
-		// Extract and format price - keep only digits and commas
+		// Extract price from h5
 		const price = parsePrice(h5Text);
 
 		if (link && price && title) {
@@ -81,6 +89,7 @@ function parsePropertyCard($, element) {
 		}
 		return null;
 	} catch (error) {
+		logger.error(`Error parsing card: ${error.message}`);
 		return null;
 	}
 }
@@ -100,35 +109,14 @@ function parseListingPage(htmlContent) {
 }
 
 // ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
 	const detailPage = await browserContext.newPage();
 
 	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -139,7 +127,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		const htmlContent = await detailPage.content();
 
 		// Save property to database
-		await processPropertyWithCoordinates(
+		const dbResult = await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
@@ -151,8 +139,13 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 		stats.totalSaved++;
+		if (isRental) stats.savedLettings++;
+		else stats.savedSales++;
+
+		return dbResult || { latitude: null, longitude: null };
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		return { latitude: null, longitude: null };
 	} finally {
 		await detailPage.close();
 	}
@@ -163,8 +156,8 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
 	// Marriott Vernon uses lazy loading / scrolling
 	let previousHeightValue = 0;
@@ -175,7 +168,7 @@ async function handleListingPage({ page, request, crawler }) {
 	while (previousHeightValue !== currentHeightValue && scrollAttempts < maxScrollAttempts) {
 		previousHeightValue = currentHeightValue;
 		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(500);
 		currentHeightValue = await page.evaluate(() => document.body.scrollHeight);
 		scrollAttempts++;
 	}
@@ -184,10 +177,25 @@ async function handleListingPage({ page, request, crawler }) {
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	// Process each property
 	for (const property of properties) {
+		if (processedUrls.has(property.link)) {
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				"SKIPPED: ALREADY PROCESSED",
+			);
+			continue;
+		}
+		processedUrls.add(property.link);
+
 		// Update price in database (or insert minimal record if new)
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
@@ -198,33 +206,37 @@ async function handleListingPage({ page, request, crawler }) {
 			isRental,
 		);
 
+		let action = "UNCHANGED";
+		let coords = { latitude: null, longitude: null };
+
 		if (result.updated) {
+			action = "UPDATED";
 			stats.totalSaved++;
 		}
 
 		// If new property, scrape full details immediately
 		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), property, isRental);
+			action = "CREATED";
+			coords = await scrapePropertyDetail(page.context(), property, isRental);
+		} else if (result.error) {
+			action = "ERROR";
 		}
-	}
 
-	// Pagination
-	const $ = cheerio.load(htmlContent);
-	const nextLink = $('a.page-link[rel="next"]');
-	if (nextLink.length > 0) {
-		const nextUrl = nextLink.attr("href");
-		if (nextUrl) {
-			await crawler.addRequests([
-				{
-					url: nextUrl.startsWith("http") ? nextUrl : "https://www.marriottvernon.com" + nextUrl,
-					userData: {
-						pageNum: pageNum + 1,
-						isRental,
-						label,
-					},
-				},
-			]);
+		logger.property(
+			pageNum,
+			label,
+			property.title.substring(0, 40),
+			formatPriceDisplay(property.price, isRental),
+			property.link,
+			isRental,
+			totalPages,
+			action,
+			coords.latitude,
+			coords.longitude,
+		);
+
+		if (action === "CREATED") {
+			await sleep(1000);
 		}
 	}
 }
@@ -237,16 +249,23 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -256,15 +275,17 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeMarriottVernon() {
-	console.log(`\n🚀 Starting Marriott Vernon scraper (Agent ${AGENT_ID})...\n`);
-
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-	const totalPages = 2; // Fixed as per AGENTS config in combined-scraper
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`🌐 Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Starting Marriott Vernon scraper (Agent ${AGENT_ID})...`);
 
+	const totalPages = 2; // Fixed as per original config
+	const browserWSEndpoint =
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv";
 	const crawler = createCrawler(browserWSEndpoint);
 
 	const allRequests = [];
@@ -277,8 +298,9 @@ async function scrapeMarriottVernon() {
 			}`,
 			userData: {
 				pageNum: p,
+				totalPages: totalPages + 1, // +1 for Lettings if startPage is 1 or just approximate
 				isRental: false,
-				label: `SALES_PAGE_${p}`,
+				label: "SALES",
 			},
 		});
 	}
@@ -289,6 +311,7 @@ async function scrapeMarriottVernon() {
 			url: "https://www.marriottvernon.com/search/?showstc=off&instruction_type=Letting&address_keyword=&minprice=&maxprice=&property_type=",
 			userData: {
 				pageNum: 1,
+				totalPages: totalPages + 1,
 				isRental: true,
 				label: "LETTINGS",
 			},
@@ -296,17 +319,23 @@ async function scrapeMarriottVernon() {
 	}
 
 	if (allRequests.length === 0) {
-		console.log("⚠️ No pages to scrape with current arguments.");
+		logger.warn("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(`📋 Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-	console.log(
-		`\n✅ Completed Marriott Vernon - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Completed Marriott Vernon - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+
+	if (!isPartialRun) {
+		logger.step("Updating remove status for properties not seen in this run...");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -316,11 +345,10 @@ async function scrapeMarriottVernon() {
 (async () => {
 	try {
 		await scrapeMarriottVernon();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

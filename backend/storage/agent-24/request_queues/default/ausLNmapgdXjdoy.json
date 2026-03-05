@@ -1,0 +1,9 @@
+{
+	"id": "ausLNmapgdXjdoy",
+	"json": "{\"id\":\"ausLNmapgdXjdoy\",\"url\":\"https://www.haboodle.co.uk/find-a-property/?department=residential-sales&address_keyword=&radius=&minimum_bedrooms=&maximum_rent=&maximum_price=\",\"loadedUrl\":\"https://www.haboodle.co.uk/find-a-property/?department=residential-sales&address_keyword=&radius=&minimum_bedrooms=&maximum_rent=&maximum_price=\",\"uniqueKey\":\"https://www.haboodle.co.uk/find-a-property?address_keyword=&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&radius=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":10,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-05T12:40:18.906Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.haboodle.co.uk/find-a-property?address_keyword=&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&radius=",
+	"url": "https://www.haboodle.co.uk/find-a-property/?department=residential-sales&address_keyword=&radius=&minimum_bedrooms=&maximum_rent=&maximum_price="
+}

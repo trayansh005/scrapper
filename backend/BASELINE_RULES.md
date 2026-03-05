@@ -39,8 +39,8 @@ Agent `4` is the baseline implementation style.
 4. **Timeouts**
    - Keep explicit `navigationTimeoutSecs` and `requestHandlerTimeoutSecs` on crawler.
 5. **Conditional Loop Sleep (Performance Optimization)**:
-   - When processing property lists (especially large API payloads), only apply `await sleep(ms)` if the property was actually `CREATED` or `UPDATED`.
-   - Skip the sleep for `UNCHANGED` records to allow the scraper to rapidly skip through thousands of known properties while remaining polite during write operations.
+   - When processing property lists (especially large API payloads), only apply `await sleep(ms)` if the property was actually `CREATED`.
+   - Skip the sleep for `UNCHANGED` and `UPDATED` records to allow the scraper to rapidly skip through thousands of known properties while remaining polite during full detail scrapes.
 6. **Data flow**
    - For each listing:
      - Call `updatePriceByPropertyURLOptimized(...)` first.
@@ -88,6 +88,7 @@ Agent `4` is the baseline implementation style.
 4. **Verbose Status Logging**:
    - Log skip reasons clearly (e.g., `Skipped: Sold`, `Skipped: Already Processed`).
    - Log detail page progress (`[Detail] Scraping coordinates...`, `[Detail] Found coordinates`).
+   - **Coordinate Logging**: When a property is `CREATED`, ensure the latitude and longitude are passed to `logger.property()` so they appear in the log output.
 5. **Final Summary & Maintenance**:
    - Every agent should output a final summary block of stats.
    - **Mandatory**: Call `await updateRemoveStatus(AGENT_ID)` at the very end of every successful `run()`.
