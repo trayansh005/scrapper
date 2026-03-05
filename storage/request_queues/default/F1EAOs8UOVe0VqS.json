@@ -1,0 +1,9 @@
+{
+	"id": "F1EAOs8UOVe0VqS",
+	"json": "{\"id\":\"F1EAOs8UOVe0VqS\",\"url\":\"https://www.ableestates.com/properties.aspx?Mode=1&PropertyTypeGroup=0&PriceMin=0&PriceMax=0&Bedrooms=0&Statusid=0&searchstatus=1&ShowSearch=1&Page=17\",\"loadedUrl\":\"https://www.ableestates.com/properties.aspx?Mode=1&PropertyTypeGroup=0&PriceMin=0&PriceMax=0&Bedrooms=0&Statusid=0&searchstatus=1&ShowSearch=1&Page=17\",\"uniqueKey\":\"https://www.ableestates.com/properties.aspx?Bedrooms=0&Mode=1&Page=17&PriceMax=0&PriceMin=0&PropertyTypeGroup=0&ShowSearch=1&Statusid=0&searchstatus=1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":17,\"startPage\":1,\"isRental\":true,\"label\":\"LETTINGS\",\"typeConfig\":{\"label\":\"LETTINGS\",\"isRental\":true},\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-05T06:51:34.547Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.ableestates.com/properties.aspx?Bedrooms=0&Mode=1&Page=17&PriceMax=0&PriceMin=0&PropertyTypeGroup=0&ShowSearch=1&Statusid=0&searchstatus=1",
+	"url": "https://www.ableestates.com/properties.aspx?Mode=1&PropertyTypeGroup=0&PriceMin=0&PriceMax=0&Bedrooms=0&Statusid=0&searchstatus=1&ShowSearch=1&Page=17"
+}
