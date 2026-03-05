@@ -86,15 +86,65 @@ async function scrapePropertyDetail(browserContext, property) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await blockNonEssentialResources(detailPage);
+		// Balgores is a Gatsby/React SPA - coordinates are loaded asynchronously
+		// via the Strapi CMS API. We intercept the API response to capture lat/lng.
+		let strapiCoords = null;
+
+		// Listen for Strapi API responses containing property data
+		detailPage.on("response", async (response) => {
+			try {
+				const url = response.url();
+				// Match the Strapi property endpoint (e.g. /properties?slug=...)
+				if (
+					url.includes("balgores-strapi.q.starberry.com") &&
+					(url.includes("/properties") || url.includes("/property"))
+				) {
+					const json = await response.json().catch(() => null);
+					if (!json) return;
+
+					// Handle both array and single object responses
+					const item = Array.isArray(json) ? json[0] : json;
+					if (!item) return;
+
+					// Strapi stores coords in various places
+					const lat =
+						item.latitude ||
+						item.lat ||
+						item.Latitude ||
+						item.map?.lat ||
+						item.geolocation?.lat ||
+						null;
+					const lng =
+						item.longitude ||
+						item.lng ||
+						item.Longitude ||
+						item.map?.lng ||
+						item.geolocation?.lng ||
+						null;
+
+					if (lat && lng) {
+						strapiCoords = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
+					}
+				}
+			} catch (_) {
+				// Silently ignore response parsing errors
+			}
+		});
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
 			timeout: 90000,
 		});
 
-		await detailPage.waitForTimeout(800);
+		// Wait longer for the React/Gatsby app to hydrate and fire API requests
+		await detailPage.waitForTimeout(3000);
 
+		// If Strapi API intercept already gave us coordinates, use them
+		if (strapiCoords) {
+			return { coords: strapiCoords };
+		}
+
+		// Fallback: parse the fully hydrated HTML for embedded coordinate patterns
 		const htmlContent = await detailPage.content();
 		const coords = await extractCoordinatesFromHTML(htmlContent);
 
