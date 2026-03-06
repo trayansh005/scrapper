@@ -208,7 +208,8 @@ async function handleListingPage({ page, request }) {
 						waitUntil: "domcontentloaded",
 						timeout: 30000,
 					});
-					await detailPage.waitForTimeout(500);
+					await detailPage.waitForSelector("#propertyShowStreetview.map, .property-card, body", { timeout: 5000 }).catch(() => { });
+					await detailPage.waitForTimeout(1000);
 
 					const detailHTML = await detailPage.content();
 					const coords = await extractCoordinatesFromHTML(detailHTML);
