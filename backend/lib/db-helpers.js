@@ -111,11 +111,13 @@ async function processPropertyWithCoordinates(
 		}
 
 		const formattedPrice = formatPriceUk(price);
+		// Truncate title to 150 characters to prevent database column size errors
+		const truncatedTitle = title ? title.substring(0, 150) : "";
 
 		await updatePriceByPropertyURL(
 			url,
 			formattedPrice,
-			title,
+			truncatedTitle,
 			finalBedrooms,
 			agentId,
 			isRent,
