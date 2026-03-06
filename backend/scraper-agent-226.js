@@ -100,10 +100,6 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			propData.lat,
 			propData.lng,
 		);
-
-		counts.totalSaved++;
-		if (isRental) counts.savedRentals++;
-		else counts.savedSales++;
 	} catch (err) {
 		logger.error(`Error scraping detail page ${property.link}`, err);
 	} finally {
@@ -243,6 +239,8 @@ async function handleListingPage({ page, request, crawler }) {
 					isRental,
 				);
 				counts.totalSaved++;
+				if (isRental) counts.savedRentals++;
+				else counts.savedSales++;
 			} else if (result.error) {
 				action = "ERROR";
 				counts.totalSkipped++;
