@@ -35,18 +35,17 @@ const counts = {
 
 const PROPERTY_TYPES = [
 	{
-		urlBase: "https://robertholmes.co.uk/selling-services/",
-		params: "?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_bedrooms&property_type",
-		totalPages: 2,
+		urlBase: "https://robertholmes.co.uk/search/",
+		params: "address_keyword=&department=residential-sales&availability=2",
+		totalPages: 10,
 		recordsPerPage: 12,
 		isRental: false,
 		label: "SALES",
 	},
 	{
-		urlBase: "https://robertholmes.co.uk/landlords-services/",
-		params:
-			"?address_keyword&department=residential-lettings&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&availability=6",
-		totalPages: 2,
+		urlBase: "https://robertholmes.co.uk/search/",
+		params: "address_keyword=&department=residential-lettings",
+		totalPages: 10,
 		recordsPerPage: 12,
 		isRental: true,
 		label: "LETTINGS",
@@ -77,7 +76,7 @@ async function handleListingPage({ page, request }) {
 		// Wait for page content to populate
 		await page.waitForTimeout(2000);
 		await page
-			.waitForSelector(".grid-box-card", { timeout: 20000 })
+			.waitForSelector('a[href*="/property/"]', { timeout: 20000 })
 			.catch(() => {
 				logger.warn(`No listing container found on page ${pageNum}`);
 			});
@@ -85,31 +84,27 @@ async function handleListingPage({ page, request }) {
 		// Extract properties from listing page
 		const properties = await page.evaluate(() => {
 			try {
-				const items = Array.from(document.querySelectorAll(".grid-box-card"));
+				const items = Array.from(document.querySelectorAll('a[href*="/property/"]'));
 				return items
 					.map((el) => {
 						try {
-							const linkEl = el.querySelector("a");
-							let link = linkEl ? linkEl.getAttribute("href") : null;
-							if (link && !link.startsWith("http")) {
-								link = "https://robertholmes.co.uk" + link;
-							}
+							const link = el.getAttribute("href");
+							if (!link) return null;
 
-							const title =
-								el.querySelector(".property-archive-title h4")?.textContent?.trim() || "";
+							const fullLink = link.startsWith("http") ? link : "https://robertholmes.co.uk" + link;
 
-							const bedroomsText =
-								el.querySelector(".icons-list li span")?.textContent?.trim() || "";
+							const title = el.querySelector("h4")?.textContent?.trim() || "";
+
+							const bedroomsText = el.querySelector("ul li:nth-child(1) span:nth-child(1)")?.textContent?.trim() || "";
 							const bedroomsMatch = bedroomsText.match(/\d+/);
 							const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[0], 10) : null;
 
-							const priceText =
-								el.querySelector(".property-archive-price")?.textContent?.trim() || "";
+							const priceText = el.querySelector("h5")?.textContent?.trim() || "";
 							// Extract price: match £ followed by digits and commas only
 							const priceMatch = priceText.match(/£([\d,]+)/);
 							const price = priceMatch ? priceMatch[1] : null;
 
-							return { link, price, title, bedrooms, lat: null, lng: null };
+							return { link: fullLink, price, title, bedrooms, lat: null, lng: null };
 						} catch (e) {
 							return null;
 						}
@@ -127,7 +122,7 @@ async function handleListingPage({ page, request }) {
 			if (!property.link) continue;
 
 			// Skip sold properties
-			if (isSoldProperty(property)) {
+			if (isSoldProperty(property.title)) {
 				logger.property(
 					pageNum,
 					label,
@@ -353,7 +348,9 @@ async function scrapeRobertHolmes() {
 		const effectiveStartPage = Math.max(1, startPage);
 
 		for (let pg = effectiveStartPage; pg <= type.totalPages; pg++) {
-			const url = `${type.urlBase}${pg}/${type.params}`;
+			const url = pg === 1
+				? `${type.urlBase}?${type.params}`
+				: `${type.urlBase}page/${pg}/?${type.params}`;
 
 			allRequests.push({
 				url,

@@ -291,7 +291,7 @@ async function handleListingPage({ page, request, crawler }) {
 			logger.page(pageNum, label, `Establishing session on Expert Agent...`, null);
 			await page.goto(request.url, { waitUntil: "domcontentloaded" });
 
-			const searchBtn = page.getByRole("button", { name: "Search", exact: true });
+			const searchBtn = page.getByRole("button", { name: "Search", exact: true }).first();
 			if ((await searchBtn.count()) > 0) {
 				await searchBtn.click();
 				await page.waitForLoadState("domcontentloaded");
