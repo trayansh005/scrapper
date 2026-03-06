@@ -151,6 +151,7 @@ async function updateRemoveStatus(agent_id, scrapeStartTime = null) {
 	}
 }
 
+
 module.exports = {
 	promisePool,
 	updatePriceByPropertyURL,
