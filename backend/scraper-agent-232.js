@@ -1,45 +1,65 @@
 // Richard James scraper using Playwright with Crawlee
 // Agent ID: 232
 // Usage:
-// node backend/scraper-agent-232.js
+// node backend/scraper-agent-232.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
-	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
+const {
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 232;
+const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
+	totalFound: 0,
 	totalScraped: 0,
 	totalSaved: 0,
+	totalSkipped: 0,
 	savedSales: 0,
 	savedRentals: 0,
 };
+
+const processedUrls = new Set();
+let scrapeStartTime = null;
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getStartPage() {
+	const value = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
+	if (!Number.isFinite(value) || value < 1) return 1;
+	return Math.floor(value);
+}
+
+// ============================================================================
+// PROPERTY TYPE CONFIGURATION
+// ============================================================================
 
 // Two searches:
 // - For Sale: 408 properties, 18 per page => 23 pages
 // - To Let: 28 properties, 18 per page => 2 pages
 const PROPERTY_TYPES = [
 	{
-		urlBase: "https://richardjames.uk/search-results/page", // append /{page}/?keyword&status%5B0%5D=for-sale
-		totalRecords: 408,
-		recordsPerPage: 18,
+		urlBase: "https://richardjames.uk/search-results/page",
 		totalPages: 23,
 		isRental: false,
 		label: "FOR SALE",
 		suffix: "/?keyword&status%5B0%5D=for-sale",
 	},
 	{
-		urlBase: "https://richardjames.uk/search-results/page", // append /{page}/?keyword&status[0]=to-let&...
-		totalRecords: 28,
-		recordsPerPage: 18,
+		urlBase: "https://richardjames.uk/search-results/page",
 		totalPages: 2,
 		isRental: true,
 		label: "TO LET",
@@ -48,34 +68,52 @@ const PROPERTY_TYPES = [
 	},
 ];
 
-async function scrapeRichardJames() {
-	console.log(`\n🚀 Starting RichardJames scraper (Agent ${AGENT_ID})...\n`);
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
 
-	const crawler = new PlaywrightCrawler({
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
+
+function createCrawler(browserWSEndpoint) {
+	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
-
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: true,
+				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+			const { pageNum, isRental, label, totalPages } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(pageNum, label, request.url, totalPages);
 
-			await page.waitForTimeout(2000);
+			await page.waitForTimeout(1500);
 
 			// Wait for listing cards
 			await page
 				.waitForSelector(".item-listing-wrap, .item-listing-wrap-v6, .item-listing-wrap-v6.card", {
 					timeout: 15000,
 				})
-				.catch(() => console.log(`⚠️ No listing container found on page ${pageNum}`));
+				.catch(() => null);
 
 			// Extract properties
 			const properties = await page.evaluate(() => {
@@ -89,7 +127,6 @@ async function scrapeRichardJames() {
 					return items
 						.map((el) => {
 							try {
-								// Prefer the title anchor for the detail URL (h2.item-title a). Fall back to thumbnail anchor.
 								const linkEl =
 									el.querySelector("h2.item-title a") ||
 									el.querySelector(".item-title a") ||
@@ -100,21 +137,19 @@ async function scrapeRichardJames() {
 									el.querySelector("h2.item-title a, .item-title a")?.textContent?.trim() || "";
 								const rawPrice =
 									el.querySelector(".item-price, .item-price .price")?.textContent?.trim() || "";
-								// Extract numeric-only price (remove currency symbols, text and commas)
+
 								let price = "";
 								if (rawPrice) {
 									const m = rawPrice.match(/[0-9,.]+/);
 									if (m) price = m[0].replace(/,/g, "");
 								}
-								const status =
-									el.querySelector(".label-status, .status")?.textContent?.trim() || "";
+
 								const beds =
 									el.querySelector(".hz-figure, .figure, .hz-figure")?.textContent?.trim() || null;
 
-								// Skip if link missing
 								if (!link) return null;
 
-								return { link, title, price, bedrooms: beds, status };
+								return { link, title, price, bedrooms: beds };
 							} catch (e) {
 								return null;
 							}
@@ -125,132 +160,151 @@ async function scrapeRichardJames() {
 				}
 			});
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			counts.totalFound += properties.length;
 
-			// Batch processing
-			const batchSize = 5;
-			for (let i = 0; i < properties.length; i += batchSize) {
-				const batch = properties.slice(i, i + batchSize);
+			// Process properties sequentially (not in batches)
+			for (const property of properties) {
+				if (!property.link) continue;
 
-				await Promise.all(
-					batch.map(async (property) => {
-						if (!property.link) return;
+				if (processedUrls.has(property.link.trim())) {
+					continue;
+				}
+				processedUrls.add(property.link.trim());
 
+				try {
+					const priceNum = parsePrice(property.price);
+
+					if (priceNum === null) {
+						counts.totalSkipped++;
+						continue;
+					}
+
+					// Check if property exists first (before loading detail page)
+					const result = await updatePriceByPropertyURLOptimized(
+						property.link.trim(),
+						priceNum,
+						property.title,
+						property.bedrooms,
+						AGENT_ID,
+						isRental,
+					);
+
+					let action = "UNCHANGED";
+
+					if (result.updated) {
+						action = "UPDATED";
+						counts.totalSaved++;
+						if (isRental) counts.savedRentals++;
+						else counts.savedSales++;
+					} else if (!result.isExisting && !result.error) {
+						// Only load detail page for NEW properties
 						const detailPage = await page.context().newPage();
+						let htmlContent = null;
+
 						try {
+							await blockNonEssentialResources(detailPage);
 							await detailPage.goto(property.link, {
 								waitUntil: "domcontentloaded",
-								timeout: 30000,
+								timeout: 40000,
 							});
 							await detailPage.waitForTimeout(500);
-
-							const htmlContent = await detailPage.content();
-
-							try {
-								const priceNum = property.price
-									? parseFloat(property.price.replace(/[^0-9.]/g, ""))
-									: null;
-
-								if (priceNum === null) {
-									log.warn(`No price found: ${property.title}`);
-									return;
-								}
-
-								// Extract coordinates from HTML
-								const coords = await extractCoordinatesFromHTML(htmlContent);
-
-								const result = await updatePriceByPropertyURLOptimized(
-									property.link.trim(),
-									priceNum,
-									property.title,
-									property.bedrooms,
-									AGENT_ID,
-									isRental,
-								);
-
-								if (result.updated) {
-									stats.totalSaved++;
-								}
-
-								if (!result.isExisting && !result.error) {
-									await processPropertyWithCoordinates(
-										property.link,
-										priceNum,
-										property.title,
-										property.bedrooms || null,
-										AGENT_ID,
-										isRental,
-										htmlContent,
-										coords.latitude,
-										coords.longitude,
-									);
-								} else if (result.isExisting && (coords.latitude || coords.longitude)) {
-									const priceDisplay = formatPriceUk(priceNum);
-									console.log(
-										`✅ ${property.title} - ${priceDisplay}${
-											coords.latitude ? ` - (${coords.latitude}, ${coords.longitude})` : ""
-										}`,
-									);
-								} else {
-									const priceDisplay = formatPriceUk(priceNum);
-									console.log(`✅ ${property.title} - ${priceDisplay}`);
-								}
-
-								stats.totalScraped++;
-								if (isRental) stats.savedRentals++;
-								else stats.savedSales++;
-							} catch (dbErr) {
-								console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
-							}
+							htmlContent = await detailPage.content();
 						} catch (err) {
-							// ignore
+							logger.error(`Error fetching detail page ${property.link}`, err);
 						} finally {
 							await detailPage.close();
 						}
-					}),
-				);
 
-				await new Promise((resolve) => setTimeout(resolve, 200));
+						await processPropertyWithCoordinates(
+							property.link.trim(),
+							priceNum,
+							property.title,
+							property.bedrooms,
+							AGENT_ID,
+							isRental,
+							htmlContent,
+						);
+
+						action = "CREATED";
+						counts.totalSaved++;
+						counts.totalScraped++;
+						if (isRental) counts.savedRentals++;
+						else counts.savedSales++;
+					} else if (result.error) {
+						action = "ERROR";
+						counts.totalSkipped++;
+					}
+
+					logger.property(
+						property.title.substring(0, 50),
+						formatPriceDisplay(priceNum, isRental),
+						property.link,
+						isRental ? "TO LET" : "FOR SALE",
+						action,
+					);
+
+					// Only sleep for CREATED properties
+					if (action === "CREATED") {
+						await sleep(500);
+					}
+				} catch (err) {
+					logger.error(`Error processing property ${property.link}`, err);
+					counts.totalSkipped++;
+				}
 			}
+
+			logger.page(pageNum, label, "Complete", totalPages);
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
-
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
-
-		const requests = [];
-		// Both For Sale and To Let use /page/{pg}/ + suffix pattern
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url = `${propertyType.urlBase}/${pg}/${propertyType.suffix}`;
-			requests.push({
-				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
-		}
-
-		await crawler.addRequests(requests);
-	}
-
-	await crawler.run();
-
-	console.log(
-		`\n✅ Completed RichardJames - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
 
 (async () => {
 	try {
-		await scrapeRichardJames();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		scrapeStartTime = new Date();
+		const startPage = getStartPage();
+		const isPartialRun = startPage > 1;
+
+		logger.step(`Starting Richard James scraper (Agent ${AGENT_ID})`);
+
+		const browserWSEndpoint = getBrowserlessEndpoint();
+
+		for (const propertyType of PROPERTY_TYPES) {
+			const { urlBase, totalPages, isRental, label, suffix } = propertyType;
+
+			const crawler = createCrawler(browserWSEndpoint);
+
+			const initialRequests = [];
+			for (let pg = startPage; pg <= totalPages; pg++) {
+				const url = `${urlBase}/${pg}/${suffix}`;
+				initialRequests.push({
+					url,
+					userData: { pageNum: pg, totalPages, isRental, label },
+				});
+			}
+
+			await crawler.run(initialRequests);
+		}
+
+		// Partial run protection: only mark as removed if full scrape from page 1
+		if (!isPartialRun) {
+			await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+		}
+
+		logger.step(
+			`Richard James scraper complete - Found: ${counts.totalFound} | Scraped: ${counts.totalScraped} | Saved: ${counts.totalSaved} (Sales: ${counts.savedSales}, Lettings: ${counts.savedRentals})`,
+		);
+
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();
