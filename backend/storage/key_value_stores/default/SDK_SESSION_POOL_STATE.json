@@ -1,5 +1,5 @@
 {
-  "usableSessionsCount": 32,
+  "usableSessionsCount": 39,
   "retiredSessionsCount": 0,
   "sessions": [
     {
@@ -122,7 +122,7 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-03-06T07:01:17.552Z",
       "createdAt": "2026-03-06T06:11:17.552Z",
-      "usageCount": 30,
+      "usageCount": 31,
       "maxUsageCount": 50,
       "errorScore": 0
     },
@@ -723,6 +723,314 @@
       "expiresAt": "2026-03-06T07:10:43.395Z",
       "createdAt": "2026-03-06T06:20:43.395Z",
       "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_CaJ4ZCLqLj",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:11:17.288Z",
+      "createdAt": "2026-03-06T06:21:17.288Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 1
+    },
+    {
+      "id": "session_zxVtY5v2Uc",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:11:32.320Z",
+      "createdAt": "2026-03-06T06:21:32.320Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_oAieCh5wBa",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-13T06:21:34.466Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-06T06:21:36.533Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "dExxQlM4eWlRUVZPS1BMdy91ckVoZXBiZ2JNK3d1K3VkQTErekhDMVhaeW1HbmF4cWxQT2JTMUVqYWFxQVlsT3ZDTDQ4NGdESmkybU1pbTN4eFVQaUo4VWIzU1VHZ2RqdThqQmxUNmpyN2FUVmthNTBnWnUxTTg4UDZSTndFY0k3QzlKRGZOTVRWTTJpNlpvaE9FYUx3PT0tLTFMaTlDNTBBdnVDbmxiT3NSRHh2cEE9PQ%3D%3D--e740448003ccd00c7827ce2ee24158256a40d274",
+            "expires": "2026-03-06T07:12:24.663Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-06T06:21:36.533Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "cookie_directive",
+            "value": "seen",
+            "expires": "2027-03-06T06:21:36.000Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-06T06:21:36.533Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "_ga_QLW935Q3EH",
+            "value": "GS2.1.s1772778096$o1$g1$t1772778144$j12$l0$h0",
+            "expires": "2027-04-10T06:22:24.118Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:21:36.534Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.3.1534800215.1772778096",
+            "expires": "2027-04-10T06:22:24.403Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:21:36.534Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.1898696377.1772778097",
+            "expires": "2026-03-07T06:22:24.000Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:21:36.534Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "_gat_gtag_UA_111945782_1",
+            "value": "1",
+            "expires": "2026-03-06T06:22:36.000Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:21:36.534Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          },
+          {
+            "key": "cookiepolicyshown",
+            "value": "true",
+            "expires": "2026-04-05T06:21:36.000Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-06T06:22:24.664Z",
+            "lastAccessed": "2026-03-06T06:22:24.664Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:11:32.322Z",
+      "createdAt": "2026-03-06T06:21:32.322Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_t2QUHaXGnK",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:12:08.968Z",
+      "createdAt": "2026-03-06T06:22:08.968Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_QsfUnqPY6F",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:12:57.043Z",
+      "createdAt": "2026-03-06T06:22:57.043Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 1
+    },
+    {
+      "id": "session_BiaUmDda4r",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:13:12.278Z",
+      "createdAt": "2026-03-06T06:23:12.278Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_IpOTMlNuEI",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-13T06:23:21.111Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "SjBXU0xIZ3pQeWpBWHJaTllUWWJseTBVbmNzY1hhaVdLYXkva0dzc2p3bnBOVTVNMSszbnBBeUVwN3JIVEM1MHByWkpmc1FXZGVYNTZybEZNYTQzc05ZdUwxWm90Mm1UUzA5ZnF0NlkxMXcvNVFmNXNRL3ZPOHhyeVVQeS9mQUJqOVF1NU5aU2xiRVhnRkRudTBNNzdBPT0tLTdDakd4MmZMQXBIWEJRT3lqdnBQaWc9PQ%3D%3D--06bf3cedd649f30a22e9e1ff815ff1886bd88d9f",
+            "expires": "2026-03-06T07:13:22.983Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "cookie_directive",
+            "value": "seen",
+            "expires": "2027-03-06T06:23:22.000Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "_ga_QLW935Q3EH",
+            "value": "GS2.1.s1772778202$o1$g0$t1772778202$j60$l0$h0",
+            "expires": "2027-04-10T06:23:22.570Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "cookiepolicyshown",
+            "value": "true",
+            "expires": "2026-04-05T06:23:22.000Z",
+            "domain": "www.snellers.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.3.1815272018.1772778203",
+            "expires": "2027-04-10T06:23:22.970Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.1998442976.1772778203",
+            "expires": "2026-03-07T06:23:22.000Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          },
+          {
+            "key": "_gat_gtag_UA_111945782_1",
+            "value": "1",
+            "expires": "2026-03-06T06:24:22.000Z",
+            "domain": "snellers.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T06:23:22.983Z",
+            "lastAccessed": "2026-03-06T06:23:22.983Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T07:13:12.279Z",
+      "createdAt": "2026-03-06T06:23:12.279Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
       "errorScore": 0
     }
