@@ -206,38 +206,39 @@ async function scrapeBeresfords() {
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
-	// We need to get total pages first, or just start with first page and let crawlee handle it
-	// But according to rules we should use initialRequests
+	// The problem is that PlaywrightCrawler's requestHandler might be set before we wrap it
+	// or the wrapping logic is not being reached because it's after crawler initialization.
+	// Actually we are setting crawler.requestHandler = dynamicHandler below.
 
-	// Initial requests for first pages to get total count
+	// Initial requests for first pages
 	const initialRequests = [];
 
 	if (startPage === 1) {
 		initialRequests.push({
 			url: "https://www.beresfords.co.uk/find-a-property/for-sale/",
-			userData: { pageNum: 1, isRental: false, label: "SALES" },
+			userData: { pageNum: 1, isRental: false, label: "SALES", processedDynamic: false },
 		});
 		initialRequests.push({
 			url: "https://www.beresfords.co.uk/find-a-property/to-rent/",
-			userData: { pageNum: 1, isRental: true, label: "LETTINGS" },
+			userData: { pageNum: 1, isRental: true, label: "LETTINGS", processedDynamic: false },
 		});
 	} else {
 		initialRequests.push({
 			url: `https://www.beresfords.co.uk/find-a-property/for-sale/page/${startPage}/`,
-			userData: { pageNum: startPage, isRental: false, label: "SALES" },
+			userData: { pageNum: startPage, isRental: false, label: "SALES", processedDynamic: false },
 		});
 	}
 
-	// Override handleListingPage to queue more pages dynamically
-	const originalHandler = handleListingPage;
+	// Wrapper to handle dynamic pagination
 	const dynamicHandler = async (context) => {
 		const { request, crawler: crawlerInstance } = context;
 		const { pageNum, isRental, label, processedDynamic } = request.userData;
 
-		await originalHandler(context);
+		// 1. Process the current page
+		await handleListingPage(context);
 
-		// If it's the first page we hit for this label, queue the rest
-		if (!processedDynamic) {
+		// 2. If it's the first page we hit for this category, queue the rest
+		if (processedDynamic === false) {
 			const apiUrl = isRental
 				? `https://www.beresfords.co.uk/wp-json/properties/v1/search?page=${pageNum}&per_page=12&radius=0&marketing_mode=letting&sort_by=price_high&units=miles`
 				: `https://www.beresfords.co.uk/wp-json/properties/v1/search?page=${pageNum}&per_page=12&radius=0&sort_by=price_high&units=miles`;
@@ -251,7 +252,7 @@ async function scrapeBeresfords() {
 				}
 			}, apiUrl);
 
-			if (data && data.pages) {
+			if (data && data.pages && data.pages > pageNum) {
 				const totalPages = data.pages;
 				const moreRequests = [];
 				for (let p = pageNum + 1; p <= totalPages; p++) {
@@ -259,20 +260,49 @@ async function scrapeBeresfords() {
 						url: isRental
 							? `https://www.beresfords.co.uk/find-a-property/to-rent/page/${p}/`
 							: `https://www.beresfords.co.uk/find-a-property/for-sale/page/${p}/`,
-						userData: { pageNum: p, totalPages, isRental, label, processedDynamic: true },
+						userData: {
+							pageNum: p,
+							isRental,
+							label,
+							processedDynamic: true, // Mark as queued so we don't repeat this
+						},
 					});
 				}
 				if (moreRequests.length > 0) {
-					logger.step(`Queueing ${moreRequests.length} more ${label} pages...`);
+					logger.step(
+						`Queueing ${moreRequests.length} more ${label} pages (Total: ${totalPages})...`,
+					);
 					await crawlerInstance.addRequests(moreRequests);
 				}
 			}
 		}
 	};
 
-	crawler.requestHandler = dynamicHandler;
+	// Create a new crawler instance with the dynamic handler directly
+	const browserWSEndpointDynamic = getBrowserlessEndpoint();
+	const finalCrawler = new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 300,
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint: browserWSEndpointDynamic,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
+		requestHandler: dynamicHandler,
+		failedRequestHandler({ request }) {
+			logger.error(`Failed listing page: ${request.url}`);
+		},
+	});
 
-	await crawler.run(initialRequests);
+	await finalCrawler.run(initialRequests);
 
 	logger.step(
 		`Completed Beresfords - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
