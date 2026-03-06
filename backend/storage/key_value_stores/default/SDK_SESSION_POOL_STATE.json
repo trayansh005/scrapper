@@ -1,5 +1,5 @@
 {
-  "usableSessionsCount": 11,
+  "usableSessionsCount": 21,
   "retiredSessionsCount": 0,
   "sessions": [
     {
@@ -41,49 +41,49 @@
             "secure": true,
             "hostOnly": true,
             "creation": "2026-03-06T05:55:07.727Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.100Z"
           },
           {
             "key": "_ga_QLW935Q3EH",
-            "value": "GS2.1.s1772776506$o1$g1$t1772776617$j21$l0$h0",
-            "expires": "2027-04-10T05:56:57.168Z",
+            "value": "GS2.1.s1772776506$o1$g1$t1772776738$j23$l0$h0",
+            "expires": "2027-04-10T05:58:58.828Z",
             "domain": "snellers.co.uk",
             "path": "/",
             "hostOnly": false,
             "creation": "2026-03-06T05:55:07.728Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.101Z"
           },
           {
             "key": "_ga",
             "value": "GA1.3.910030102.1772776507",
-            "expires": "2027-04-10T05:56:57.945Z",
+            "expires": "2027-04-10T05:58:58.979Z",
             "domain": "snellers.co.uk",
             "path": "/",
             "hostOnly": false,
             "creation": "2026-03-06T05:55:07.733Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.101Z"
           },
           {
             "key": "_gid",
             "value": "GA1.3.1619912639.1772776507",
-            "expires": "2026-03-07T05:56:57.000Z",
+            "expires": "2026-03-07T05:58:58.000Z",
             "domain": "snellers.co.uk",
             "path": "/",
             "hostOnly": false,
             "creation": "2026-03-06T05:55:07.735Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.100Z"
           },
           {
             "key": "_ctesius2_session",
-            "value": "WmR1VGdJVCsyTm9KSnZxWVdLNEg3NFJPYWdreWFsdWNTTXczV2VYVkJRSWNJeUw5eGlWNExJdUVWdkV4eW9qZ2pWT3NneFhJNi9MZGhzRGtmWEpBcWpXOTdVdFE3aU1SRmFSbWdRa2tsWGgwb21RZE5EOStBU2JGSCtnMTRRK011K1gvRjFKaTl1YVA1MGU3d09xNGl3PT0tLUhRSHhEdXpnaXc0VUNPVnJrWDVGQUE9PQ%3D%3D--68466d981826cef678b8aaba5732db57ec3b4491",
-            "expires": "2026-03-06T06:46:57.965Z",
+            "value": "MXE5cHBwaG9vYmVHc2swS00rMzh3d0V2cWt3djlCQW4xS2krZlY5YWhVTEg3V2VQVDRKVnF0Z2h6WkhiZkdFdUF5YkVvemxiaEpYM3NYQ2JNTnBwUDcyN3lRQlh1RVgvMUtwdFFRTi9QVFpwdkdKYTlMQXNkdThCR3lPRjhGSDE2R0NXWVowNWdVM0pUS2ltajhBbFRRPT0tLVJIeWMrdFVuTWl4VzJ3RGQzUmxSR3c9PQ%3D%3D--f30ddc4f428596048137df076e548bd4ee5baca4",
+            "expires": "2026-03-06T06:48:59.100Z",
             "domain": "www.snellers.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
             "creation": "2026-03-06T05:55:07.736Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.101Z"
           },
           {
             "key": "cookie_directive",
@@ -93,7 +93,7 @@
             "path": "/",
             "hostOnly": true,
             "creation": "2026-03-06T05:55:07.736Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.100Z"
           },
           {
             "key": "cookiepolicyshown",
@@ -103,17 +103,17 @@
             "path": "/",
             "hostOnly": true,
             "creation": "2026-03-06T05:55:18.140Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "lastAccessed": "2026-03-06T05:58:59.100Z"
           },
           {
             "key": "_gat_gtag_UA_111945782_1",
             "value": "1",
-            "expires": "2026-03-06T05:57:19.000Z",
+            "expires": "2026-03-06T05:59:21.000Z",
             "domain": "snellers.co.uk",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-03-06T05:56:21.171Z",
-            "lastAccessed": "2026-03-06T05:56:57.965Z"
+            "creation": "2026-03-06T05:57:22.005Z",
+            "lastAccessed": "2026-03-06T05:58:59.101Z"
           }
         ]
       },
@@ -122,7 +122,7 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-03-06T06:45:03.826Z",
       "createdAt": "2026-03-06T05:55:03.826Z",
-      "usageCount": 9,
+      "usageCount": 19,
       "maxUsageCount": 50,
       "errorScore": 0
     },
@@ -302,6 +302,206 @@
       "errorScoreDecrement": 0.5,
       "expiresAt": "2026-03-06T06:46:55.391Z",
       "createdAt": "2026-03-06T05:56:55.391Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_rLoyhxcNPi",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:47:06.811Z",
+      "createdAt": "2026-03-06T05:57:06.811Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_4NwP7nOi1I",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:47:18.330Z",
+      "createdAt": "2026-03-06T05:57:18.330Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_36yeFoCP0u",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:47:30.985Z",
+      "createdAt": "2026-03-06T05:57:30.985Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_hRdE8ZUbV1",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:47:42.489Z",
+      "createdAt": "2026-03-06T05:57:42.489Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_D45OCeD9eC",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:47:54.550Z",
+      "createdAt": "2026-03-06T05:57:54.550Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_WggyycTQqR",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:48:06.393Z",
+      "createdAt": "2026-03-06T05:58:06.393Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_aOY13gqeM4",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:48:18.545Z",
+      "createdAt": "2026-03-06T05:58:18.545Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_anen3Wpy3t",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:48:30.192Z",
+      "createdAt": "2026-03-06T05:58:30.192Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_5yq5RImOxX",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:48:43.883Z",
+      "createdAt": "2026-03-06T05:58:43.883Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_cCXugU1T4J",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-06T06:48:56.857Z",
+      "createdAt": "2026-03-06T05:58:56.857Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
