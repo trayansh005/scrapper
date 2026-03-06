@@ -162,7 +162,7 @@ async function handleListingPage({ page, request }) {
 			counts.totalFound++;
 
 			// Skip sold properties
-			if (isSoldProperty(property)) {
+			if (isSoldProperty(property.title)) {
 				logger.property(
 					pageNum,
 					label,

@@ -55,6 +55,17 @@ const PROPERTY_TYPES = [
 ];
 
 // ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
+
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
+}
+
+// ============================================================================
 // REQUEST HANDLER FOR LISTING PAGES
 // ============================================================================
 
@@ -289,12 +300,13 @@ async function handleListingPage({ page, request }) {
 // CRAWLER SETUP
 // ============================================================================
 
-function createCrawler() {
+function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		sessionPoolOptions: { blockedStatusCodes: [] },
 		preNavigationHooks: [
 			async ({ page }) => {
 				await blockNonEssentialResources(page);
@@ -304,9 +316,11 @@ function createCrawler() {
 						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 				});
 			},
-		], launchContext: {
+		],
+		launchContext: {
+			launcher: undefined,
 			launchOptions: {
-				headless: false,
+				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
@@ -329,7 +343,10 @@ async function scrapeRobertHolmes() {
 	const isPartialRun = startPage > 1;
 	const scrapeStartTime = new Date();
 
-	const crawler = createCrawler();
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const crawler = createCrawler(browserWSEndpoint);
 	const allRequests = [];
 
 	for (const type of PROPERTY_TYPES) {
