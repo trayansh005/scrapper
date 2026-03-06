@@ -72,9 +72,11 @@ async function updatePriceByPropertyURL(
 
 				const logo = "property_for_sale/logo.png"; // static logo
 				const currentTime = new Date();
+				// Truncate property name to 255 characters to avoid database column size errors
+				const truncatedTitle = title ? title.substring(0, 255) : "";
 
 				await promisePool.query(insertQuery, [
-					title,
+					truncatedTitle,
 					agent_id,
 					price,
 					bedrooms,
@@ -148,6 +150,7 @@ async function updateRemoveStatus(agent_id, scrapeStartTime = null) {
 		console.error("Error updating remove status:", error.message);
 	}
 }
+
 
 module.exports = {
 	promisePool,
