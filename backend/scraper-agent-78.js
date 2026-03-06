@@ -84,27 +84,32 @@ async function handleListingPage({ page, request }) {
 		// Extract properties from listing page
 		const properties = await page.evaluate(() => {
 			try {
-				const items = Array.from(document.querySelectorAll('a[href*="/property/"]'));
+				const items = Array.from(document.querySelectorAll(".feature-info"));
+
 				return items
 					.map((el) => {
 						try {
-							const link = el.getAttribute("href");
-							if (!link) return null;
+							const title =
+								el.querySelector(".property-archive-title h4")?.innerText.trim() || "";
 
-							const fullLink = link.startsWith("http") ? link : "https://robertholmes.co.uk" + link;
+							const description =
+								el.querySelector(".property-single-description")?.innerText.trim() || "";
 
-							const title = el.querySelector("h4")?.textContent?.trim() || "";
+							const priceText =
+								el.querySelector(".property-archive-price")?.innerText.trim() || "";
 
-							const bedroomsText = el.querySelector("ul li:nth-child(1) span:nth-child(1)")?.textContent?.trim() || "";
-							const bedroomsMatch = bedroomsText.match(/\d+/);
-							const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[0], 10) : null;
-
-							const priceText = el.querySelector("h5")?.textContent?.trim() || "";
-							// Extract price: match £ followed by digits and commas only
 							const priceMatch = priceText.match(/£([\d,]+)/);
 							const price = priceMatch ? priceMatch[1] : null;
 
-							return { link: fullLink, price, title, bedrooms, lat: null, lng: null };
+							// property link from parent anchor
+							const link = el.closest("a")?.href || null;
+
+							return {
+								title,
+								description,
+								price,
+								link,
+							};
 						} catch (e) {
 							return null;
 						}
