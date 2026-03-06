@@ -59,6 +59,14 @@ function getBrowserlessEndpoint() {
 const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.humberts.com/search/",
+		totalPages: 13,
+		isRental: true,
+		label: "SALES",
+		suffix:
+			"?country=GB&department=residential-sales&tenure&address_keyword&radius=25&commercial_for_sale_to_rent&property_type&minimum_bedrooms&minimum_price&maximum_price&lat&lng",
+	},
+	{
+		urlBase: "https://www.humberts.com/search/",
 		totalPages: 3,
 		isRental: true,
 		label: "LETTINGS",
