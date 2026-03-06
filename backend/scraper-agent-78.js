@@ -4,11 +4,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const {
-	isSoldProperty,
-	parsePrice,
-	formatPriceDisplay,
-} = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -47,7 +43,7 @@ const PROPERTY_TYPES = [
 		recordsPerPage: 12,
 		isRental: true,
 		label: "RENTALS",
-	}
+	},
 ];
 
 // ============================================================================
@@ -103,12 +99,16 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 				// Regex search for GeoCoordinates pattern as fallback
 				const html = document.documentElement.innerHTML;
-				const geoMatch = html.match(/"@type":"GeoCoordinates","latitude":([0-9e.-]+),"longitude":([0-9e.-]+)/);
+				const geoMatch = html.match(
+					/"@type":"GeoCoordinates","latitude":([0-9e.-]+),"longitude":([0-9e.-]+)/,
+				);
 				if (geoMatch) {
 					return { lat: parseFloat(geoMatch[1]), lng: parseFloat(geoMatch[2]) };
 				}
 
-				const geoMatch2 = html.match(/"latitude"\s*:\s*([0-9e.-]+)\s*,\s*"longitude"\s*:\s*([0-9e.-]+)/);
+				const geoMatch2 = html.match(
+					/"latitude"\s*:\s*([0-9e.-]+)\s*,\s*"longitude"\s*:\s*([0-9e.-]+)/,
+				);
 				if (geoMatch2) {
 					return { lat: parseFloat(geoMatch2[1]), lng: parseFloat(geoMatch2[2]) };
 				}
@@ -148,27 +148,32 @@ async function handleListingPage({ page, request }) {
 	const properties = await page.evaluate(() => {
 		try {
 			const items = Array.from(document.querySelectorAll(".grid-box-card"));
-			return items.map((el) => {
-				const linkEl = el.querySelector("a");
-				let link = linkEl ? linkEl.getAttribute("href") : null;
-				if (link && !link.startsWith("http")) {
-					link = "https://robertholmes.co.uk" + link;
-				}
+			return items
+				.map((el) => {
+					const linkEl = el.querySelector("a");
+					let link = linkEl ? linkEl.getAttribute("href") : null;
+					if (link && !link.startsWith("http")) {
+						link = "https://robertholmes.co.uk" + link;
+					}
 
-				const title = el.querySelector(".property-archive-title h4")?.textContent?.trim() || "Property";
-				const priceText = el.querySelector(".property-archive-price")?.textContent?.trim() || "";
-				
-				// Bedrooms extraction
-				const icons = Array.from(el.querySelectorAll(".icons-list li"));
-				const bedEl = icons.find(li => li.querySelector(".icon-bed") || li.innerText.toLowerCase().includes("bed"));
-				const bedText = bedEl ? bedEl.innerText.trim() : "";
-				const bedroomsMatch = bedText.match(/\d+/);
-				const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[0]) : null;
+					const title =
+						el.querySelector(".property-archive-title h4")?.textContent?.trim() || "Property";
+					const priceText = el.querySelector(".property-archive-price")?.textContent?.trim() || "";
 
-				const statusText = el.innerText || "";
+					// Bedrooms extraction
+					const icons = Array.from(el.querySelectorAll(".icons-list li"));
+					const bedEl = icons.find(
+						(li) => li.querySelector(".icon-bed") || li.innerText.toLowerCase().includes("bed"),
+					);
+					const bedText = bedEl ? bedEl.innerText.trim() : "";
+					const bedroomsMatch = bedText.match(/\d+/);
+					const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[0]) : null;
 
-				return { link, title, priceText, bedrooms, statusText };
-			}).filter(p => p.link);
+					const statusText = el.innerText || "";
+
+					return { link, title, priceText, bedrooms, statusText };
+				})
+				.filter((p) => p.link);
 		} catch (e) {
 			return [];
 		}
@@ -233,7 +238,7 @@ async function handleListingPage({ page, request }) {
 						isRental,
 						null,
 						lat,
-						lng
+						lng,
 					);
 
 					stats.totalSaved++;
@@ -260,7 +265,12 @@ async function handleListingPage({ page, request }) {
 				await sleep(500);
 			}
 		} catch (err) {
-			logger.error(`Error processing property ${property.link}: ${err.message}`, err, pageNum, label);
+			logger.error(
+				`Error processing property ${property.link}: ${err.message}`,
+				err,
+				pageNum,
+				label,
+			);
 		}
 	}
 }
@@ -279,7 +289,8 @@ function createCrawler(browserWSEndpoint) {
 			async ({ page }) => {
 				await blockNonEssentialResources(page);
 				await page.setExtraHTTPHeaders({
-					"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+					"user-agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 				});
 			},
 		],
@@ -315,14 +326,13 @@ async function scrapeRobertHolmes() {
 
 	const crawler = createCrawler(browserWSEndpoint);
 	const allRequests = [];
-	
+
 	for (const type of PROPERTY_TYPES) {
 		const effectiveStartPage = Math.max(1, startPage);
 
 		for (let pg = effectiveStartPage; pg <= type.totalPages; pg++) {
-			const url = pg === 1
-				? `${type.urlBase}?${type.params}`
-				: `${type.urlBase}page/${pg}/?${type.params}`;
+			const url =
+				pg === 1 ? `${type.urlBase}?${type.params}` : `${type.urlBase}page/${pg}/?${type.params}`;
 
 			allRequests.push({
 				url,
@@ -347,7 +357,7 @@ async function scrapeRobertHolmes() {
 	logger.step(
 		`Completed Robert Holmes - Total saved: ${stats.totalSaved}, New rentals: ${stats.savedRentals}`,
 	);
-	
+
 	if (!isPartialRun) {
 		logger.step(`Updating remove status...`);
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);

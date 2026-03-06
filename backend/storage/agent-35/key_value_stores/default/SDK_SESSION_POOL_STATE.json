@@ -1,0 +1,79 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_rQ9oV8ybkJ",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-05T14:07:57.532Z",
+      "createdAt": "2026-03-05T13:17:57.532Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_VVW9KeiM5M",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "laravel_session",
+            "value": "eyJpdiI6InJtZU5LbWQ3OWNzQTJteTVQaDZtMkE9PSIsInZhbHVlIjoiNktydm9UXC9kTmlWK1ZOS1hZbGVpRXE4NndXT3p4NzRuK3Fzd0NlMWsrYlwvdEtrSVFyKzBZdjcwUW51dDRtVHRLcWJiV1R1M0tjdTc0XC9xcERzT1krSFE9PSIsIm1hYyI6IjBkYWJkYjM2NjE4ZWFkOWRkMDZhYzc4NzU2NGM4MGVkYWUxMDczOWJjYWRlMzA2MGNkZGYxMGU2ZWQ0NDRhMTUifQ%3D%3D",
+            "expires": "2026-03-05T14:08:07.884Z",
+            "domain": "www.guildproperty.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-05T13:18:07.887Z",
+            "lastAccessed": "2026-03-05T13:18:07.887Z"
+          },
+          {
+            "key": "cookie_consent_level",
+            "value": "%7B%22strictly-necessary%22%3Atrue%2C%22functionality%22%3Afalse%2C%22tracking%22%3Afalse%2C%22targeting%22%3Afalse%7D",
+            "expires": "2027-04-09T13:18:05.113Z",
+            "domain": "www.guildproperty.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-05T13:18:07.889Z",
+            "lastAccessed": "2026-03-05T13:18:07.889Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.2.1772716685651.794639206634254688",
+            "expires": "2026-06-03T13:18:06.000Z",
+            "domain": "guildproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-05T13:18:07.889Z",
+            "lastAccessed": "2026-03-05T13:18:07.889Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-05T14:07:57.538Z",
+      "createdAt": "2026-03-05T13:17:57.538Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+	"id": "nFiX2pZJtlB9bwG",
+	"json": "{\"id\":\"nFiX2pZJtlB9bwG\",\"url\":\"https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=true&sortOrder=HighestPriceFirst&page=1\",\"loadedUrl\":\"https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=true&sortOrder=HighestPriceFirst&page=1\",\"uniqueKey\":\"https://www.carterjonas.co.uk/property-search?area=GreaterLondon&division=Homes&page=1&sortOrder=HighestPriceFirst&toBuy=true\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":50,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-06T08:00:09.893Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.carterjonas.co.uk/property-search?area=GreaterLondon&division=Homes&page=1&sortOrder=HighestPriceFirst&toBuy=true",
+	"url": "https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=true&sortOrder=HighestPriceFirst&page=1"
+}

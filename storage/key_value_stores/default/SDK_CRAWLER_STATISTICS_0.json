@@ -1,41 +1,29 @@
 {
   "requestsFinished": 1,
   "requestsFailed": 0,
-  "requestsRetries": 1,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 81803,
-  "requestMaxDurationMillis": 81803,
+  "requestMinDurationMillis": 43951,
+  "requestMaxDurationMillis": 43951,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 81803,
-  "crawlerStartedAt": "2026-03-05T10:46:03.774Z",
-  "crawlerFinishedAt": "2026-03-05T10:47:48.188Z",
-  "statsPersistedAt": "2026-03-05T10:47:48.188Z",
-  "crawlerRuntimeMillis": 104587,
-  "crawlerLastStartTimestamp": 1772707563601,
+  "requestTotalFinishedDurationMillis": 43951,
+  "crawlerStartedAt": "2026-03-06T09:07:00.531Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-03-06T09:08:00.513Z",
+  "crawlerRuntimeMillis": 60277,
+  "crawlerLastStartTimestamp": 1772788020236,
   "requestRetryHistogram": [
-    null,
-    null,
     1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 81803,
-  "requestTotalDurationMillis": 81803,
+  "requestAvgFinishedDurationMillis": 43951,
+  "requestTotalDurationMillis": 43951,
   "requestsTotal": 1,
   "requestsWithStatusCode": {
-    "200": 1
+    "200": 2
   },
   "errors": {},
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:166:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at https://www.meyersestates.com/property-search/?department=residential-sales&per_page=13&view=list&page=1": {
-            "count": 2
-          }
-        }
-      }
-    }
-  }
+  "retryErrors": {}
 }

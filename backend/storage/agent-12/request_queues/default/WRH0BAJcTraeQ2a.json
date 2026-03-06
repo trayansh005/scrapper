@@ -1,0 +1,9 @@
+{
+	"id": "WRH0BAJcTraeQ2a",
+	"json": "{\"id\":\"WRH0BAJcTraeQ2a\",\"url\":\"https://www.purplebricks.co.uk/search/property-for-sale/greater-london/london?page=1&sortBy=2&betasearch=true&latitude=51.5072178&longitude=-0.1275862&location=london&searchRadius=2&searchType=ForSale&soldOrLet=false\",\"loadedUrl\":\"https://www.purplebricks.co.uk/search/property-for-sale/greater-london/london?page=1&sortBy=2&betasearch=true&latitude=51.5072178&longitude=-0.1275862&location=london&searchRadius=2&searchType=ForSale&soldOrLet=false\",\"uniqueKey\":\"https://www.purplebricks.co.uk/search/property-for-sale/greater-london/london?betasearch=true&latitude=51.5072178&location=london&longitude=-0.1275862&page=1&searchRadius=2&searchType=ForSale&soldOrLet=false&sortBy=2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":72,\"isRental\":false,\"label\":\"LONDON_SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-05T14:18:30.794Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.purplebricks.co.uk/search/property-for-sale/greater-london/london?betasearch=true&latitude=51.5072178&location=london&longitude=-0.1275862&page=1&searchRadius=2&searchType=ForSale&soldOrLet=false&sortBy=2",
+	"url": "https://www.purplebricks.co.uk/search/property-for-sale/greater-london/london?page=1&sortBy=2&betasearch=true&latitude=51.5072178&longitude=-0.1275862&location=london&searchRadius=2&searchType=ForSale&soldOrLet=false"
+}

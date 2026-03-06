@@ -1,20 +1,25 @@
 // Purplebricks scraper using Playwright with Browserless
 // Agent ID: 12
 // Usage:
-// node backend/scraper-agent-12.js
+// node backend/scraper-agent-12.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
 const {
-	formatPriceUk,
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { formatPriceUk } = require("./lib/property-helpers.js");
 
+// Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 12;
+const logger = createAgentLogger(AGENT_ID);
+const scrapeStartTime = new Date();
 
 const stats = {
 	totalScraped: 0,
@@ -56,11 +61,6 @@ const PROPERTY_TYPES = [
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "GBP 0 pcm" : "GBP 0";
-	return `GBP ${price}${isRental ? " pcm" : ""}`;
 }
 
 function getBrowserlessEndpoint() {
@@ -174,17 +174,6 @@ function parseListingPage(htmlContent) {
 	return results;
 }
 
-async function configureDetailPage(detailPage) {
-	await detailPage.route("**/*", (route) => {
-		const resourceType = route.request().resourceType();
-		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-			route.abort();
-		} else {
-			route.continue();
-		}
-	});
-}
-
 async function dismissCookieDialogs(page) {
 	await page
 		.evaluate(() => {
@@ -206,13 +195,20 @@ function extractPropertyId(link) {
 	return match ? match[1] : null;
 }
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
+async function scrapePropertyDetail(
+	browserContext,
+	property,
+	isRental,
+	pageNum,
+	label,
+	totalPages,
+) {
 	await sleep(500);
 
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await configureDetailPage(detailPage);
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -227,7 +223,6 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		const propertyId = extractPropertyId(property.link);
 		if (propertyId) {
-			console.log(`Fetching lat/long from API for property ${propertyId}`);
 			const apiCoords = await detailPage
 				.evaluate(async (id) => {
 					try {
@@ -250,17 +245,11 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 			if (apiCoords && isValidCoord(apiCoords.latitude, apiCoords.longitude)) {
 				coords = apiCoords;
-				console.log(`Got coords from API: ${coords.latitude}, ${coords.longitude}`);
 			}
 		}
 
 		if (!isValidCoord(coords.latitude, coords.longitude)) {
-			console.log(`Falling back to HTML extraction for ${property.link}`);
 			coords = extractCoordsFromHtml(htmlContent);
-		}
-
-		if (!isValidCoord(coords.latitude, coords.longitude)) {
-			console.log(`No coordinates found for ${property.link}`);
 		}
 
 		await processPropertyWithCoordinates(
@@ -277,16 +266,28 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		stats.totalScraped++;
 		stats.totalSaved++;
+		logger.property(
+			pageNum,
+			label,
+			property.title,
+			property.price,
+			property.link,
+			isRental,
+			totalPages,
+			"CREATED",
+			coords.latitude,
+			coords.longitude,
+		);
 	} catch (error) {
-		console.error(`Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page`, error, pageNum, label);
 	} finally {
 		await detailPage.close();
 	}
 }
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(`[${label}] Page ${pageNum} - ${request.url}`);
+	const { pageNum, totalPages, isRental, label } = request.userData;
+	logger.page(pageNum, label, `Processing listing page ${request.url}`, totalPages);
 
 	await page.waitForLoadState("domcontentloaded");
 	await page.waitForSelector("[data-testid='results-list'] li", { timeout: 20000 }).catch(() => {});
@@ -294,11 +295,15 @@ async function handleListingPage({ page, request }) {
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(
+		pageNum,
+		label,
+		`Found ${properties.length} properties on page ${pageNum}`,
+		totalPages,
+	);
 
 	for (const property of properties) {
-		if (!property.link) continue;
-		if (!property.price) continue;
+		if (!property.link || !property.price) continue;
 		if (processedUrls.has(property.link)) continue;
 		processedUrls.add(property.link);
 
@@ -313,20 +318,31 @@ async function handleListingPage({ page, request }) {
 
 		if (result.updated) {
 			stats.totalSaved++;
+			logger.property(
+				pageNum,
+				label,
+				property.title,
+				property.price,
+				property.link,
+				isRental,
+				totalPages,
+				"UPDATED",
+			);
+		} else if (result.isExisting) {
+			logger.property(
+				pageNum,
+				label,
+				property.title,
+				property.price,
+				property.link,
+				isRental,
+				totalPages,
+				"UNCHANGED",
+			);
 		}
 
-		let propertyAction = "UNCHANGED";
-		if (result.updated) propertyAction = "UPDATED";
-		if (!result.isExisting && !result.error) propertyAction = "CREATED";
-
-		console.log(
-			`✅ [${propertyAction}] ${property.title.substring(0, 40)} - ${formatPriceDisplay(
-				property.price,
-				isRental,
-			)} - ${property.link}`,
-		);
-
-		if (propertyAction !== "UNCHANGED") {
+		if (!result.isExisting && !result.error) {
+			await scrapePropertyDetail(page.context(), property, isRental, pageNum, label, totalPages);
 			await sleep(300);
 		}
 	}
@@ -344,21 +360,31 @@ function createCrawler(browserWSEndpoint) {
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`Failed listing page: ${request.url}`);
+			logger.error(
+				`Failed listing page: ${request.url}`,
+				null,
+				request.userData.pageNum,
+				request.userData.label,
+			);
 		},
 	});
 }
 
 async function scrapePurplebricks() {
-	console.log(`Starting Purplebricks scraper (Agent ${AGENT_ID})...`);
+	logger.step(`Starting Purplebricks scraper (Agent ${AGENT_ID})`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? Math.max(1, parseInt(args[0], 10)) : 1;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 	const allRequests = [];
@@ -371,32 +397,44 @@ async function scrapePurplebricks() {
 
 			allRequests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNum: pg,
+					totalPages: propertyType.totalPages,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
 			});
 		}
 	}
 
 	if (allRequests.length === 0) {
-		console.log("No pages to scrape.");
+		logger.warn("No pages to scrape.");
 		return;
 	}
 
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-	console.log(
+	logger.step(
 		`Completed Purplebricks - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
+
+	// Enhanced Remove-Status Strategy
+	if (startPage === 1) {
+		logger.step(`Performing cleanup of removed properties...`);
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.step(`Partial run detected (startPage: ${startPage}). Skipping remove status update.`);
+	}
 }
 
 (async () => {
 	try {
 		await scrapePurplebricks();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err);
 		process.exit(1);
 	}
 })();

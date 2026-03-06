@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 4,
+  "usableSessionsCount": 3,
   "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_iSWejuvYZ9",
+      "id": "session_dMt6cEuN2w",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-05T11:36:04.753Z",
-      "createdAt": "2026-03-05T10:46:04.753Z",
+      "expiresAt": "2026-03-06T09:57:01.534Z",
+      "createdAt": "2026-03-06T09:07:01.534Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_CHCXMQoX9e",
+      "id": "session_1PDhft0GWZ",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -31,39 +31,110 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "PHPSESSID",
+            "value": "f4285c4b5c3e626ba03bc1ef23b40b14",
+            "expires": "2026-03-06T09:57:16.054Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-06T09:07:16.056Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "initialLandingPage",
+            "value": "https://robertholmes.co.uk/search/?address_keyword=&department=residential-sales&availability=2",
+            "expires": "2026-03-07T09:07:11.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-06T09:07:16.057Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "_ga_BL161XNCMC",
+            "value": "GS2.1.s1772788031$o1$g1$t1772788072$j19$l0$h0",
+            "expires": "2027-04-10T09:07:52.085Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.057Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.812795870.1772788031",
+            "expires": "2027-04-10T09:07:11.494Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.057Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "wc_visitor",
+            "value": "124794-980a13d0-ed2b-fe0f-3f51-06a7388f27e4",
+            "expires": "2027-04-10T09:07:51.853Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.057Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "wc_client",
+            "value": "direct+..+none+..++..++..++..++..+https%3A%2F%2Frobertholmes.co.uk%2Fsearch%2F%3Faddress_keyword%3D%26department%3Dresidential-sales%26availability%3D2+..+124794-980a13d0-ed2b-fe0f-3f51-06a7388f27e4+..++..++..+",
+            "expires": "2026-09-02T09:07:12.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.057Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "wc_client_current",
+            "value": "direct+..+none+..++..++..++..++..+https%3A%2F%2Frobertholmes.co.uk%2Fsearch%2F%3Faddress_keyword%3D%26department%3Dresidential-sales%26availability%3D2+..+124794-980a13d0-ed2b-fe0f-3f51-06a7388f27e4+..++..++..+",
+            "expires": "2026-03-06T09:57:16.054Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.057Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "wc_swap",
+            "value": "2080592028+..+2089479833+..+121944+..+2081062021+..+2089471100+..+121942+..+2081062920+..+2088799669+..+121945+..+2080163608+..+2080169601+..+122498",
+            "expires": "2026-03-06T09:12:13.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.058Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          },
+          {
+            "key": "prism_613005266",
+            "value": "f715c73a-0c62-4ad6-ac25-44739f43e56f",
+            "expires": "2026-04-05T09:07:15.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-06T09:07:16.058Z",
+            "lastAccessed": "2026-03-06T09:07:52.663Z"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-05T11:36:04.756Z",
-      "createdAt": "2026-03-05T10:46:04.756Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 1.5
-    },
-    {
-      "id": "session_eXM5sJYO1J",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-05T11:36:21.358Z",
-      "createdAt": "2026-03-05T10:46:21.358Z",
-      "usageCount": 0,
+      "expiresAt": "2026-03-06T09:57:01.540Z",
+      "createdAt": "2026-03-06T09:07:01.540Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_p1NlnbVQi7",
+      "id": "session_OAOtJWKNIu",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -76,8 +147,8 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-05T11:36:26.099Z",
-      "createdAt": "2026-03-05T10:46:26.099Z",
+      "expiresAt": "2026-03-06T09:57:45.512Z",
+      "createdAt": "2026-03-06T09:07:45.512Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
