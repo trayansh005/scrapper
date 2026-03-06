@@ -4,7 +4,11 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
+const {
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
@@ -15,8 +19,12 @@ const AGENT_ID = 226;
 const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
+	totalFound: 0,
 	totalScraped: 0,
 	totalSaved: 0,
+	totalSkipped: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
 const processedUrls = new Set();
@@ -29,6 +37,12 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getStartPage() {
+	const value = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
+	if (!Number.isFinite(value) || value < 1) return 1;
+	return Math.floor(value);
+}
+
 // ============================================================================
 // BROWSERLESS SETUP
 // ============================================================================
@@ -39,20 +53,6 @@ function getBrowserlessEndpoint() {
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
 	);
 }
-
-// Configuration for sales and lettings
-const PROPERTY_TYPES = [
-	{
-		urlBase: "https://www.palmerpartners.com/buy/property-for-sale/",
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		urlBase: "https://www.palmerpartners.com/let/property-to-let/",
-		isRental: true,
-		label: "RENTALS",
-	},
-];
 
 // ============================================================================
 // DETAIL PAGE SCRAPING
@@ -76,7 +76,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 				const data = { lat: null, lng: null, bedrooms: null };
 				const bedsInput = document.querySelector('input[name="beds"]');
 				if (bedsInput) data.bedrooms = bedsInput.value;
-
+				
 				const allHiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'));
 				for (const input of allHiddenInputs) {
 					const val = input.value?.trim() || "";
@@ -97,12 +97,15 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			}
 		});
 
+		const htmlContent = await detailPage.content();
+
 		return {
 			coords: {
 				latitude: detailData?.lat || null,
 				longitude: detailData?.lng || null,
 			},
 			bedrooms: detailData?.bedrooms || null,
+			html: htmlContent,
 		};
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
@@ -121,46 +124,54 @@ async function handleListingPage({ page, request, crawler }) {
 	logger.page(pageNum, label, request.url, totalPages);
 
 	await page.waitForTimeout(2000);
-	await page
-		.waitForSelector('.property, .property-card, a[href*="/property/"]', { timeout: 30000 })
-		.catch(() => {});
+	await page.waitForSelector('.property, .property-card, a[href*="/property/"]', { timeout: 30000 }).catch(() => {});
 
 	// Extract properties
 	const properties = await page.evaluate(() => {
 		try {
-			const items = Array.from(
-				document.querySelectorAll(".property-card, .search-items li, .property, .row.property"),
-			);
-			return items
-				.map((el) => {
-					const linkTag = el.querySelector('a[href*="/property/"]');
-					const priceText =
-						el.querySelector(".price, .property-price, .price-display, .list-price")?.innerText ||
-						"";
-					const title =
-						el.querySelector(".address, .property-address, .address-display, .list-address")
-							?.innerText || "Property";
-					const statusText =
-						el.querySelector(".property-status, .status, .label")?.innerText?.trim() || "";
-					return { link: linkTag?.href, priceText, title, statusText };
-				})
-				.filter((p) => p.link);
+			const items = Array.from(document.querySelectorAll(".property-card, .search-items li, .property, .row.property"));
+			return items.map((el) => {
+				const linkTag = el.querySelector('a[href*="/property/"]');
+				const priceText = el.querySelector(".price, .property-price, .price-display, .list-price")?.innerText || "";
+				const title = el.querySelector(".address, .property-address, .address-display, .list-address")?.innerText || "Property";
+				const statusText = el.querySelector(".property-status, .status, .label")?.innerText?.trim() || "";
+				return { link: linkTag?.href, priceText, title, status: statusText };
+			}).filter((p) => p.link);
 		} catch (err) {
 			return [];
 		}
 	});
 
 	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+	stats.totalFound += properties.length;
 
 	for (const property of properties) {
 		try {
-			if (isSoldProperty(property.statusText)) continue;
-
-			const price = parsePrice(property.priceText);
-			if (!price || price === 0) continue;
-
 			if (processedUrls.has(property.link)) continue;
 			processedUrls.add(property.link);
+
+			stats.totalScraped++;
+
+			if (isSoldProperty(property.status)) {
+				stats.totalSkipped++;
+				logger.property(
+					pageNum,
+					label,
+					property.title.substring(0, 40),
+					formatPriceDisplay(null, isRental),
+					property.link,
+					isRental,
+					totalPages,
+					"SKIPPED",
+				);
+				continue;
+			}
+
+			const price = parsePrice(property.priceText);
+			if (price === null || price === 0) {
+				stats.totalSkipped++;
+				continue;
+			}
 
 			const result = await updatePriceByPropertyURLOptimized(
 				property.link.trim(),
@@ -175,6 +186,8 @@ async function handleListingPage({ page, request, crawler }) {
 			if (result.updated) {
 				stats.totalSaved++;
 				propertyAction = "UPDATED";
+				if (isRental) stats.savedRentals++;
+				else stats.savedSales++;
 			}
 
 			let lat = null;
@@ -195,20 +208,25 @@ async function handleListingPage({ page, request, crawler }) {
 						bedrooms,
 						AGENT_ID,
 						isRental,
-						null, // html
+						detail.html,
 						lat,
 						lng,
 					);
 
 					stats.totalSaved++;
 					propertyAction = "CREATED";
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
 				}
+			} else if (result.error) {
+				propertyAction = "ERROR";
+				stats.totalSkipped++;
 			}
 
 			logger.property(
 				pageNum,
 				label,
-				property.title,
+				property.title.substring(0, 40),
 				formatPriceDisplay(price, isRental),
 				property.link,
 				isRental,
@@ -222,12 +240,7 @@ async function handleListingPage({ page, request, crawler }) {
 				await sleep(500);
 			}
 		} catch (err) {
-			logger.error(
-				`Error processing property ${property.link}: ${err.message}`,
-				err,
-				pageNum,
-				label,
-			);
+			logger.error(`Error processing property ${property.link}: ${err.message}`, err, pageNum, label);
 		}
 	}
 
@@ -281,7 +294,8 @@ function createCrawler(browserWSEndpoint) {
 		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			logger.error(`Failed listing page: ${request.url}`);
+			const { pageNum, label } = request.userData || {};
+			logger.error(`Failed listing page: ${request.url}`, null, pageNum, label);
 		},
 	});
 }
@@ -292,9 +306,26 @@ function createCrawler(browserWSEndpoint) {
 
 async function scrapePalmerPartners() {
 	const scrapeStartTime = new Date();
+	const startPage = getStartPage();
+	const isPartialRun = startPage > 1;
+
 	logger.step(`Starting Palmer Partners scraper (Agent ${AGENT_ID})...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+	const PROPERTY_TYPES = [
+		{
+			urlBase: "https://www.palmerpartners.com/buy/property-for-sale/",
+			isRental: false,
+			label: "SALES",
+		},
+		{
+			urlBase: "https://www.palmerpartners.com/let/property-to-let/",
+			isRental: true,
+			label: "RENTALS",
+		},
+	];
 
 	for (const propertyType of PROPERTY_TYPES) {
 		logger.step(`Processing ${propertyType.label}...`);
@@ -302,16 +333,28 @@ async function scrapePalmerPartners() {
 		await crawler.addRequests([
 			{
 				url: propertyType.urlBase,
-				userData: { isRental: propertyType.isRental, label: propertyType.label, pageNum: 1 },
+				userData: { 
+					isRental: propertyType.isRental, 
+					label: propertyType.label, 
+					pageNum: startPage,
+					totalPages: startPage // Will be updated during pagination detection
+				},
 			},
 		]);
 		await crawler.run();
 	}
 
-	logger.step(`Finished Palmer Partners - Saved: ${stats.totalSaved}`);
-
-	logger.step(`Updating remove status...`);
-	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	logger.step(
+		`Completed Palmer Partners Agent ${AGENT_ID}`,
+		`found=${stats.totalFound}, scraped=${stats.totalScraped}, saved=${stats.totalSaved}, skipped=${stats.totalSkipped}, sales=${stats.savedSales}, rentals=${stats.savedRentals}`,
+	);
+	
+	if (!isPartialRun) {
+		logger.step(`Updating remove status...`);
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 (async () => {
@@ -320,7 +363,7 @@ async function scrapePalmerPartners() {
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		logger.error(`Fatal error: ${err?.message || err}`);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

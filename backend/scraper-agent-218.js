@@ -1,29 +1,49 @@
 // Parry & Drewett scraper using Playwright with Crawlee
 // Agent ID: 218
 // Usage:
-// node backend/scraper-agent-218.js
+// node backend/scraper-agent-218.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
-const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 const {
 	isSoldProperty,
 	parsePrice,
+	formatPriceDisplay,
+	extractCoordinatesFromHTML,
 	extractBedroomsFromHTML,
 } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 218;
+const logger = createAgentLogger(AGENT_ID);
 
-const stats = {
+const counts = {
+	totalFound: 0,
 	totalScraped: 0,
 	totalSaved: 0,
+	totalSkipped: 0,
 	savedSales: 0,
 	savedRentals: 0,
 };
 
 const processedUrls = new Set();
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getStartPage() {
+	const value = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
+	if (!Number.isFinite(value) || value < 1) return 1;
+	return Math.floor(value);
+}
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -60,18 +80,11 @@ function getBrowserlessEndpoint() {
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
+async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
@@ -98,8 +111,6 @@ async function scrapePropertyDetail(browserContext, property) {
 					.map((a) => {
 						const match = a.getAttribute("href").match(/'([^']+)'\s*,\s*'([^']+)'/);
 						if (match) {
-							// Expert Agent floorplan URL pattern:
-							// showFloorPlan.aspx?aid={aid}&pid={pid}
 							return `http://powering2.expertagent.co.uk/Candidate/showFloorPlan.aspx?aid=${match[1]}&pid=${match[2]}`;
 						}
 						return null;
@@ -138,8 +149,7 @@ async function scrapePropertyDetail(browserContext, property) {
 		});
 
 		if (detailData.error) {
-			console.log(` Error on detail page: ${detailData.error}`);
-			await detailPage.close();
+			logger.warn(`Error on detail page: ${detailData.error}`);
 			return;
 		}
 
@@ -147,7 +157,6 @@ async function scrapePropertyDetail(browserContext, property) {
 		let longitude = detailData.longitude;
 
 		if (latitude === null || longitude === null) {
-			const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 			const coords = await extractCoordinatesFromHTML(detailData.html);
 			latitude = coords.latitude;
 			longitude = coords.longitude;
@@ -157,14 +166,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			let mapPage;
 			try {
 				mapPage = await browserContext.newPage();
-				await mapPage.route("**/*", (route) => {
-					const resourceType = route.request().resourceType();
-					if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-						route.abort();
-					} else {
-						route.continue();
-					}
-				});
+				await blockNonEssentialResources(mapPage);
 
 				await mapPage.goto(detailData.mapUrl, {
 					waitUntil: "domcontentloaded",
@@ -185,31 +187,30 @@ async function scrapePropertyDetail(browserContext, property) {
 					latitude = coords.latitude;
 					longitude = coords.longitude;
 				}
-			} catch (e) {
-				console.log(` Map lookup failed: ${e?.message || e}`);
+			} catch (err) {
+				logger.warn(`Map lookup failed: ${err?.message || err}`);
 			} finally {
 				if (mapPage) await mapPage.close();
 			}
 		}
 
-		const { processPropertyWithCoordinates } = require("./lib/db-helpers.js");
 		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
 			property.bedrooms,
 			AGENT_ID,
-			property.isRent,
+			isRental,
 			detailData.html,
 			latitude,
 			longitude,
 		);
 
-		stats.totalSaved++;
-		if (property.isRent) stats.savedRentals++;
-		else stats.savedSales++;
+		counts.totalSaved++;
+		if (isRental) counts.savedRentals++;
+		else counts.savedSales++;
 	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}`, error);
 	} finally {
 		await detailPage.close();
 	}
@@ -223,7 +224,9 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		sessionPoolOptions: { blockedStatusCodes: [] },
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
@@ -231,159 +234,226 @@ function createCrawler(browserWSEndpoint) {
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+
+				await page.setExtraHTTPHeaders({
+					"user-agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				});
+			},
+		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`Request ${request.url} failed too many times.`);
+			const { pageNum, label, isRental } = request.userData || {};
+			logger.error(`Failed listing page: ${request.url}`, null, pageNum, label);
 		},
 	});
 }
 
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
 async function handleListingPage({ page, request, crawler }) {
-	// isRent must come from userData, which is set at the start and passed through all crawler.addRequests
-	const isRent =
-		request.userData.isRent !== undefined
-			? request.userData.isRent
+	// isRental must come from userData
+	const isRental =
+		request.userData.isRental !== undefined
+			? request.userData.isRental
 			: request.url.includes("search-2") || request.url.includes("dep=2");
 
-	console.log(`\n🔍 Processing: ${request.url} (${isRent ? "Rent" : "Sale"})`);
+	const { pageNum = 1, label = "EXPERT_AGENT" } = request.userData || {};
+	logger.page(pageNum, label, request.url, null);
 
-	// Establish session if needed
-	if (request.url.includes("parryanddrewett.com")) {
-		await page.goto(request.url, { waitUntil: "domcontentloaded" });
-		// The Expert Agent search is in an iframe on the main site, but we can't easily interact with it across origins.
-		// So we'll navigate to the Expert Agent URL directly.
-		const iframeSrc = await page.evaluate(() => {
-			const iframe = document.querySelector("iframe");
-			return iframe ? iframe.src : null;
-		});
+	try {
+		// Establish session if needed
+		if (request.url.includes("parryanddrewett.com")) {
+			await page.goto(request.url, { waitUntil: "domcontentloaded" });
+			const iframeSrc = await page.evaluate(() => {
+				const iframe = document.querySelector("iframe");
+				return iframe ? iframe.src : null;
+			});
 
-		if (iframeSrc) {
-			console.log(` Found iframe: ${iframeSrc}`);
-			await crawler.addRequests([{ url: iframeSrc, userData: { isStart: true, isRent } }]);
-			return;
-		}
-	}
-
-	// Handle Expert Agent direct navigation
-	if (request.userData.isStart) {
-		console.log(` Establishing session on Expert Agent...`);
-		await page.goto(request.url, { waitUntil: "domcontentloaded" });
-
-		// Wait for Search button
-		const searchBtn = page.getByRole("button", { name: "Search", exact: true });
-		if ((await searchBtn.count()) > 0) {
-			await searchBtn.click();
-			await page.waitForLoadState("domcontentloaded");
-		}
-	}
-
-	// Now we should be on the results page
-	await page.waitForTimeout(2000);
-
-	const properties = await page.evaluate((isRent) => {
-		const items = Array.from(document.querySelectorAll("ul[id*='List'] li, .propertyListItem"));
-		return items.map((item) => {
-			const linkEl = item.querySelector("a[href*='propertyDetails2.aspx']");
-			const titleEl = item.querySelector(
-				".propListItemTemplateAdvertHeader, div[id*='lblAddress'], .propertyAddress",
-			);
-			const priceEl = item.querySelector(
-				".propListItemTemplatePriceText, div[id*='lblPrice'], .propertyPrice",
-			);
-			const statusEl = item.querySelector(
-				".propListItemTemplatePriority, div[id*='lblStatus'], .propertyStatus",
-			);
-			const descriptionEl = item.querySelector(".propListItemTemplateDescription");
-
-			const href = linkEl ? linkEl.getAttribute("href") : null;
-			const link = href ? new URL(href, window.location.href).href : null;
-			const title = titleEl ? titleEl.innerText.trim() : "";
-			const priceText = priceEl ? priceEl.innerText.trim() : "";
-			const status = statusEl ? statusEl.innerText.trim() : "";
-			const description = descriptionEl ? descriptionEl.innerText.trim() : "";
-
-			return { link, title, priceText, status, description, isRent };
-		});
-	}, isRent);
-
-	console.log(` Found ${properties.length} properties on page`);
-
-	for (const property of properties) {
-		if (!property.link || processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
-
-		if (isSoldProperty(property.status)) {
-			console.log(` Skipping sold/let property: ${property.title}`);
-			continue;
-		}
-
-		const priceNum = parsePrice(property.priceText);
-		if (priceNum === null) {
-			console.log(` Skipping (no price): ${property.link}`);
-			continue;
-		}
-
-		const bedrooms = extractBedroomsFromHTML(`${property.title} ${property.description || ""}`);
-
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			priceNum,
-			property.title,
-			bedrooms,
-			AGENT_ID,
-			isRent,
-		);
-
-		if (result.isExisting) {
-			stats.totalScraped++;
-			continue;
-		}
-
-		await scrapePropertyDetail(page.context(), {
-			...property,
-			price: priceNum,
-			bedrooms: bedrooms,
-		});
-		stats.totalScraped++;
-	}
-
-	// Handle pagination
-	const nextLink = await page.evaluate(() => {
-		const next = document.querySelector("a[id*='lnkNext']");
-		if (next) return next.href;
-
-		const allLinks = Array.from(document.querySelectorAll("a"));
-		const nextByText = allLinks.find((a) => a.innerText.toLowerCase().includes("next page"));
-		return nextByText ? nextByText.href : null;
-	});
-
-	if (nextLink && !nextLink.includes("javascript:")) {
-		console.log(` Found next page link: ${nextLink}`);
-		await crawler.addRequests([{ url: nextLink, userData: { isRent } }]);
-	} else if (nextLink && nextLink.includes("javascript:")) {
-		// Some Expert Agent sites use __doPostBack
-		console.log(` Found JS pagination. Clicking Next...`);
-		try {
-			const nextFound = (await page.locator("a[id*='lnkNext']").count()) > 0;
-			if (nextFound) {
-				await page.click("a[id*='lnkNext']");
-			} else {
-				await page.click("text=Next Page");
+			if (iframeSrc) {
+				logger.page(pageNum, label, `Found iframe: ${iframeSrc}`, null);
+				await crawler.addRequests([{ url: iframeSrc, userData: { isStart: true, isRental } }]);
+				return;
 			}
-			await page.waitForLoadState("domcontentloaded");
-			await page.waitForTimeout(1000);
-			// After click, the URL might not change, but content does.
-			// We should re-trigger the handler's logic.
-			// In Crawlee, we can't easily "re-run" the same request handler on the same page state without adding a new request.
-			// But we can just loop here or add a dummy request.
-			// For simplicity, let's see if we can get a direct URL from the page.
-			const currentUrl = page.url();
-			await crawler.addRequests([
-				{ url: currentUrl, uniqueKey: Math.random().toString(), userData: { isRent } },
-			]);
-		} catch (e) {
-			console.log(` Failed to click next: ${e.message}`);
 		}
+
+		// Handle Expert Agent direct navigation
+		if (request.userData.isStart) {
+			logger.page(pageNum, label, `Establishing session on Expert Agent...`, null);
+			await page.goto(request.url, { waitUntil: "domcontentloaded" });
+
+			const searchBtn = page.getByRole("button", { name: "Search", exact: true }).first();
+			if ((await searchBtn.count()) > 0) {
+				await searchBtn.click();
+				await page.waitForLoadState("domcontentloaded");
+			}
+		}
+
+		// Now we should be on the results page
+		await page.waitForTimeout(2000);
+
+		const properties = await page.evaluate((isRental) => {
+			const items = Array.from(document.querySelectorAll("ul[id*='List'] li, .propertyListItem"));
+			return items.map((item) => {
+				const linkEl = item.querySelector("a[href*='propertyDetails2.aspx']");
+				const titleEl = item.querySelector(
+					".propListItemTemplateAdvertHeader, div[id*='lblAddress'], .propertyAddress",
+				);
+				const priceEl = item.querySelector(
+					".propListItemTemplatePriceText, div[id*='lblPrice'], .propertyPrice",
+				);
+				const statusEl = item.querySelector(
+					".propListItemTemplatePriority, div[id*='lblStatus'], .propertyStatus",
+				);
+				const descriptionEl = item.querySelector(".propListItemTemplateDescription");
+
+				const href = linkEl ? linkEl.getAttribute("href") : null;
+				const link = href ? new URL(href, window.location.href).href : null;
+				const title = titleEl ? titleEl.innerText.trim() : "";
+				const priceText = priceEl ? priceEl.innerText.trim() : "";
+				const status = statusEl ? statusEl.innerText.trim() : "";
+				const description = descriptionEl ? descriptionEl.innerText.trim() : "";
+
+				return { link, title, priceText, status, description, isRental };
+			});
+		}, isRental);
+
+		logger.page(pageNum, label, `Found ${properties.length} properties`, null);
+
+		for (const property of properties) {
+			if (!property.link || processedUrls.has(property.link)) continue;
+			processedUrls.add(property.link);
+
+			counts.totalFound++;
+
+			// Skip sold properties
+			if (isSoldProperty(property.status)) {
+				logger.property(
+					pageNum,
+					label,
+					property.title.substring(0, 40),
+					formatPriceDisplay(null, isRental),
+					property.link,
+					isRental,
+					null,
+					"SKIPPED",
+				);
+				counts.totalSkipped++;
+				continue;
+			}
+
+			const price = parsePrice(property.priceText);
+			if (price === null) {
+				counts.totalSkipped++;
+				continue;
+			}
+
+			const bedrooms = extractBedroomsFromHTML(`${property.title} ${property.description || ""}`);
+
+			const result = await updatePriceByPropertyURLOptimized(
+				property.link,
+				price,
+				property.title,
+				bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			let action = "UNCHANGED";
+
+			if (result.updated) {
+				action = "UPDATED";
+				counts.totalSaved++;
+				counts.totalScraped++;
+				if (isRental) counts.savedRentals++;
+				else counts.savedSales++;
+			}
+
+			// If new property, scrape full details immediately
+			if (!result.isExisting && !result.error) {
+				action = "CREATED";
+				await scrapePropertyDetail(page.context(), 
+					{
+						...property,
+						price,
+						bedrooms,
+					},
+					isRental
+				);
+				counts.totalScraped++;
+			} else if (result.error) {
+				action = "ERROR";
+				counts.totalSkipped++;
+			} else if (result.isExisting) {
+				counts.totalScraped++;
+			}
+
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(price, isRental),
+				property.link,
+				isRental,
+				null,
+				action,
+			);
+
+			if (action !== "UNCHANGED") {
+				await sleep(500);
+			}
+		}
+
+		// Handle pagination
+		const nextLink = await page.evaluate(() => {
+			const next = document.querySelector("a[id*='lnkNext']");
+			if (next) return next.href;
+
+			const allLinks = Array.from(document.querySelectorAll("a"));
+			const nextByText = allLinks.find((a) => a.innerText.toLowerCase().includes("next page"));
+			return nextByText ? nextByText.href : null;
+		});
+
+		if (nextLink && !nextLink.includes("javascript:")) {
+			logger.page(pageNum, label, `Found next page link: ${nextLink}`, null);
+			await crawler.addRequests([
+				{ url: nextLink, userData: { isRental, pageNum: pageNum + 1, label } },
+			]);
+		} else if (nextLink && nextLink.includes("javascript:")) {
+			logger.page(pageNum, label, `Found JS pagination. Clicking Next...`, null);
+			try {
+				const nextFound = (await page.locator("a[id*='lnkNext']").count()) > 0;
+				if (nextFound) {
+					await page.click("a[id*='lnkNext']");
+				} else {
+					await page.click("text=Next Page");
+				}
+				await page.waitForLoadState("domcontentloaded");
+				await page.waitForTimeout(1000);
+
+				const currentUrl = page.url();
+				await crawler.addRequests([
+					{
+						url: currentUrl,
+						uniqueKey: Math.random().toString(),
+						userData: { isRental, pageNum: pageNum + 1, label },
+					},
+				]);
+			} catch (e) {
+				logger.warn(`Failed to click next: ${e.message}`);
+			}
+		}
+	} catch (error) {
+		logger.error(`Error processing page ${pageNum} for ${label}`, error);
 	}
 }
 
@@ -392,28 +462,50 @@ async function handleListingPage({ page, request, crawler }) {
 // ============================================================================
 
 (async () => {
-	console.log(`\n🚀 Starting scraper for Agent ${AGENT_ID} (Parry & Drewett)`);
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	const crawler = createCrawler(browserWSEndpoint);
+	try {
+		logger.step(`Starting Parry & Drewett scraper (Agent ${AGENT_ID})...`);
 
-	await crawler.run([
-		{
-			url: "http://www.parryanddrewett.com/index.php?page=property-search",
-			userData: { isRent: false },
-		},
-		{
-			url: "http://www.parryanddrewett.com/index.php?page=property-search-2",
-			userData: { isRent: true },
-		},
-	]);
+		const startPage = getStartPage();
+		const isPartialRun = startPage > 1;
+		const scrapeStartTime = new Date();
 
-	await updateRemoveStatus(AGENT_ID);
+		if (isPartialRun) {
+			logger.step(
+				`Partial run detected (startPage=${startPage}). Remove status update will be skipped.`,
+			);
+		}
 
-	console.log(`\n✨ Scraping complete for Agent ${AGENT_ID}`);
-	console.log(`📊 Stats:`);
-	console.log(`   - Total Scraped: ${stats.totalScraped}`);
-	console.log(
-		`   - Total Saved:   ${stats.totalSaved} (Sales: ${stats.savedSales}, Rentals: ${stats.savedRentals})`,
-	);
-	process.exit(0);
+		const browserWSEndpoint = getBrowserlessEndpoint();
+		logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+
+		const crawler = createCrawler(browserWSEndpoint);
+
+		await crawler.run([
+			{
+				url: "http://www.parryanddrewett.com/index.php?page=property-search",
+				userData: { isRental: false, pageNum: 1, label: "SALES" },
+			},
+			{
+				url: "http://www.parryanddrewett.com/index.php?page=property-search-2",
+				userData: { isRental: true, pageNum: 1, label: "RENTALS" },
+			},
+		]);
+
+		logger.step(
+			`Completed Parry & Drewett - Found: ${counts.totalFound}, Scraped: ${counts.totalScraped}, Saved: ${counts.totalSaved}, Skipped: ${counts.totalSkipped}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
+		);
+
+		if (!isPartialRun) {
+			logger.step("Updating remove status...");
+			await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+		} else {
+			logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+		}
+
+		logger.step("All done!");
+		process.exit(0);
+	} catch (err) {
+		logger.error("Fatal error", err);
+		process.exit(1);
+	}
 })();

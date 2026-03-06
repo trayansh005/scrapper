@@ -101,7 +101,7 @@ async function extractCoordinatesFromHTML(html) {
 		}
 
 		// Try Snellers pattern first: data-lat and data-lng attributes
-		const snellersMatch = html.match(/data-lat="([0-9.-]+)"[\s\S]*?data-lng="([0-9.-]+)"/);
+		const snellersMatch = html.match(/data-lat=["']?([0-9.-]+)["']?[\s\S]*?data-lng=["']?([0-9.-]+)["']?/);
 		if (snellersMatch) {
 			latitude = parseFloat(snellersMatch[1]);
 			longitude = parseFloat(snellersMatch[2]);
