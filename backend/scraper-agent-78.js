@@ -35,14 +35,23 @@ const counts = {
 
 const PROPERTY_TYPES = [
 	{
-		urlBase: "https://robertholmes.co.uk/search/page/",
+		urlBase: "https://robertholmes.co.uk/selling-services/",
+		params: "?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_bedrooms&property_type",
+		totalPages: 2,
+		recordsPerPage: 12,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		urlBase: "https://robertholmes.co.uk/landlords-services/",
 		params:
 			"?address_keyword&department=residential-lettings&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&availability=6",
 		totalPages: 2,
 		recordsPerPage: 12,
 		isRental: true,
 		label: "LETTINGS",
-	},
+	}
+
 ];
 
 // ============================================================================
@@ -55,7 +64,7 @@ async function handleListingPage({ page, request }) {
 
 	try {
 		// Wait for page content to populate
-		await page.waitForTimeout(1500);
+		await page.waitForTimeout(2000);
 		await page
 			.waitForSelector(".grid-box-card", { timeout: 20000 })
 			.catch(() => {
@@ -128,7 +137,7 @@ async function handleListingPage({ page, request }) {
 			const detailPage = await page.context().newPage();
 			try {
 				await detailPage.goto(property.link, {
-					waitUntil: "domcontentloaded",
+					waitUntil: "load",
 					timeout: 30000,
 				});
 				await detailPage.waitForTimeout(500);
@@ -286,10 +295,18 @@ function createCrawler() {
 		maxRequestRetries: 2,
 		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
-		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
-		launchContext: {
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+
+				await page.setExtraHTTPHeaders({
+					"user-agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				});
+			},
+		], launchContext: {
 			launchOptions: {
-				headless: true,
+				headless: false,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
