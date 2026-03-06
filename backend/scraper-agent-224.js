@@ -57,16 +57,25 @@ function getBrowserlessEndpoint() {
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
-	let coords = { latitude: null, longitude: null };
+	let coords = { latitude: null, longitude: null, bedrooms: property.bedrooms };
 
 	try {
 		await blockNonEssentialResources(detailPage);
 		await detailPage.goto(property.link, { waitUntil: "domcontentloaded", timeout: 40000 });
 		await detailPage.waitForTimeout(1000);
 
-		const detailCoords = await detailPage.evaluate(() => {
+		const detailData = await detailPage.evaluate(() => {
 			let lat = null,
 				lng = null;
+			let bedrooms = null;
+
+			// Try to extract bedrooms from page text
+			const pageText = document.body.innerText || "";
+			const bedroomsMatch = pageText.match(/(\d+)\s*bedroom/i);
+			if (bedroomsMatch) {
+				bedrooms = parseInt(bedroomsMatch[1], 10);
+			}
+
 			const scripts = Array.from(
 				document.querySelectorAll('script[type="application/ld+json"]'),
 			);
@@ -98,12 +107,15 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 					}
 				}
 			}
-			return { lat, lng };
+			return { lat, lng, bedrooms };
 		});
 
-		if (detailCoords.lat) {
-			coords.latitude = parseFloat(detailCoords.lat);
-			coords.longitude = parseFloat(detailCoords.lng);
+		if (detailData.lat) {
+			coords.latitude = parseFloat(detailData.lat);
+			coords.longitude = parseFloat(detailData.lng);
+		}
+		if (detailData.bedrooms) {
+			coords.bedrooms = detailData.bedrooms;
 		}
 	} catch (err) {
 		logger.error(`Error scraping detail page ${property.link}`, err);
@@ -250,7 +262,7 @@ async function handleListingPage({ page, request }) {
 					property.link,
 					priceNum,
 					property.title,
-					property.bedrooms,
+					coords.bedrooms,
 					AGENT_ID,
 					isRental,
 					null,

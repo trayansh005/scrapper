@@ -1,0 +1,9 @@
+{
+	"id": "O47D2KFQ4fV5n3d",
+	"json": "{\"id\":\"O47D2KFQ4fV5n3d\",\"url\":\"https://www.taylforths.co.uk/find-a-property/page/1/?address_keyword&radius=20&minimum_bedrooms&maximum_rent&maximum_price&department=residential-sales\",\"loadedUrl\":\"https://www.taylforths.co.uk/find-a-property/?address_keyword&radius=20&minimum_bedrooms&maximum_rent&maximum_price&department=residential-sales\",\"uniqueKey\":\"https://www.taylforths.co.uk/find-a-property/page/1?address_keyword=&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&radius=20\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":5,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-06T07:20:20.018Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.taylforths.co.uk/find-a-property/page/1?address_keyword=&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&radius=20",
+	"url": "https://www.taylforths.co.uk/find-a-property/page/1/?address_keyword&radius=20&minimum_bedrooms&maximum_rent&maximum_price&department=residential-sales"
+}

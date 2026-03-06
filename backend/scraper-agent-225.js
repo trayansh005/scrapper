@@ -66,11 +66,22 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		});
 		const htmlContent = await detailPage.content();
 
+		// Extract bedrooms from detail page if not available from list
+		const detailBedroomData = await detailPage.evaluate(() => {
+			const pageText = document.body.innerText || "";
+			const bedroomsMatch = pageText.match(/(\d+)\s*bedroom/i);
+			return {
+				bedrooms: bedroomsMatch ? parseInt(bedroomsMatch[1], 10) : null,
+			};
+		});
+
+		const finalBedrooms = property.bedrooms || detailBedroomData.bedrooms;
+
 		await processPropertyWithCoordinates(
 			property.link.trim(),
 			property.priceNum,
 			property.title,
-			property.bedrooms,
+			finalBedrooms,
 			AGENT_ID,
 			isRental,
 			htmlContent,
@@ -123,6 +134,33 @@ async function handleListingPage({ page, request }) {
 		await page.waitForTimeout(2000);
 		await page.waitForSelector("li.type-property", { timeout: 20000 }).catch(() => {
 			logger.warn(`No listing container found on page ${pageNum}`);
+		});
+
+		// Extract properties from listing page
+		const properties = await page.evaluate(() => {
+			try {
+				const cards = Array.from(document.querySelectorAll("li.type-property"));
+				return cards
+					.map((card) => {
+						const linkEl = card.querySelector("h3 a, a.property-card-link");
+						const link = linkEl ? linkEl.href : null;
+						const title = linkEl ? linkEl.innerText.trim() : "";
+
+						const priceEl = card.querySelector(".price, .property-price");
+						const rawPrice = priceEl ? priceEl.innerText.trim() : "";
+
+						const detailsText = card.innerText || "";
+						const bedroomsMatch = detailsText.match(/(\d+)\s*bedroom/i);
+						const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1], 10) : null;
+
+						const statusText = detailsText;
+
+						return { link, title, rawPrice, bedrooms, statusText };
+					})
+					.filter((p) => p.link);
+			} catch (e) {
+				return [];
+			}
 		});
 
 		logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);

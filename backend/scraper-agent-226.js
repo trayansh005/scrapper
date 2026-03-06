@@ -52,62 +52,6 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await blockNonEssentialResources(detailPage);
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 40000,
-		});
-		const htmlContent = await detailPage.content();
-
-		const propData = await detailPage.evaluate(() => {
-			const data = { lat: null, lng: null, bedrooms: null };
-			const bedsInput = document.querySelector('input[name="beds"]');
-			if (bedsInput) data.bedrooms = bedsInput.value;
-			const allHiddenInputs = Array.from(
-				document.querySelectorAll('input[type="hidden"]'),
-			);
-			for (const input of allHiddenInputs) {
-				const val = input.value?.trim() || "";
-				if (val.startsWith("[") && val.includes('"lat"') && val.includes('"lng"')) {
-					try {
-						const coords = JSON.parse(val);
-						if (coords?.[0]) {
-							data.lat = coords[0].lat;
-							data.lng = coords[0].lng;
-							if (!data.bedrooms && coords[0].beds) data.bedrooms = coords[0].beds;
-						}
-					} catch (e) {}
-				}
-			}
-			return data;
-		});
-
-		await processPropertyWithCoordinates(
-			property.link.trim(),
-			property.priceNum,
-			property.title,
-			propData.bedrooms,
-			AGENT_ID,
-			isRental,
-			htmlContent,
-			propData.lat,
-			propData.lng,
-		);
-	} catch (err) {
-		logger.error(`Error scraping detail page ${property.link}`, err);
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
 // CRAWLER CONFIGURATION
 // ============================================================================
 
@@ -213,7 +157,9 @@ async function handleListingPage({ page, request, crawler }) {
 				continue;
 			}
 
-			const result = await updatePriceByPropertyURLOptimized(
+			// For new properties, scrape details first to get bedrooms and coordinates
+			let propData = { bedrooms: null, lat: null, lng: null };
+			const propExists = await updatePriceByPropertyURLOptimized(
 				property.link.trim(),
 				priceNum,
 				property.title,
@@ -223,25 +169,73 @@ async function handleListingPage({ page, request, crawler }) {
 			);
 
 			let action = "UNCHANGED";
-			if (result.updated) {
+
+			if (!propExists.isExisting && !propExists.error) {
+				// Property is new - scrape details to get full data
+				const detailPage = await page.context().newPage();
+				try {
+					await blockNonEssentialResources(detailPage);
+					await detailPage.goto(property.link, {
+						waitUntil: "domcontentloaded",
+						timeout: 40000,
+					});
+
+					const propDataRaw = await detailPage.evaluate(() => {
+						const data = { lat: null, lng: null, bedrooms: null };
+						const bedsInput = document.querySelector('input[name="beds"]');
+						if (bedsInput) data.bedrooms = bedsInput.value;
+						const allHiddenInputs = Array.from(
+							document.querySelectorAll('input[type="hidden"]'),
+						);
+						for (const input of allHiddenInputs) {
+							const val = input.value?.trim() || "";
+							if (val.startsWith("[") && val.includes('"lat"') && val.includes('"lng"')) {
+								try {
+									const coords = JSON.parse(val);
+									if (coords?.[0]) {
+										data.lat = coords[0].lat;
+										data.lng = coords[0].lng;
+										if (!data.bedrooms && coords[0].beds) data.bedrooms = coords[0].beds;
+									}
+								} catch (e) {}
+							}
+						}
+						return data;
+					});
+
+					const htmlContent = await detailPage.content();
+					propData = propDataRaw;
+
+					// Create the new property with full details including coordinates
+					await processPropertyWithCoordinates(
+						property.link.trim(),
+						priceNum,
+						property.title,
+						propData.bedrooms,
+						AGENT_ID,
+						isRental,
+						htmlContent,
+						propData.lat,
+						propData.lng,
+					);
+
+					action = "CREATED";
+					counts.totalSaved++;
+					if (isRental) counts.savedRentals++;
+					else counts.savedSales++;
+				} catch (err) {
+					logger.error(`Error scraping detail for new property ${property.link}`, err);
+					action = "ERROR";
+					counts.totalSkipped++;
+				} finally {
+					await detailPage.close();
+				}
+			} else if (propExists.updated) {
 				action = "UPDATED";
 				counts.totalSaved++;
 				if (isRental) counts.savedRentals++;
 				else counts.savedSales++;
-			} else if (!result.isExisting && !result.error) {
-				action = "CREATED";
-				await scrapePropertyDetail(
-					page.context(),
-					{
-						...property,
-						priceNum,
-					},
-					isRental,
-				);
-				counts.totalSaved++;
-				if (isRental) counts.savedRentals++;
-				else counts.savedSales++;
-			} else if (result.error) {
+			} else if (propExists.error) {
 				action = "ERROR";
 				counts.totalSkipped++;
 			}

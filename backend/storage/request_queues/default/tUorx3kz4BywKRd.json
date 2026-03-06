@@ -1,9 +1,0 @@
-{
-	"id": "tUorx3kz4BywKRd",
-	"json": "{\"id\":\"tUorx3kz4BywKRd\",\"url\":\"https://robertholmes.co.uk/search/page/3/?address_keyword=&department=residential-sales&availability=2\",\"loadedUrl\":\"https://robertholmes.co.uk/search/page/3/?address_keyword&department=residential-sales&availability=2\",\"uniqueKey\":\"https://robertholmes.co.uk/search/page/3?address_keyword=&availability=2&department=residential-sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"totalPages\":10,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-06T06:46:29.681Z\"}",
-	"method": "GET",
-	"orderNo": null,
-	"retryCount": 0,
-	"uniqueKey": "https://robertholmes.co.uk/search/page/3?address_keyword=&availability=2&department=residential-sales",
-	"url": "https://robertholmes.co.uk/search/page/3/?address_keyword=&department=residential-sales&availability=2"
-}
