@@ -6,11 +6,14 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
-const { isSoldProperty } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 245;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -29,10 +32,7 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function formatPriceDisplay(price, isRental) {
-	if (!price) return isRental ? "£0 pcm" : "£0";
-	return `£${price}${isRental ? " pcm" : ""}`;
-}
+// Redundant local function removed, now using property-helpers.js version
 
 // ============================================================================
 // BROWSERLESS SETUP
@@ -49,7 +49,7 @@ function getBrowserlessEndpoint() {
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
+async function scrapePropertyDetail(browserContext, property, isRental) {
 	await sleep(800);
 
 	const detailPage = await browserContext.newPage();
@@ -184,7 +184,7 @@ async function scrapePropertyDetail(browserContext, property) {
 			},
 		};
 	} catch (error) {
-		console.log(` Error scraping detail page ${property.link}: ${error.message}`);
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
 		return null;
 	} finally {
 		await detailPage.close();
@@ -196,18 +196,20 @@ async function scrapePropertyDetail(browserContext, property) {
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(` [${label}] Page ${pageNum} - ${request.url}`);
+	const { pageNum, totalPages, isRental, label } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
-	await page
-		.waitForSelector("a[href*='/property/']", { timeout: 30000 })
-		.catch(() => console.log(` No properties found on page ${pageNum}`));
+	try {
+		await page.waitForSelector("a[href*='/property/']", { timeout: 15000 });
+	} catch (e) {
+		logger.warn(`No property links found on page ${pageNum} - attempting fallback`, pageNum, label);
+	}
 
 	const properties = await page.evaluate(() => {
 		try {
-			const items = Array.from(document.querySelectorAll("a[href*='/property/']"));
-			const seenLinks = new Set();
 			const results = [];
+			const seenLinks = new Set();
+			const items = Array.from(document.querySelectorAll("a[href*='/property/']"));
 
 			for (const el of items) {
 				let href = el.getAttribute("href");
@@ -223,8 +225,11 @@ async function handleListingPage({ page, request }) {
 				const title =
 					container.querySelector("h2, h3, .address")?.textContent?.trim() || "Property";
 				const statusText = container.innerText || "";
+				
+				const priceText = container.querySelector(".property-price, .asking-price, h3.price")?.textContent?.trim() || "";
+				const bedText = container.innerText || "";
 
-				results.push({ link, title, statusText });
+				results.push({ link, title, statusText, priceText, bedText });
 			}
 
 			return results;
@@ -233,65 +238,96 @@ async function handleListingPage({ page, request }) {
 		}
 	});
 
-	console.log(` Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	for (const property of properties) {
-		if (!property.link) continue;
-		if (isSoldProperty(property.statusText || "")) continue;
+		try {
+			if (!property.link) continue;
 
-		if (processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
+			if (isSoldProperty(property.statusText || "")) continue;
 
-		const detail = await scrapePropertyDetail(page.context(), property);
-		if (!detail || !detail.price) {
-			console.log(` Skipping update (no price found): ${property.link}`);
-			continue;
-		}
+			if (processedUrls.has(property.link)) continue;
+			processedUrls.add(property.link);
 
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			detail.price,
-			detail.title,
-			detail.bedrooms,
-			AGENT_ID,
-			isRental,
-		);
+			const price = parsePrice(property.priceText);
+			let bedrooms = null;
+			const bedMatch = property.bedText.match(/(\d+)\s*Bed/i);
+			if (bedMatch) bedrooms = parseInt(bedMatch[1]);
 
-		let propertyAction = "UNCHANGED";
-		if (result.updated) {
-			stats.totalSaved++;
-			propertyAction = "UPDATED";
-		}
-
-		if (!result.isExisting && !result.error) {
-			await updatePriceByPropertyURL(
+			// 1. Try to update price first without visiting detail page
+			const result = await updatePriceByPropertyURLOptimized(
 				property.link.trim(),
-				detail.price,
-				detail.title,
-				detail.bedrooms,
+				price,
+				property.title,
+				bedrooms,
 				AGENT_ID,
 				isRental,
-				detail.coords.latitude,
-				detail.coords.longitude,
 			);
 
-			stats.totalSaved++;
-			stats.totalScraped++;
-			if (isRental) stats.savedRentals++;
-			else stats.savedSales++;
-			propertyAction = "CREATED";
-		}
+			let propertyAction = "UNCHANGED";
+			if (result.updated) {
+				stats.totalSaved++;
+				propertyAction = "UPDATED";
+			}
 
-		const categoryLabel = isRental ? "LETTINGS" : "SALES";
-		console.log(
-			` [${categoryLabel}] [${propertyAction}] ${detail.title.substring(0, 40)} - ${formatPriceDisplay(
-				detail.price,
+			let lat = null;
+			let lng = null;
+			let finalPrice = price;
+			let finalTitle = property.title;
+			let finalBedrooms = bedrooms;
+
+			// 2. Only visit detail page if property is NEW (to get coordinates)
+			if (!result.isExisting && !result.error) {
+				const detail = await scrapePropertyDetail(page.context(), property, isRental);
+
+				if (detail && detail.price) {
+					await updatePriceByPropertyURL(
+						property.link.trim(),
+						detail.price || price,
+						detail.title || property.title,
+						detail.bedrooms || bedrooms,
+						AGENT_ID,
+						isRental,
+						detail.coords.latitude,
+						detail.coords.longitude,
+					);
+
+					stats.totalSaved++;
+					stats.totalScraped++;
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
+					
+					propertyAction = "CREATED";
+					lat = detail.coords.latitude;
+					lng = detail.coords.longitude;
+					finalPrice = detail.price || price;
+					finalTitle = detail.title || property.title;
+					finalBedrooms = detail.bedrooms || bedrooms;
+				} else {
+					propertyAction = "ERROR";
+				}
+			} else if (result.error) {
+				propertyAction = "ERROR";
+			}
+
+			logger.property(
+				pageNum,
+				label,
+				finalTitle,
+				formatPriceDisplay(finalPrice, isRental),
+				property.link,
 				isRental,
-			)} - ${property.link}`,
-		);
+				totalPages,
+				propertyAction,
+				lat,
+				lng,
+			);
 
-		if (propertyAction !== "UNCHANGED") {
-			await sleep(500);
+			if (propertyAction !== "UNCHANGED") {
+				await sleep(500);
+			}
+		} catch (err) {
+			logger.error(`Error processing property ${property.link || "unknown"}: ${err.message}`, err, pageNum, label);
 		}
 	}
 }
@@ -312,9 +348,14 @@ function createCrawler(browserWSEndpoint) {
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -324,7 +365,8 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeBeresfords() {
-	console.log(`\n Starting Beresfords scraper (Agent ${AGENT_ID})...\n`);
+	const scrapeStartTime = new Date();
+	logger.step(`Starting Beresfords scraper (Agent ${AGENT_ID})...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -333,7 +375,7 @@ async function scrapeBeresfords() {
 	const totalLettingsPages = 10;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
 	const crawler = createCrawler(browserWSEndpoint);
 
@@ -347,8 +389,9 @@ async function scrapeBeresfords() {
 			url,
 			userData: {
 				pageNum: pg,
+				totalPages: totalSalesPages,
 				isRental: false,
-				label: `SALES_PAGE_${pg}`,
+				label: "SALES",
 			},
 		});
 	}
@@ -362,26 +405,32 @@ async function scrapeBeresfords() {
 				url,
 				userData: {
 					pageNum: pg,
+					totalPages: totalLettingsPages,
 					isRental: true,
-					label: `LETTINGS_PAGE_${pg}`,
+					label: "LETTINGS",
 				},
 			});
 		}
 	}
 
 	if (allRequests.length === 0) {
-		console.log(" No pages to scrape with current arguments.");
+		logger.step("No pages to scrape with current arguments.");
 		return;
 	}
 
-	console.log(` Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
 	await crawler.addRequests(allRequests);
 	await crawler.run();
 
-	console.log(
-		`\n Completed Beresfords - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Completed Beresfords - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+
+	if (startPage === 1) {
+		logger.step(`Updating remove status for Agent ${AGENT_ID}...`);
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.step("Partial run detected, skipping updateRemoveStatus.");
+	}
 }
 
 // ============================================================================
@@ -391,11 +440,10 @@ async function scrapeBeresfords() {
 (async () => {
 	try {
 		await scrapeBeresfords();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
+		logger.error(`Fatal error: ${err?.message || err}`);
 		process.exit(1);
 	}
 })();

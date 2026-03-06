@@ -11,17 +11,22 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty } = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 113;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
 };
+
+const processedUrls = new Set();
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -31,30 +36,11 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parsePrice(priceText) {
-	if (!priceText) return null;
-
-	// Extract everything before non-numeric text like "Asking price" or "Offers in excess of"
-	const match = priceText.match(/[£€$]\s*([\d,]+)/);
-	if (!match) {
-		const fallbackMatch = priceText.match(/([\d,]{4,})/);
-		if (fallbackMatch) {
-			const priceClean = fallbackMatch[1].replace(/,/g, "");
-			return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-		}
-		return null;
-	}
-
-	const priceClean = match[1].replace(/,/g, "");
-	return priceClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
 function parsePropertyCard($, element) {
 	try {
 		const $li = $(element);
 
 		// Check for "Sold" status in any badge or text
-		// Using the user-provided snippet indicator (bg-plum)
 		const soldBadgeText = $li.find(".bg-plum").text().trim();
 		if (soldBadgeText.toLowerCase().includes("sold")) return null;
 
@@ -67,8 +53,7 @@ function parsePropertyCard($, element) {
 		if (!h3.length || !h4.length) return null;
 
 		const title = h3.text().trim();
-		const priceAttr = h4.text().trim();
-		const price = parsePrice(priceAttr);
+		const priceText = h4.text().trim();
 
 		const linkRel = h3.find("a").attr("href") || $li.find("a").attr("href");
 		if (!linkRel) return null;
@@ -80,10 +65,11 @@ function parsePropertyCard($, element) {
 			specs.push($(specEl).text().trim());
 		});
 		const bedsMatch = specs.find((s) => /^\d+$/.test(s));
-		const bedrooms = bedsMatch || null;
+		const bedroomsValue = bedsMatch || null;
+		const bedrooms = bedroomsValue ? parseInt(bedroomsValue) : null;
 
 		if (link && title) {
-			return { link, title, price, bedrooms };
+			return { link, title, priceText, bedrooms };
 		}
 		return null;
 	} catch (error) {
@@ -126,59 +112,52 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
 	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 35000,
+			timeout: 60000,
 		});
 
-		const htmlContent = await detailPage.content();
-
-		const coords = await detailPage.evaluate(() => {
+		const detailData = await detailPage.evaluate(() => {
 			try {
+				let lat = null;
+				let lon = null;
 				// Check meta tags first
 				const latMeta = document.querySelector('meta[property="place:location:latitude"]');
 				const lonMeta = document.querySelector('meta[property="place:location:longitude"]');
 				if (latMeta && lonMeta) {
-					return { lat: parseFloat(latMeta.content), lon: parseFloat(lonMeta.content) };
+					lat = parseFloat(latMeta.content);
+					lon = parseFloat(lonMeta.content);
 				}
 
-				// Fallback to script data or regex
-				const html = document.documentElement.innerHTML;
-				const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
-				const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
-				if (latMatch && lonMatch) {
-					return { lat: parseFloat(latMatch[1]), lon: parseFloat(lonMatch[1]) };
+				if (!lat) {
+					const html = document.documentElement.innerHTML;
+					const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
+					const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
+					if (latMatch && lonMatch) {
+						lat = parseFloat(latMatch[1]);
+						lon = parseFloat(lonMatch[1]);
+					}
 				}
+				
+				return { lat, lon };
 			} catch (e) {}
 			return null;
 		});
 
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			htmlContent,
-			coords ? coords.lat : null,
-			coords ? coords.lon : null,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
+		return {
+			price: property.price,
+			bedrooms: property.bedrooms,
+			title: property.title,
+			coords: {
+				latitude: detailData?.lat || null,
+				longitude: detailData?.lon || null,
+			},
+		};
 	} catch (error) {
-		console.error(`❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		return null;
 	} finally {
 		await detailPage.close();
 	}
@@ -189,8 +168,8 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label } = request.userData;
-	console.log(`📋 [${label}] Page ${pageNum} - ${request.url}`);
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
 
 	// Handle cookie dismissal if present
 	const cookieButton = page.getByRole("button", { name: "Accept All Cookies" });
@@ -205,61 +184,82 @@ async function handleListingPage({ page, request, crawler }) {
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	for (const property of properties) {
-		// Skip properties with no price
-		if (!property.price || property.price === "0") {
-			console.log(`⏩ Skipping property (no price): ${property.title}`);
-			continue;
-		}
+		try {
+			// Skip properties with no price
+			const price = parsePrice(property.priceText);
+			if (!price || price === 0) continue;
 
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-		);
+			if (processedUrls.has(property.link)) continue;
+			processedUrls.add(property.link);
 
-		if (result.updated) {
-			stats.totalSaved++;
-		}
+			const result = await updatePriceByPropertyURLOptimized(
+				property.link.trim(),
+				price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
 
-		if (!result.isExisting && !result.error) {
-			console.log(`🆕 Scraping detail for new property: ${property.title}`);
-			await scrapePropertyDetail(page.context(), property, isRental);
-		}
-	}
-
-	// Dynamic Pagination
-	const nextButton = page.getByRole("button", { name: "Next" });
-	if ((await nextButton.isVisible()) && !(await nextButton.isDisabled())) {
-		const currentUrl = new URL(request.url);
-		let nextP = pageNum + 1;
-		currentUrl.searchParams.set("page", nextP.toString());
-
-		// Optional: Check total pages to avoid infinite loop if button stays visible
-		const paginationInfo = await page.evaluate(() => {
-			const el = document.querySelector('nav[aria-label="Pagination"] + div');
-			if (el) {
-				const match = el.innerText.match(/of\s+(\d+)/);
-				return match ? parseInt(match[1]) : 0;
+			let propertyAction = "UNCHANGED";
+			if (result.updated) {
+				stats.totalSaved++;
+				propertyAction = "UPDATED";
 			}
-			return 0;
-		});
 
-		const totalResults = paginationInfo;
-		const totalPages = Math.ceil(totalResults / 12); // Carter Jonas uses 12 per page
+			let lat = null;
+			let lng = null;
+			let finalPrice = price;
+			let finalTitle = property.title;
+			let finalBedrooms = property.bedrooms;
 
-		if (nextP <= totalPages) {
-			await crawler.addRequests([
-				{
-					url: currentUrl.toString(),
-					userData: { pageNum: nextP, isRental, label },
-				},
-			]);
+			if (!result.isExisting && !result.error) {
+				const detail = await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				if (detail) {
+					lat = detail.coords.latitude;
+					lng = detail.coords.longitude;
+					finalPrice = detail.price || price;
+					finalTitle = detail.title || property.title;
+					finalBedrooms = detail.bedrooms || property.bedrooms;
+
+					await processPropertyWithCoordinates(
+						property.link.trim(),
+						finalPrice,
+						finalTitle,
+						finalBedrooms,
+						AGENT_ID,
+						isRental,
+						null, // html
+						lat,
+						lng
+					);
+
+					stats.totalSaved++;
+					propertyAction = "CREATED";
+				}
+			}
+
+			logger.property(
+				pageNum,
+				label,
+				finalTitle,
+				formatPriceDisplay(finalPrice, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				propertyAction,
+				lat,
+				lng,
+			);
+
+			if (propertyAction !== "UNCHANGED") {
+				await sleep(500);
+			}
+		} catch (err) {
+			logger.error(`Error processing property ${property.link}: ${err.message}`, err, pageNum, label);
 		}
 	}
 }
@@ -272,16 +272,22 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 360,
+		requestHandlerTimeoutSecs: 600,
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -291,38 +297,57 @@ function createCrawler(browserWSEndpoint) {
 // ============================================================================
 
 async function scrapeCarterJonas() {
-	console.log(`\n🚀 Starting Carter Jonas scraper (Agent ${AGENT_ID})...\n`);
+	const scrapeStartTime = new Date();
+	logger.step(`Starting Carter Jonas scraper (Agent ${AGENT_ID})...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const maxPages = 50;
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [
-		{
-			url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=true&sortOrder=HighestPriceFirst&page=${startPage}`,
-			userData: { pageNum: startPage, isRental: false, label: "SALES" },
-		},
-		{
-			url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=false&sortOrder=HighestPriceFirst&page=${startPage}`,
-			userData: { pageNum: startPage, isRental: true, label: "RENTALS" },
-		},
-	];
+	const allRequests = [];
+	
+	// Queue SALES pages
+	for (let pg = Math.max(1, startPage); pg <= maxPages; pg++) {
+		allRequests.push({
+			url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=true&sortOrder=HighestPriceFirst&page=${pg}`,
+			userData: { pageNum: pg, isRental: false, label: "SALES", totalPages: maxPages },
+		});
+	}
+	
+	// Queue RENTALS pages
+	if (startPage === 1) {
+		for (let pg = 1; pg <= maxPages; pg++) {
+			allRequests.push({
+				url: `https://www.carterjonas.co.uk/property-search?division=Homes&area=GreaterLondon&toBuy=false&sortOrder=HighestPriceFirst&page=${pg}`,
+				userData: { pageNum: pg, isRental: true, label: "RENTALS", totalPages: maxPages },
+			});
+		}
+	}
 
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	if (allRequests.length > 0) {
+		logger.step(`Queueing ${allRequests.length} listing pages...`);
+		await crawler.addRequests(allRequests);
+		await crawler.run();
+	}
 
-	console.log(`\n✅ Finished - Scraped: ${stats.totalScraped}, Saved: ${stats.totalSaved}`);
+	logger.step(`Finished Carter Jonas - Saved: ${stats.totalSaved}`);
+	
+	if (startPage === 1) {
+		logger.step(`Updating remove status...`);
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	}
 }
 
 (async () => {
 	try {
 		await scrapeCarterJonas();
-		await updateRemoveStatus(AGENT_ID);
+		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err);
+		logger.error(`Fatal error: ${err?.message || err}`);
 		process.exit(1);
 	}
 })();

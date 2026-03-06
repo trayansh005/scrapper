@@ -1,145 +1,221 @@
-const { PlaywrightCrawler, Dataset } = require("crawlee");
+const { PlaywrightCrawler, Dataset, log } = require("crawlee");
 const cheerio = require("cheerio");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers");
 const { parsePrice } = require("./lib/property-helpers");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { updateRemoveStatus } = require("./db.js");
+
+log.setLevel(log.LEVELS.ERROR);
+
+const AGENT_ID = 27;
+const logger = createAgentLogger(AGENT_ID);
+
+const stats = {
+	totalScraped: 0,
+	totalSaved: 0,
+};
+
+const processedUrls = new Set();
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Scrapes coordinates and details from property page
+ */
+async function scrapePropertyDetail(browserContext, propertyUrl) {
+	const page = await browserContext.newPage();
+	await blockNonEssentialResources(page);
+	
+	try {
+		await page.goto(propertyUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+		await page.waitForTimeout(1000);
+		
+		const data = await page.evaluate(() => {
+			let lat = null;
+			let lon = null;
+			
+			try {
+				const jsonLDText = document.querySelector("script.yoast-schema-graph")?.textContent;
+				if (jsonLDText) {
+					const json = JSON.parse(jsonLDText);
+					const graph = json["@graph"] || [];
+					
+					let geoObj = graph.find(obj => 
+						obj["@type"] === "GeoCoordinates" || 
+						(Array.isArray(obj["@type"]) && obj["@type"].includes("GeoCoordinates"))
+					);
+					
+					if (!geoObj) {
+						const parentObj = graph.find(obj => obj.geo);
+						if (parentObj) geoObj = parentObj.geo;
+					}
+					
+					if (geoObj) {
+						lat = geoObj.latitude;
+						lon = geoObj.longitude;
+					}
+				}
+			} catch (e) {}
+			
+			return { lat, lon };
+		});
+		
+		return data;
+	} catch (e) {
+		logger.error(`Error scraping detail page ${propertyUrl}: ${e.message}`);
+		return null;
+	} finally {
+		await page.close();
+	}
+}
 
 async function run() {
-	console.log("Starting Agent 27: Livin Estate Agents...");
+	const scrapeStartTime = new Date();
+	logger.step(`Starting Agent ${AGENT_ID}: Frank Harris (via Livin Estate Agents structure)...`);
 
 	const crawler = new PlaywrightCrawler({
-		maxRequestsPerCrawl: 500,
-		requestHandlerTimeoutSecs: 60,
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 600,
+
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
 
 		async requestHandler({ page, request, enqueueLinks }) {
-			const url = request.url;
-			console.log(`Processing: ${url}`);
+			const { pageNum = 1, totalPages = 10, label = "LISTING" } = request.userData;
+			logger.page(pageNum, label, request.url, totalPages);
 
-			if (url.includes("/property-search/")) {
-				// Listing page
-				await page.waitForSelector("ul.properties li", { timeout: 10000 }).catch(() => null);
-				const content = await page.content();
-				const $ = cheerio.load(content);
+			await page.waitForSelector("ul.properties li", { timeout: 15000 }).catch(() => null);
+			
+			const content = await page.content();
+			const $ = cheerio.load(content);
 
-				const properties = [];
-				$("ul.properties li").each((i, el) => {
-					const $li = $(el);
-					const title = $li.find("h3.h4").text().trim() || $li.find("h3").text().trim();
-					const priceText = $li.find(".price").text().trim();
-					const price = parsePrice(priceText);
-					const link = $li.find("h3.h4 a, h3 a").attr("href");
-					const bedrooms = $li.find(".room-bedrooms .room-count").text().trim();
+			const rawProperties = [];
+			$("ul.properties li").each((i, el) => {
+				const $li = $(el);
+				const title = $li.find("h3.h4").text().trim() || $li.find("h3").text().trim();
+				const priceText = $li.find(".price").text().trim();
+				const price = parsePrice(priceText);
+				const link = $li.find("h3.h4 a, h3 a").attr("href");
+				const bedroomsText = $li.find(".room-bedrooms .room-count").text().trim();
+				const bedrooms = parseInt(bedroomsText) || null;
 
-					if (link && price > 0) {
-						const absoluteLink = link.startsWith("http")
-							? link
-							: `https://livinestateagents.co.uk${link}`;
-						properties.push({
-							title,
-							price,
-							url: absoluteLink,
-							bedrooms: parseInt(bedrooms) || null,
-							agentId: 27,
-						});
-					}
-				});
+				if (link && price > 0) {
+					const absoluteLink = link.startsWith("http") ? link : `https://livinestateagents.co.uk${link}`;
+					rawProperties.push({ title, price, url: absoluteLink, bedrooms });
+				}
+			});
 
-				console.log(`Found ${properties.length} valid properties on this page.`);
+			logger.page(pageNum, label, `Found ${rawProperties.length} properties`, totalPages);
 
-				for (const prop of properties) {
+			for (const prop of rawProperties) {
+				try {
+					if (processedUrls.has(prop.url)) continue;
+					processedUrls.add(prop.url);
+
+					// 1. Try optimized update
 					const result = await updatePriceByPropertyURLOptimized(
 						prop.url,
 						prop.price,
 						prop.title,
 						prop.bedrooms,
-						prop.agentId,
+						AGENT_ID,
+						false // isRental
 					);
-					// Only scrape detail page if property is new or price changed
-					if (!result.isExisting || result.updated) {
-						await enqueueLinks({
-							urls: [prop.url],
-							userData: { propertyData: prop },
-						});
+
+					let propertyAction = "UNCHANGED";
+					if (result.updated) {
+						stats.totalSaved++;
+						propertyAction = "UPDATED";
 					}
-				}
 
-				// Pagination
-				const nextLink = $("a.next.page-numbers").attr("href");
-				if (nextLink) {
-					await enqueueLinks({ urls: [nextLink] });
-				}
-			} else {
-				// Detail page
-				const propertyData = request.userData.propertyData;
-				const content = await page.content();
-				const $ = cheerio.load(content);
+					let lat = null;
+					let lon = null;
 
-				let lat = null;
-				let lon = null;
-
-				// Extract coordinates from Yoast JSON LD
-				try {
-					const jsonLDText = $("script.yoast-schema-graph").text();
-					if (jsonLDText) {
-						const data = JSON.parse(jsonLDText);
-						const graph = data["@graph"] || [];
-
-						// Look for GeoCoordinates object directly or inside another object
-						let geoObj = null;
-
-						// Search for an object that IS GeoCoordinates
-						geoObj = graph.find(
-							(obj) =>
-								obj["@type"] === "GeoCoordinates" ||
-								(Array.isArray(obj["@type"]) && obj["@type"].includes("GeoCoordinates")),
-						);
-
-						// If not found, look for an object that HAS a geo property
-						if (!geoObj) {
-							const parentObj = graph.find(
-								(obj) =>
-									obj.geo &&
-									(obj.geo["@type"] === "GeoCoordinates" ||
-										(Array.isArray(obj.geo["@type"]) &&
-											obj.geo["@type"].includes("GeoCoordinates"))),
+					// 2. Scrape detail only if NEW
+					if (!result.isExisting && !result.error) {
+						const detail = await scrapePropertyDetail(page.context(), prop.url);
+						if (detail) {
+							lat = detail.lat;
+							lon = detail.lon;
+							
+							await processPropertyWithCoordinates(
+								prop.url,
+								prop.price,
+								prop.title,
+								prop.bedrooms,
+								AGENT_ID,
+								false,
+								null,
+								lat,
+								lon
 							);
-							if (parentObj) geoObj = parentObj.geo;
-						}
-
-						if (geoObj) {
-							lat = geoObj.latitude;
-							lon = geoObj.longitude;
+							
+							stats.totalSaved++;
+							stats.totalScraped++;
+							propertyAction = "CREATED";
 						}
 					}
-				} catch (e) {
-					console.error(`Error parsing JSON LD for ${url}:`, e.message);
+
+					logger.property(
+						pageNum,
+						label,
+						prop.title,
+						`£${prop.price.toLocaleString()}`,
+						prop.url,
+						false,
+						totalPages,
+						propertyAction,
+						lat,
+						lon
+					);
+
+					if (propertyAction !== "UNCHANGED") {
+						await sleep(500);
+					}
+				} catch (err) {
+					logger.error(`Error processing property ${prop.url}: ${err.message}`);
 				}
+			}
 
-				console.log(`Extracted coords for ${url}: ${lat}, ${lon}`);
-
-				await processPropertyWithCoordinates(
-					url,
-					propertyData.price,
-					propertyData.title,
-					propertyData.bedrooms,
-					propertyData.agentId,
-					false, // isRent
-					null, // html
-					lat,
-					lon,
-				);
+			// Pagination
+			const nextLink = $("a.next.page-numbers").attr("href");
+			if (nextLink) {
+				await enqueueLinks({
+					urls: [nextLink],
+					userData: {
+						pageNum: pageNum + 1,
+						totalPages,
+						label: "LISTING",
+					},
+				});
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`Request ${request.url} failed.`);
+			logger.error(`Request ${request.url} failed.`);
 		},
 	});
 
-	await crawler.run(["https://livinestateagents.co.uk/property-search/"]);
-	console.log("Agent 27 completed.");
+	await crawler.run([
+		{
+			url: "https://livinestateagents.co.uk/property-search/",
+			userData: { pageNum: 1, totalPages: 10, label: "LISTING" },
+		},
+	]);
+
+	logger.step(`Agent ${AGENT_ID} completed. Total Saved: ${stats.totalSaved}`);
+	logger.step(`Updating remove status...`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 if (require.main === module) {
@@ -150,3 +226,4 @@ if (require.main === module) {
 }
 
 module.exports = { run };
+

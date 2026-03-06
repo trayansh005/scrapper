@@ -43,9 +43,8 @@ Agent `4` is the baseline implementation style.
    - Skip the sleep for `UNCHANGED` and `UPDATED` records to allow the scraper to rapidly skip through thousands of known properties while remaining polite during full detail scrapes.
 6. **Data flow**
    - For each listing:
-     - Call `updatePriceByPropertyURLOptimized(...)` first.
-     - If not existing, scrape detail (if missing coordinates) and call `processPropertyWithCoordinates(...)`.
-   - **JSON-based extraction skip**: If coordinates and bedrooms are available in the JSON payload, call `processPropertyWithCoordinates(...)` directly for new records and skip the detail page entirely.
+     - **Detail Page Optimization**: Only visit the property detail page for **new** properties (specifically to extract coordinates). For existing properties, skip the detail page load entirely if the price can be updated from the listing page results.
+    - **JSON-based extraction skip**: If coordinates and bedrooms are available in the JSON payload, call `processPropertyWithCoordinates(...)` directly for new records and skip the detail page entirely.
 7. **Enhanced Remove-Status Strategy**
    - **Full Scrape**: Capture `scrapeStartTime` at the start of the execution.
    - **Safety Window**: Pass `scrapeStartTime` to `updateRemoveStatus(agentId, scrapeStartTime)`. This ensures only records NOT updated during THIS specific run are flagged as removed.

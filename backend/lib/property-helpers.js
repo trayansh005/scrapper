@@ -29,10 +29,13 @@ function isSoldProperty(text) {
  * @returns {number|null} - The parsed price as a number, or null if invalid
  */
 function parsePrice(priceText) {
-	if (!priceText) return null;
+	if (priceText === null || priceText === undefined) return null;
+	
+	// Convert to string in case a number or other type was passed
+	const text = priceText.toString();
 
 	// Remove secondary prices in brackets
-	let cleanText = priceText.split("(")[0];
+	let cleanText = text.split("(")[0];
 
 	// Extract everything that looks like a price (currency symbol followed by digits/commas)
 	const match = cleanText.match(/[£$€]?\s*[\d,]+(\.\d+)?/);
