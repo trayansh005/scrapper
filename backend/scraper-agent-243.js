@@ -3,6 +3,7 @@
 // Usage: node backend/scraper-agent-243.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
+
 const { updateRemoveStatus } = require("./db.js");
 const {
   formatPriceUk,
@@ -48,7 +49,7 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(context, property, isRental) {
-  await sleep(2500 + Math.random() * 2000); // 2.5–4.5 seconds
+  await sleep(2500 + Math.random() * 2000); // 2.5–4.5 sec delay
 
   const detailPage = await context.newPage();
 
@@ -69,19 +70,19 @@ async function scrapePropertyDetail(context, property, isRental) {
 
     const coords = await detailPage.evaluate(() => {
       const html = document.documentElement.innerHTML;
-      const latMatch = html.match(/"latitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
-      const lonMatch = html.match(/"longitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
+      const lat = html.match(/"latitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
+      const lon = html.match(/"longitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
       return {
-        lat: latMatch ? parseFloat(latMatch[1]) : null,
-        lon: lonMatch ? parseFloat(lonMatch[1]) : null,
+        lat: lat ? parseFloat(lat[1]) : null,
+        lon: lon ? parseFloat(lon[1]) : null,
       };
     });
 
-    logger.step(`Coords extracted → lat=${coords.lat ?? 'null'}, lon=${coords.lon ?? 'null'}`);
+    logger.step(`Coords → lat=${coords.lat ?? 'null'}, lon=${coords.lon ?? 'null'}`);
 
     return { latitude: coords.lat, longitude: coords.lon };
   } catch (err) {
-    logger.error(`Detail page failed → ${property.link}`, err.message || err);
+    logger.error(`Detail failed → ${property.link}`, err.message || err);
     return null;
   } finally {
     await detailPage.close().catch(() => {});
@@ -89,7 +90,7 @@ async function scrapePropertyDetail(context, property, isRental) {
 }
 
 // ============================================================================
-// PROPERTY TYPES (SALES + LETTINGS)
+// PROPERTY TYPES
 // ============================================================================
 
 const PROPERTY_TYPES = [
@@ -230,37 +231,17 @@ async function scrapeDixons() {
 
               if (!result.isExisting && !result.error) {
                 logger.step(`New detail → ${property.title}`, pageNum, label);
-                const detail = await scrapePropertyDetail(page.context(), property, isRental);
+                await scrapePropertyDetail(page.context(), property, isRental);
 
-                const debugArgs = {
-                  url: property.link.trim(),
-                  price: priceNum,
-                  title: property.title,
-                  bedrooms: property.bedrooms ?? null,
-                  agentId: AGENT_ID,
-                  isRental,
-                  lat: detail?.latitude ?? null,
-                  lon: detail?.longitude ?? null
-                };
-
-                logger.step(`BEFORE updatePriceByPropertyURL → ${JSON.stringify(debugArgs, null, 2)}`, pageNum, label);
-
-                try {
-                  await updatePriceByPropertyURL(
-                    property.link.trim(),
-                    priceNum,
-                    property.title,
-                    property.bedrooms || null,
-                    AGENT_ID,
-                    isRental,
-                    detail?.latitude ?? null,
-                    detail?.longitude ?? null
-                  );
-                  logger.step(`updatePriceByPropertyURL success`, pageNum, label);
-                } catch (dbErr) {
-                  logger.error(`updatePriceByPropertyURL FAILED`, dbErr.message || dbErr.stack || dbErr, pageNum, label);
-                  throw dbErr;
-                }
+                // Using only 6 arguments (safe version matching other agents)
+                await updatePriceByPropertyURL(
+                  property.link.trim(),
+                  priceNum,
+                  property.title,
+                  property.bedrooms || null,
+                  AGENT_ID,
+                  isRental
+                );
 
                 stats.totalSaved++;
                 stats.totalScraped++;
@@ -287,7 +268,7 @@ async function scrapeDixons() {
                 await sleep(4000 + Math.random() * 2000);
               }
             } catch (err) {
-              logger.error(`Property processing failed → ${property.link}`, err.message || err.stack || err, pageNum, label);
+              logger.error(`Property processing failed → ${property.link}`, err.message || err, pageNum, label);
             }
           })
         );
@@ -314,7 +295,7 @@ async function scrapeDixons() {
     },
   });
 
-  logger.step(`Queueing both SALES and LETTINGS`);
+  logger.step(`Queueing SALES and LETTINGS`);
 
   await crawler.addRequests(
     PROPERTY_TYPES.map(type => ({
