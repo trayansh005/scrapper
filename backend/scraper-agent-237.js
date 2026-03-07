@@ -112,7 +112,7 @@ const PROPERTY_TYPES = [
 const pagePropertyCount = {}; // Track properties found per page per type
 
 async function scrapeSelectiv() {
-	const scrapeStartTime = Date.now();
+	const scrapeStartTime = new Date();
 	logger.step(`Starting Selectiv scraper...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();

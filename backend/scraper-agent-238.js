@@ -113,7 +113,7 @@ const PROPERTY_TYPES = [
 const pagePropertyCount = {}; // Track properties found per page per type
 
 async function scrapeRodgersEstates() {
-	const scrapeStartTime = Date.now();
+	const scrapeStartTime = new Date();
 	logger.step(`Starting Rodgers Estates scraper...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
