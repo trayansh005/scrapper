@@ -14,7 +14,7 @@ const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-// Inline sleep function
+// Inline sleep
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -45,11 +45,11 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
+// DETAIL PAGE SCRAPING (for logging & future use, no DB update)
 // ============================================================================
 
-async function scrapePropertyDetail(context, property, isRental) {
-  await sleep(2500 + Math.random() * 2000); // 2.5–4.5 sec delay
+async function scrapePropertyDetail(context, property) {
+  await sleep(3000 + Math.random() * 2000);
 
   const detailPage = await context.newPage();
 
@@ -79,11 +79,8 @@ async function scrapePropertyDetail(context, property, isRental) {
     });
 
     logger.step(`Coords → lat=${coords.lat ?? 'null'}, lon=${coords.lon ?? 'null'}`);
-
-    return { latitude: coords.lat, longitude: coords.lon };
   } catch (err) {
     logger.error(`Detail failed → ${property.link}`, err.message || err);
-    return null;
   } finally {
     await detailPage.close().catch(() => {});
   }
@@ -233,18 +230,8 @@ async function scrapeDixons() {
                 logger.step(`New detail → ${property.title}`, pageNum, label);
                 await scrapePropertyDetail(page.context(), property, isRental);
 
-                // Using only 6 arguments (safe version matching other agents)
-                await updatePriceByPropertyURL(
-                  property.link.trim(),
-                  priceNum,
-                  property.title,
-                  property.bedrooms || null,
-                  AGENT_ID,
-                  isRental
-                );
-
-                stats.totalSaved++;
                 stats.totalScraped++;
+                stats.totalSaved++;
                 if (isRental) stats.savedRentals++;
                 else stats.savedSales++;
 
@@ -265,7 +252,7 @@ async function scrapeDixons() {
               );
 
               if (actionTaken === "CREATED") {
-                await sleep(4000 + Math.random() * 2000);
+                await sleep(5000 + Math.random() * 3000); // 5–8 sec delay
               }
             } catch (err) {
               logger.error(`Property processing failed → ${property.link}`, err.message || err, pageNum, label);
@@ -273,7 +260,7 @@ async function scrapeDixons() {
           })
         );
 
-        await sleep(2000 + Math.random() * 1500);
+        await sleep(2500 + Math.random() * 1500);
       }
 
       // Pagination
