@@ -45,11 +45,11 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL SCRAPER – now returns null on failure, logs coords
+// DETAIL SCRAPER
 // ============================================================================
 
 async function scrapePropertyDetail(context, property, isRental) {
-  await sleep(1800 + Math.random() * 1200); // heavier delay
+  await sleep(2500 + Math.random() * 2000); // 2.5–4.5 sec delay
 
   const detailPage = await context.newPage();
 
@@ -78,11 +78,11 @@ async function scrapePropertyDetail(context, property, isRental) {
       };
     });
 
-    logger.step(`Coords for ${property.link}: lat=${coords.lat}, lon=${coords.lon}`);
+    logger.step(`Coords extracted for ${property.link}: lat=${coords.lat ?? 'null'}, lon=${coords.lon ?? 'null'}`);
 
     return { latitude: coords.lat, longitude: coords.lon };
   } catch (err) {
-    logger.error(`Detail failed → ${property.link}`, err.message || err);
+    logger.error(`Detail page failed → ${property.link}`, err.message || err);
     return null;
   } finally {
     await detailPage.close().catch(() => {});
@@ -90,7 +90,7 @@ async function scrapePropertyDetail(context, property, isRental) {
 }
 
 // ============================================================================
-// LISTING HANDLER
+// LISTING PAGE HANDLER
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
@@ -98,10 +98,10 @@ async function handleListingPage({ page, request, crawler }) {
 
   logger.page(pageNum, label, "Processing listing page...");
 
-  await sleep(2000 + Math.random() * 1500);
+  await sleep(2500 + Math.random() * 1500);
 
   await page.waitForSelector(".card", { timeout: 30000 })
-    .catch(() => logger.warn("No .card found – check selector", pageNum, label));
+    .catch(() => logger.warn("No .card selector found", pageNum, label));
 
   const properties = await page.evaluate(() => {
     const cards = document.querySelectorAll(".card");
@@ -141,7 +141,7 @@ async function handleListingPage({ page, request, crawler }) {
 
   logger.step(`Found ${properties.length} properties on page ${pageNum}`, pageNum, label);
 
-  const batchSize = 4; // smaller batch to reduce rate
+  const batchSize = 3;
 
   for (let i = 0; i < properties.length; i += batchSize) {
     const batch = properties.slice(i, i + batchSize);
@@ -169,6 +169,8 @@ async function handleListingPage({ page, request, crawler }) {
             return;
           }
 
+          logger.step(`Optimistic update → ${property.title} | £${priceNum} | Beds: ${property.bedrooms || 'N/A'}`, pageNum, label);
+
           const result = await updatePriceByPropertyURLOptimized(
             property.link.trim(),
             priceNum,
@@ -184,20 +186,39 @@ async function handleListingPage({ page, request, crawler }) {
           }
 
           if (!result.isExisting && !result.error) {
-            logger.step(`New detail scrape → ${property.title}`, pageNum, label);
+            logger.step(`Scraping new detail → ${property.title}`, pageNum, label);
             const detail = await scrapePropertyDetail(page.context(), property, isRental);
 
-            // Save with coords (null safe)
-            await updatePriceByPropertyURL(
-              property.link.trim(),
-              priceNum, // ensure number
-              property.title,
-              property.bedrooms || null,
-              AGENT_ID,
+            // DEBUG: Log EVERYTHING before the failing call
+            const debugArgs = {
+              url: property.link.trim(),
+              price: priceNum,
+              priceType: typeof priceNum,
+              title: property.title,
+              bedrooms: property.bedrooms ?? null,
+              agentId: AGENT_ID,
               isRental,
-              detail?.latitude ?? null,
-              detail?.longitude ?? null
-            );
+              lat: detail?.latitude ?? null,
+              lon: detail?.longitude ?? null
+            };
+            logger.step(`BEFORE updatePriceByPropertyURL - Args: ${JSON.stringify(debugArgs, null, 2)}`, pageNum, label);
+
+            try {
+              await updatePriceByPropertyURL(
+                property.link.trim(),
+                priceNum,
+                property.title,
+                property.bedrooms || null,
+                AGENT_ID,
+                isRental,
+                detail?.latitude ?? null,
+                detail?.longitude ?? null
+              );
+              logger.step(`updatePriceByPropertyURL SUCCESS`, pageNum, label);
+            } catch (dbErr) {
+              logger.error(`updatePriceByPropertyURL FAILED`, dbErr.message || dbErr.stack || dbErr, pageNum, label);
+              throw dbErr; // let outer catch see it too
+            }
 
             stats.totalSaved++;
             stats.totalScraped++;
@@ -219,15 +240,15 @@ async function handleListingPage({ page, request, crawler }) {
           );
 
           if (actionTaken === "CREATED") {
-            await sleep(2500 + Math.random() * 2000); // heavy anti-block delay
+            await sleep(4000 + Math.random() * 2000); // 4–6 sec
           }
         } catch (err) {
-          logger.error(`Property failed → ${property.link}`, err.message || err, pageNum, label);
+          logger.error(`Property processing failed → ${property.link}`, err.message || err.stack || err, pageNum, label);
         }
       })
     );
 
-    await sleep(1000 + Math.random() * 1000);
+    await sleep(2000 + Math.random() * 1500);
   }
 
   // Pagination
@@ -245,12 +266,12 @@ async function handleListingPage({ page, request, crawler }) {
 }
 
 // ============================================================================
-// CRAWLER SETUP – lower concurrency, more retries
+// CRAWLER SETUP
 // ============================================================================
 
 function createCrawler(browserWSEndpoint) {
   return new PlaywrightCrawler({
-    maxConcurrency: 1, // critical for 429 avoidance
+    maxConcurrency: 1,
     maxRequestRetries: 4,
     navigationTimeoutSecs: 90,
     requestHandlerTimeoutSecs: 600,
@@ -264,7 +285,7 @@ function createCrawler(browserWSEndpoint) {
     launchContext: {
       launchOptions: {
         browserWSEndpoint,
-        args: ['--disable-blink-features=AutomationControlled'], // help evade detection
+        args: ['--disable-blink-features=AutomationControlled'],
       },
     },
 
