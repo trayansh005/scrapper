@@ -244,19 +244,6 @@ async function scrapeDixons() {
 								actionTaken = "UNCHANGED";
 
 							}
-
-							if (!result.isExisting && !result.error) {
-								logger.step(`New detail → ${property.title}`, pageNum, label);
-								await scrapePropertyDetail(page.context(), property, isRental);
-
-								stats.totalScraped++;
-								stats.totalSaved++;
-								if (isRental) stats.savedRentals++;
-								else stats.savedSales++;
-
-								actionTaken = "CREATED";
-							}
-
 							const priceDisplay = formatPriceUk(priceNum);
 
 							logger.property(
