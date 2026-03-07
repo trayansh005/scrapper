@@ -13,7 +13,7 @@ const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-// Inline sleep function (no dependency on scraper-utils sleep)
+// Inline sleep
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -40,22 +40,22 @@ function getBrowserlessEndpoint() {
 }
 
 // ------------------------------------------------------------------
-// DETAIL PAGE SCRAPE
+// DETAIL PAGE
 // ------------------------------------------------------------------
 
 async function scrapePropertyDetail(context, property, isRental) {
-  await sleep(800 + Math.random() * 700); // 800–1500 ms
+  await sleep(1000 + Math.random() * 1000);
 
   const detailPage = await context.newPage();
 
   try {
     await blockNonEssentialResources(detailPage);
 
-    logger.step(`[Detail] Scraping: ${property.title}`);
+    logger.step(`[Detail] ${property.title}`);
 
     await detailPage.goto(property.link, {
       waitUntil: "domcontentloaded",
-      timeout: 35000,
+      timeout: 40000,
     });
 
     const htmlContent = await detailPage.content();
@@ -74,9 +74,9 @@ async function scrapePropertyDetail(context, property, isRental) {
     if (isRental) stats.savedRentals++;
     else stats.savedSales++;
 
-    logger.step(`[Detail] Done: ${property.title}`);
+    logger.step(`[Detail] Saved: ${property.title}`);
   } catch (err) {
-    logger.error(`Detail page error → ${property.link}`, err.message || err);
+    logger.error(`Detail failed → ${property.link}`, err.message || err);
   } finally {
     await detailPage.close().catch(() => {});
   }
@@ -108,18 +108,16 @@ async function scrapeAshtons() {
   logger.step(`Starting Ashtons scraper (Agent ${AGENT_ID})...`);
 
   const browserWSEndpoint = getBrowserlessEndpoint();
-  logger.step(`Connecting to browserless...`);
+  logger.step(`Browserless: ${browserWSEndpoint.split('?')[0]}`);
 
   const crawler = new PlaywrightCrawler({
-    maxConcurrency: 1,              // start safe – increase to 2 later if stable
-    maxRequestRetries: 2,
-    navigationTimeoutSecs: 45,
-    requestHandlerTimeoutSecs: 300,
+    maxConcurrency: 1,
+    maxRequestRetries: 3,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 600,
 
     launchContext: {
-      launchOptions: {
-        browserWSEndpoint,
-      },
+      launchOptions: { browserWSEndpoint },
     },
 
     preNavigationHooks: [
@@ -130,117 +128,139 @@ async function scrapeAshtons() {
 
     async requestHandler({ page, request }) {
       const { isRental, label } = request.userData;
+      logger.step(`Processing ${label}`);
 
-      logger.step(`Processing ${label} page`);
+      await sleep(2000 + Math.random() * 1500);
 
-      await sleep(1500 + Math.random() * 1000);
+      // Wait for any property-like content
+      await page.waitForSelector('body', { timeout: 30000 }).catch(() => {});
 
-      // Wait for property cards
-      await page.waitForSelector(".c-property-card", { timeout: 20000 })
-        .catch(() => logger.warn("No property cards detected"));
+      // ────────────────────────────────────────────────
+      // INFINITE SCROLL SIMULATION (most likely mechanism)
+      // ────────────────────────────────────────────────
+      logger.step("Starting scroll to load all properties...");
+      let previousHeight = 0;
+      let scrollAttempts = 0;
+      const maxScrolls = 50;
 
-      // ----------------------------------------------------
-      // CLICK "SHOW MORE" until no more button or disabled
-      // ----------------------------------------------------
-      let clickCount = 0;
-      const maxClicks = 60;
+      while (scrollAttempts < maxScrolls) {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await sleep(3000 + Math.random() * 2000);
 
-      while (clickCount < maxClicks) {
-        const showMoreButton = await page.$(
-          ".c-property-search__list-action button.c-button--tertiary"
-        );
-
-        if (!showMoreButton) {
-          logger.step("No more 'Show More' button found");
+        const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+        if (currentHeight === previousHeight) {
+          logger.step("No more content loaded (scroll height stable)");
           break;
         }
-
-        const isDisabled = await showMoreButton.evaluate(el => el.disabled || !el.offsetParent);
-        if (isDisabled) {
-          logger.step("Show More button is disabled");
-          break;
-        }
-
-        logger.step(`Clicking Show More (${clickCount + 1}/${maxClicks})`);
-
-        await showMoreButton.click().catch(() => {});
-
-        await sleep(2000 + Math.random() * 1000); // wait for new content
-        clickCount++;
+        previousHeight = currentHeight;
+        scrollAttempts++;
+        logger.step(`Scroll ${scrollAttempts}/${maxScrolls} - height: ${currentHeight}`);
       }
 
-      logger.step(`Finished loading – ${clickCount} clicks performed`);
+      // ────────────────────────────────────────────────
+      // DEBUG: Screenshot + count potential cards
+      // ────────────────────────────────────────────────
+      const safeLabel = label.toLowerCase().replace(/\s+/g, '-');
+      const screenshotPath = `ashtons-${safeLabel}-final.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      logger.step(`Screenshot saved: ${screenshotPath}`);
 
-      // ----------------------------------------------------
-      // EXTRACT PROPERTIES
-      // ----------------------------------------------------
+      const cardCount = await page.$$eval(
+        '.c-property-card, [data-testid*="property"], .property-card, .listing-item, article, li',
+        els => els.length
+      );
+      logger.step(`Detected ${cardCount} potential property card elements`);
+
+      // ────────────────────────────────────────────────
+      // EXTRACT PROPERTIES - resilient version
+      // ────────────────────────────────────────────────
       const properties = await page.evaluate(() => {
-        const cards = Array.from(document.querySelectorAll(".c-property-card"));
+        const items = [];
 
-        return cards.map(card => {
-          try {
-            const linkEl = card.querySelector("a.c-property-card__anchor");
-            if (!linkEl) return null;
+        // Try multiple card selectors in order of likelihood
+        const cardSelectors = [
+          '.c-property-card',
+          '[data-testid*="property-card"]',
+          '.property-card',
+          '.listing-item',
+          '.search-result',
+          'article.property',
+          'li.result',
+          '.card'
+        ];
 
-            const href = linkEl.getAttribute("href");
-            if (!href) return null;
+        let cards = [];
+        let usedSelector = '';
 
-            const link = href.startsWith("/")
-              ? `https://www.ashtons.co.uk${href}`
-              : href;
-
-            const priceEl = card.querySelector(".c-property-price__value");
-            let price = null;
-            if (priceEl) {
-              const text = priceEl.textContent.trim();
-              const match = text.match(/£[\d,]+/);
-              if (match) price = match[0].replace(/[£,]/g, "");
-            }
-
-            const titleEl = card.querySelector(".c-property-card__title");
-            const title = titleEl ? titleEl.textContent.trim() : "";
-
-            const bedEl = card.querySelector(
-              ".c-property-feature--bedrooms .c-property-feature__value"
-            );
-            let bedrooms = null;
-            if (bedEl) {
-              const match = bedEl.textContent.match(/\d+/);
-              if (match) bedrooms = match[0];
-            }
-
-            if (!link || !title || !price) return null;
-
-            return { link, title, price, bedrooms };
-          } catch (e) {
-            return null;
+        for (const sel of cardSelectors) {
+          const found = Array.from(document.querySelectorAll(sel));
+          if (found.length > 0) {
+            cards = found;
+            usedSelector = sel;
+            break;
           }
-        }).filter(Boolean);
+        }
+
+        if (cards.length === 0) return [];
+
+        cards.forEach(card => {
+          try {
+            // Link - most reliable signal
+            const linkEl = card.querySelector('a[href*="/property/"], a[href*="/details/"], a.card-link, a.title-link');
+            if (!linkEl) return;
+            let href = linkEl.getAttribute('href');
+            const link = href.startsWith('http') ? href : `https://www.ashtons.co.uk${href.startsWith('/') ? '' : '/'}${href}`;
+
+            // Price
+            let price = null;
+            const pricePatterns = [
+              card.querySelector('.price, .property-price, span.price-amount, .c-property-price__value'),
+              ...card.querySelectorAll('span, div, p, strong')
+            ].find(el => el?.textContent?.match(/£[\d,]+/));
+
+            if (pricePatterns) {
+              const text = pricePatterns.textContent.trim();
+              const match = text.match(/£[\d,]+(\.?\d+)?/);
+              if (match) price = match[0].replace(/[£,]/g, '');
+            }
+
+            // Title / Address
+            const titleEl = card.querySelector('h3, h4, .title, .address, .property-title, strong');
+            const title = titleEl ? titleEl.textContent.trim() : '';
+
+            // Bedrooms
+            let bedrooms = null;
+            const bedMatch = card.innerText.match(/(\d+)\s*(bed|bedroom|beds)/i);
+            if (bedMatch) bedrooms = bedMatch[1];
+
+            if (link && title && price) {
+              items.push({ link, title, price, bedrooms });
+            }
+          } catch {}
+        });
+
+        return items;
       });
 
-      logger.step(`Found ${properties.length} properties`);
+      logger.step(`Extracted ${properties.length} valid properties`);
 
-      // ----------------------------------------------------
-      // PROCESS PROPERTIES IN BATCHES
-      // ----------------------------------------------------
+      // ────────────────────────────────────────────────
+      // PROCESS PROPERTIES
+      // ────────────────────────────────────────────────
       const batchSize = 5;
-
       for (let i = 0; i < properties.length; i += batchSize) {
         const batch = properties.slice(i, i + batchSize);
 
         await Promise.all(batch.map(async (property) => {
-          if (processedUrls.has(property.link)) {
-            return;
-          }
+          if (processedUrls.has(property.link)) return;
           processedUrls.add(property.link);
 
           try {
             let actionTaken = "UNCHANGED";
-
             const priceNum = parsePrice(property.price);
 
             if (!priceNum) {
-              logger.warn(`Invalid price → ${property.link}`);
+              logger.warn(`Bad price → ${property.link}`);
               return;
             }
 
@@ -259,21 +279,15 @@ async function scrapeAshtons() {
             }
 
             if (!result.isExisting && !result.error) {
-              await scrapePropertyDetail(
-                page.context(),
-                { ...property, price: priceNum },
-                isRental
-              );
+              await scrapePropertyDetail(page.context(), { ...property, price: priceNum }, isRental);
               actionTaken = "CREATED";
             }
 
-            const priceDisplay = formatPriceUk(priceNum);
-
             logger.property(
-              null,                    // no page number
+              null,
               label,
               property.title,
-              priceDisplay,
+              formatPriceUk(priceNum),
               property.link,
               isRental,
               null,
@@ -281,54 +295,42 @@ async function scrapeAshtons() {
             );
 
             if (actionTaken === "CREATED") {
-              await sleep(1200 + Math.random() * 800);
+              await sleep(1500 + Math.random() * 1000);
             }
-
           } catch (err) {
-            logger.error(`Property processing failed → ${property.link}`, err.message || err);
+            logger.error(`Property failed → ${property.link}`, err.message || err);
           }
         }));
 
-        await sleep(600 + Math.random() * 600); // small batch delay
+        await sleep(800 + Math.random() * 700);
       }
     },
 
     failedRequestHandler({ request }) {
-      logger.error(`Request failed permanently: ${request.url}`);
+      logger.error(`Failed: ${request.url}`);
     },
   });
 
   const initialRequests = PROPERTY_TYPES.map(type => ({
     url: type.url,
-    userData: {
-      isRental: type.isRental,
-      label: type.label,
-    },
+    userData: { isRental: type.isRental, label: type.label },
   }));
 
   await crawler.run(initialRequests);
 
-  // Final summary
-  logger.step(`Agent ${AGENT_ID} finished`);
-  logger.step(`Total scraped: ${stats.totalScraped}`);
-  logger.step(`Total saved:   ${stats.totalSaved}`);
-  logger.step(`Sales:         ${stats.savedSales}`);
-  logger.step(`Rentals:       ${stats.savedRentals}`);
+  logger.step(`Finished - Total scraped: ${stats.totalScraped} | Saved: ${stats.totalSaved}`);
+  logger.step(`Sales: ${stats.savedSales} | Lettings: ${stats.savedRentals}`);
 
   await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
-// ------------------------------------------------------------------
-// RUN
-// ------------------------------------------------------------------
-
 (async () => {
   try {
     await scrapeAshtons();
-    logger.step("All done!");
+    logger.step("Done!");
     process.exit(0);
   } catch (err) {
-    logger.error("Fatal error:", err?.message || err);
+    logger.error("Fatal:", err?.message || err);
     process.exit(1);
   }
 })();
