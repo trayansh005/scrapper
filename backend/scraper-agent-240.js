@@ -123,7 +123,7 @@ async function scrapeAshtons() {
 
 			const { isRental, label } = request.userData;
 
-			logger.page(pageNum, label, "Processing listing page...", totalPages);
+			logger.page(pageNum, label, "Processing listing page...");
 
 			await page.waitForTimeout(2000);
 
@@ -246,7 +246,7 @@ async function scrapeAshtons() {
 
 						try {
 
-							let actionTaken = "UNCHANGED";   // ✅ ADD THIS
+							let actionTaken = "UNCHANGED";
 
 							const priceNum = parsePrice(property.price);
 
@@ -277,10 +277,7 @@ async function scrapeAshtons() {
 										...property,
 										price: priceNum,
 									},
-									isRental,
-									pageNum,
-									label,
-									totalPages
+									isRental
 								);
 
 								actionTaken = "CREATED";
@@ -295,19 +292,17 @@ async function scrapeAshtons() {
 								priceDisplay,
 								property.link,
 								isRental,
-								totalPages,
-								actionTaken,
+								null,
+								actionTaken
 							);
 
-							// Step 7 conditional sleep
+							// STEP 7
 							if (actionTaken === "CREATED") {
 								await new Promise((resolve) => setTimeout(resolve, 500));
 							}
 
 						} catch (err) {
-
 							logger.error(`DB error`, err, pageNum, label);
-
 						}
 
 					})

@@ -139,7 +139,7 @@ async function scrapeHKLHome() {
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label, typeIndex } = request.userData;
 
-			logger.page(pageNum, label, "Processing listing page...", totalPages);
+			logger.page(pageNum, label, "Processing listing page...");
 
 			await page.waitForTimeout(1200);
 
@@ -263,7 +263,7 @@ async function scrapeHKLHome() {
 
 						try {
 
-							let actionTaken = "UNCHANGED";   // ✅ ADD THIS
+							let actionTaken = "UNCHANGED";
 
 							const priceNum = parsePrice(property.price);
 
@@ -294,10 +294,7 @@ async function scrapeHKLHome() {
 										...property,
 										price: priceNum,
 									},
-									isRental,
-									pageNum,
-									label,
-									totalPages
+									isRental
 								);
 
 								actionTaken = "CREATED";
@@ -312,19 +309,17 @@ async function scrapeHKLHome() {
 								priceDisplay,
 								property.link,
 								isRental,
-								totalPages,
-								actionTaken,
+								null,
+								actionTaken
 							);
 
-							// Step 7 conditional sleep
+							// STEP 7
 							if (actionTaken === "CREATED") {
 								await new Promise((resolve) => setTimeout(resolve, 500));
 							}
 
 						} catch (err) {
-
 							logger.error(`DB error`, err, pageNum, label);
-
 						}
 					}),
 				);
