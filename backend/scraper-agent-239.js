@@ -10,11 +10,10 @@ const { parsePrice } = require("./lib/property-helpers.js");
 const { blockNonEssentialResources, sleep } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-const logger = createAgentLogger(AGENT_ID);
-
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 239;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
