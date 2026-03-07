@@ -14,7 +14,7 @@ const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-// Inline sleep – fixes "sleep is not a function" reliably
+// Inline sleep
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -34,7 +34,7 @@ const stats = {
 const processedUrls = new Set();
 
 // ============================================================================
-// BROWSERLESS ENDPOINT
+// BROWSERLESS
 // ============================================================================
 
 function getBrowserlessEndpoint() {
@@ -45,11 +45,11 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPER
+// DETAIL SCRAPER – now returns null on failure, logs coords
 // ============================================================================
 
 async function scrapePropertyDetail(context, property, isRental) {
-  await sleep(800 + Math.random() * 700); // random delay 800–1500 ms
+  await sleep(1800 + Math.random() * 1200); // heavier delay
 
   const detailPage = await context.newPage();
 
@@ -78,6 +78,8 @@ async function scrapePropertyDetail(context, property, isRental) {
       };
     });
 
+    logger.step(`Coords for ${property.link}: lat=${coords.lat}, lon=${coords.lon}`);
+
     return { latitude: coords.lat, longitude: coords.lon };
   } catch (err) {
     logger.error(`Detail failed → ${property.link}`, err.message || err);
@@ -88,7 +90,7 @@ async function scrapePropertyDetail(context, property, isRental) {
 }
 
 // ============================================================================
-// LISTING PAGE HANDLER
+// LISTING HANDLER
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
@@ -96,10 +98,10 @@ async function handleListingPage({ page, request, crawler }) {
 
   logger.page(pageNum, label, "Processing listing page...");
 
-  await sleep(1500 + Math.random() * 1000);
+  await sleep(2000 + Math.random() * 1500);
 
-  await page.waitForSelector(".card", { timeout: 25000 })
-    .catch(() => logger.warn("No .card elements found – selectors may have changed", pageNum, label));
+  await page.waitForSelector(".card", { timeout: 30000 })
+    .catch(() => logger.warn("No .card found – check selector", pageNum, label));
 
   const properties = await page.evaluate(() => {
     const cards = document.querySelectorAll(".card");
@@ -126,9 +128,11 @@ async function handleListingPage({ page, request, crawler }) {
           }
         });
 
-        const statusText = card.innerText.trim().toLowerCase();
+        const statusText = card.innerText.toLowerCase();
 
-        results.push({ link, title, priceText, bedrooms, statusText });
+        if (link) {
+          results.push({ link, title, priceText, bedrooms, statusText });
+        }
       } catch {}
     });
 
@@ -137,7 +141,7 @@ async function handleListingPage({ page, request, crawler }) {
 
   logger.step(`Found ${properties.length} properties on page ${pageNum}`, pageNum, label);
 
-  const batchSize = 5;
+  const batchSize = 4; // smaller batch to reduce rate
 
   for (let i = 0; i < properties.length; i += batchSize) {
     const batch = properties.slice(i, i + batchSize);
@@ -146,13 +150,10 @@ async function handleListingPage({ page, request, crawler }) {
       batch.map(async (property) => {
         if (!property.link) return;
 
-        if (isSoldProperty(property.statusText || "")) {
-          logger.warn(`Skipping sold/let agreed → ${property.link}`, pageNum, label);
-          return;
-        }
+        if (isSoldProperty(property.statusText || "")) return;
 
         if (processedUrls.has(property.link)) {
-          logger.warn(`Skipping duplicate → ${property.link}`, pageNum, label);
+          logger.warn(`Duplicate skipped → ${property.link}`, pageNum, label);
           return;
         }
 
@@ -164,7 +165,7 @@ async function handleListingPage({ page, request, crawler }) {
           const priceNum = parsePrice(property.priceText);
 
           if (!priceNum || isNaN(priceNum)) {
-            logger.warn(`Invalid/no price → ${property.link}`, pageNum, label);
+            logger.warn(`Invalid price skipped → ${property.link}`, pageNum, label);
             return;
           }
 
@@ -183,19 +184,19 @@ async function handleListingPage({ page, request, crawler }) {
           }
 
           if (!result.isExisting && !result.error) {
-            logger.step(`Scraping new detail → ${property.title}`, pageNum, label);
+            logger.step(`New detail scrape → ${property.title}`, pageNum, label);
             const detail = await scrapePropertyDetail(page.context(), property, isRental);
 
-            // Update with coordinates
+            // Save with coords (null safe)
             await updatePriceByPropertyURL(
               property.link.trim(),
-              priceNum,
+              priceNum, // ensure number
               property.title,
               property.bedrooms || null,
               AGENT_ID,
               isRental,
-              detail?.latitude || null,
-              detail?.longitude || null
+              detail?.latitude ?? null,
+              detail?.longitude ?? null
             );
 
             stats.totalSaved++;
@@ -218,25 +219,24 @@ async function handleListingPage({ page, request, crawler }) {
           );
 
           if (actionTaken === "CREATED") {
-            await sleep(1200 + Math.random() * 800);
+            await sleep(2500 + Math.random() * 2000); // heavy anti-block delay
           }
         } catch (err) {
-          logger.error(`Property processing failed → ${property.link}`, err.message || err, pageNum, label);
+          logger.error(`Property failed → ${property.link}`, err.message || err, pageNum, label);
         }
       })
     );
 
-    await sleep(500 + Math.random() * 500);
+    await sleep(1000 + Math.random() * 1000);
   }
 
-  // Dynamic pagination (only enqueue if we found properties)
+  // Pagination
   if (properties.length > 0) {
     const nextPage = pageNum + 1;
     const type = isRental ? "lettings" : "sales";
     const nextUrl = `https://www.dixonsestateagents.co.uk/properties/${type}/status-available/most-recent-first/page-${nextPage}#/`;
 
-    logger.step(`Enqueuing next page ${nextPage}: ${nextUrl}`, pageNum, label);
-
+    logger.step(`Enqueuing page ${nextPage}: ${nextUrl}`, pageNum, label);
     await crawler.addRequests([{
       url: nextUrl,
       userData: { pageNum: nextPage, isRental, label },
@@ -245,15 +245,15 @@ async function handleListingPage({ page, request, crawler }) {
 }
 
 // ============================================================================
-// CRAWLER SETUP
+// CRAWLER SETUP – lower concurrency, more retries
 // ============================================================================
 
 function createCrawler(browserWSEndpoint) {
   return new PlaywrightCrawler({
-    maxConcurrency: 1,              // start low to avoid context closing issues
-    maxRequestRetries: 3,
-    navigationTimeoutSecs: 60,
-    requestHandlerTimeoutSecs: 400,
+    maxConcurrency: 1, // critical for 429 avoidance
+    maxRequestRetries: 4,
+    navigationTimeoutSecs: 90,
+    requestHandlerTimeoutSecs: 600,
 
     preNavigationHooks: [
       async ({ page }) => {
@@ -262,7 +262,10 @@ function createCrawler(browserWSEndpoint) {
     ],
 
     launchContext: {
-      launchOptions: { browserWSEndpoint },
+      launchOptions: {
+        browserWSEndpoint,
+        args: ['--disable-blink-features=AutomationControlled'], // help evade detection
+      },
     },
 
     requestHandler: handleListingPage,
@@ -274,18 +277,17 @@ function createCrawler(browserWSEndpoint) {
 }
 
 // ============================================================================
-// MAIN ENTRY POINT
+// MAIN
 // ============================================================================
 
 async function scrapeDixons() {
   const scrapeStartTime = new Date();
-  logger.step(`Starting Dixons scraper (Agent ${AGENT_ID})`);
+  logger.step(`Starting Dixons (Agent ${AGENT_ID})`);
 
   const browserWSEndpoint = getBrowserlessEndpoint();
 
   const crawler = createCrawler(browserWSEndpoint);
 
-  // Queue both sales and lettings
   await crawler.addRequests([
     {
       url: "https://www.dixonsestateagents.co.uk/properties/sales/status-available/most-recent-first/page-1#/",
