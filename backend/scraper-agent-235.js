@@ -5,7 +5,6 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { firefox } = require("playwright");
-const { launchOptions } = require("camoufox-js");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { isSoldProperty } = require("./lib/property-helpers.js");
@@ -46,19 +45,21 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeFulford() {
-	const scrapeStartTime = Date.now();
+	const scrapeStartTime = new Date();
 	logger.step(`Starting Fulford scraper...`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 5,
 		requestHandlerTimeoutSecs: 300,
+		navigationTimeoutSecs: 30,
 
 		launchContext: {
 			launcher: firefox,
-			launchOptions: await launchOptions({
+			launchOptions: {
 				headless: true,
-			}),
+				args: ["--disable-blink-features=AutomationControlled"],
+			},
 		},
 
 		async requestHandler({ page, request }) {

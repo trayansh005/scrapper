@@ -451,19 +451,24 @@ function createCrawler(browserWSEndpoint) {
 				await button.click();
 				await page.waitForTimeout(2000);
 
+				// Find and click search button using a more reliable method
 				const searchButton =
 					(await page.$('button[onclick*="search_properties_form"]')) ||
-					(await page.$('#search_properties_form button[type="submit"]')) ||
-					(await page.$('button:has-text("Search")'));
+					(await page.$('#search_properties_form button[type="submit"]'));
 
 				if (searchButton) {
-					await Promise.all([
-						searchButton.click(),
-						page
-							.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 })
-							.catch(() => {}),
-					]);
-					await page.waitForTimeout(1500);
+					try {
+						await Promise.all([
+							searchButton.click(),
+							page
+								.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 })
+								.catch(() => {}),
+						]);
+						await page.waitForTimeout(1500);
+					} catch (err) {
+						// Search button click failed, continue anyway
+						logger.warn(`Could not click search button for ${label}`);
+					}
 				}
 			}
 

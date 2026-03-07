@@ -47,15 +47,15 @@ function getBrowserlessEndpoint() {
 }
 
 const PROPERTY_TYPES = [
-	// {
-	// 	urlBase: "https://avocadopropertyagents.co.uk/property-for-sale?page=",
-	// 	totalRecords: 172,
-	// 	recordsPerPage: 22,
-	// 	totalPages: Math.ceil(172 / 22),
-	// 	isRental: false,
-	// 	label: "FOR SALE",
-	// 	suffix: "",
-	// },
+	{
+		urlBase: "https://avocadopropertyagents.co.uk/property-for-sale?page=",
+		totalRecords: 172,
+		recordsPerPage: 22,
+		totalPages: Math.ceil(172 / 22),
+		isRental: false,
+		label: "FOR SALE",
+		suffix: "",
+	},
 	{
 		urlBase:
 			"https://avocadopropertyagents.co.uk/property-to-rent/property/any-bed/all-location?exclude=1&page=",
@@ -69,7 +69,7 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeAvocado() {
-	const scrapeStartTime = Date.now();
+	const scrapeStartTime = new Date();
 	logger.step(`Starting Avocado scraper...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
