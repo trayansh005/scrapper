@@ -139,7 +139,7 @@ async function scrapeHKLHome() {
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label, typeIndex } = request.userData;
 
-			logger.page(AGENT_ID, pageNum, null, label)
+			logger.page(pageNum, label, "Processing listing page...", totalPages);
 
 			await page.waitForTimeout(1200);
 
@@ -262,10 +262,13 @@ async function scrapeHKLHome() {
 						processedUrls.add(property.link);
 
 						try {
+
+							let actionTaken = "UNCHANGED";   // ✅ ADD THIS
+
 							const priceNum = parsePrice(property.price);
 
 							if (priceNum === null) {
-								log.warn(` No price found: ${property.title}`);
+								logger.warn(`No price found`, pageNum, label);
 								return;
 							}
 
@@ -280,9 +283,11 @@ async function scrapeHKLHome() {
 
 							if (result.updated) {
 								stats.totalSaved++;
+								actionTaken = "UPDATED";
 							}
 
 							if (!result.isExisting && !result.error) {
+
 								await scrapePropertyDetail(
 									page.context(),
 									{
@@ -290,10 +295,16 @@ async function scrapeHKLHome() {
 										price: priceNum,
 									},
 									isRental,
+									pageNum,
+									label,
+									totalPages
 								);
+
+								actionTaken = "CREATED";
 							}
 
-							const priceDisplay = formatPriceUk(priceNum);
+							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPriceUk(priceNum);
+
 							logger.property(
 								pageNum,
 								label,
@@ -304,8 +315,16 @@ async function scrapeHKLHome() {
 								totalPages,
 								actionTaken,
 							);
-						} catch (dbErr) {
-							logger.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+
+							// Step 7 conditional sleep
+							if (actionTaken === "CREATED") {
+								await new Promise((resolve) => setTimeout(resolve, 500));
+							}
+
+						} catch (err) {
+
+							logger.error(`DB error`, err, pageNum, label);
+
 						}
 					}),
 				);

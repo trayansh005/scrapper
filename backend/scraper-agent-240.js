@@ -123,7 +123,7 @@ async function scrapeAshtons() {
 
 			const { isRental, label } = request.userData;
 
-			logger.page(AGENT_ID, 1, null, label);
+			logger.page(pageNum, label, "Processing listing page...", totalPages);
 
 			await page.waitForTimeout(2000);
 
@@ -246,10 +246,12 @@ async function scrapeAshtons() {
 
 						try {
 
+							let actionTaken = "UNCHANGED";   // ✅ ADD THIS
+
 							const priceNum = parsePrice(property.price);
 
 							if (priceNum === null) {
-								logger.step(`Skipped: No price`);
+								logger.warn(`No price found`, pageNum, label);
 								return;
 							}
 
@@ -259,10 +261,32 @@ async function scrapeAshtons() {
 								property.title,
 								property.bedrooms,
 								AGENT_ID,
-								isRental
+								isRental,
 							);
 
-							const priceDisplay = formatPriceUk(priceNum);
+							if (result.updated) {
+								stats.totalSaved++;
+								actionTaken = "UPDATED";
+							}
+
+							if (!result.isExisting && !result.error) {
+
+								await scrapePropertyDetail(
+									page.context(),
+									{
+										...property,
+										price: priceNum,
+									},
+									isRental,
+									pageNum,
+									label,
+									totalPages
+								);
+
+								actionTaken = "CREATED";
+							}
+
+							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPriceUk(priceNum);
 
 							logger.property(
 								pageNum,
@@ -275,24 +299,15 @@ async function scrapeAshtons() {
 								actionTaken,
 							);
 
-							if (result.updated) stats.totalSaved++;
-
-							if (!result.isExisting && !result.error) {
-
-								await scrapePropertyDetail(
-									page.context(),
-									{
-										...property,
-										price: priceNum,
-									},
-									isRental
-								);
-
-								await sleep(200);
+							// Step 7 conditional sleep
+							if (actionTaken === "CREATED") {
+								await new Promise((resolve) => setTimeout(resolve, 500));
 							}
 
 						} catch (err) {
-							logger.error(`DB error: ${err?.message || err}`);
+
+							logger.error(`DB error`, err, pageNum, label);
+
 						}
 
 					})
