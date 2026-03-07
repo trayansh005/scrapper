@@ -27,9 +27,6 @@ const processedUrls = new Set();
 // UTILITY FUNCTIONS
 // ============================================================================
 
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 // ============================================================================
 // BROWSERLESS SETUP
