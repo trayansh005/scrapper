@@ -10,8 +10,13 @@ const {
   processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
 const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
-const { blockNonEssentialResources, sleep } = require("./lib/scraper-utils.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
+
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -143,7 +148,7 @@ async function scrapeHKLHome() {
       const { pageNum, isRental, label, typeIndex } = request.userData;
       logger.page(pageNum, label, "Processing listing page...");
 
-      await sleep(1000 + Math.random() * 800);
+      await sleep(800 + Math.random() * 700);
 
       // Wait for listings
       await page.waitForSelector("a[href*='/property-details/']", { timeout: 20000 })
