@@ -5,17 +5,17 @@
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
-  formatPriceUk,
-  updatePriceByPropertyURLOptimized,
-  processPropertyWithCoordinates,
+	formatPriceUk,
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { parsePrice } = require("./lib/property-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 // Inline sleep
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 log.setLevel(log.LEVELS.ERROR);
@@ -24,19 +24,19 @@ const AGENT_ID = 240;
 const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
-  totalScraped: 0,
-  totalSaved: 0,
-  savedSales: 0,
-  savedRentals: 0,
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
 const processedUrls = new Set();
 
 function getBrowserlessEndpoint() {
-  return (
-    process.env.BROWSERLESS_WS_ENDPOINT ||
-    "ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
-  );
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
+	);
 }
 
 // ------------------------------------------------------------------
@@ -44,42 +44,42 @@ function getBrowserlessEndpoint() {
 // ------------------------------------------------------------------
 
 async function scrapePropertyDetail(context, property, isRental) {
-  await sleep(1000 + Math.random() * 1000);
+	await sleep(1200 + Math.random() * 800);
 
-  const detailPage = await context.newPage();
+	const detailPage = await context.newPage();
 
-  try {
-    await blockNonEssentialResources(detailPage);
+	try {
+		await blockNonEssentialResources(detailPage);
 
-    logger.step(`[Detail] ${property.title}`);
+		logger.step(`[Detail] ${property.title || 'Property'}`);
 
-    await detailPage.goto(property.link, {
-      waitUntil: "domcontentloaded",
-      timeout: 40000,
-    });
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 45000,
+		});
 
-    const htmlContent = await detailPage.content();
+		const htmlContent = await detailPage.content();
 
-    await processPropertyWithCoordinates(
-      property.link,
-      property.price,
-      property.title,
-      property.bedrooms || null,
-      AGENT_ID,
-      isRental,
-      htmlContent
-    );
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			htmlContent
+		);
 
-    stats.totalScraped++;
-    if (isRental) stats.savedRentals++;
-    else stats.savedSales++;
+		stats.totalScraped++;
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
 
-    logger.step(`[Detail] Saved: ${property.title}`);
-  } catch (err) {
-    logger.error(`Detail failed → ${property.link}`, err.message || err);
-  } finally {
-    await detailPage.close().catch(() => {});
-  }
+		logger.step(`[Detail] Saved`);
+	} catch (err) {
+		logger.error(`Detail failed → ${property.link}`, err.message || err);
+	} finally {
+		await detailPage.close().catch(() => { });
+	}
 }
 
 // ------------------------------------------------------------------
@@ -87,16 +87,16 @@ async function scrapePropertyDetail(context, property, isRental) {
 // ------------------------------------------------------------------
 
 const PROPERTY_TYPES = [
-  {
-    url: "https://www.ashtons.co.uk/buy?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
-    isRental: false,
-    label: "FOR SALE",
-  },
-  {
-    url: "https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
-    isRental: true,
-    label: "FOR LETTING",
-  },
+	{
+		url: "https://www.ashtons.co.uk/buy?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
+		isRental: false,
+		label: "FOR SALE",
+	},
+	{
+		url: "https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
+		isRental: true,
+		label: "FOR LETTING",
+	},
 ];
 
 // ------------------------------------------------------------------
@@ -104,233 +104,216 @@ const PROPERTY_TYPES = [
 // ------------------------------------------------------------------
 
 async function scrapeAshtons() {
-  const scrapeStartTime = new Date();
-  logger.step(`Starting Ashtons scraper (Agent ${AGENT_ID})...`);
+	const scrapeStartTime = new Date();
+	logger.step(`Starting Ashtons (Agent ${AGENT_ID})...`);
 
-  const browserWSEndpoint = getBrowserlessEndpoint();
-  logger.step(`Browserless: ${browserWSEndpoint.split('?')[0]}`);
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	logger.step(`Browserless connected`);
 
-  const crawler = new PlaywrightCrawler({
-    maxConcurrency: 1,
-    maxRequestRetries: 3,
-    navigationTimeoutSecs: 60,
-    requestHandlerTimeoutSecs: 600,
+	const crawler = new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 3,
+		navigationTimeoutSecs: 60,
+		requestHandlerTimeoutSecs: 600,
 
-    launchContext: {
-      launchOptions: { browserWSEndpoint },
-    },
+		launchContext: { launchOptions: { browserWSEndpoint } },
 
-    preNavigationHooks: [
-      async ({ page }) => {
-        await blockNonEssentialResources(page);
-      },
-    ],
+		preNavigationHooks: [
+			async ({ page }) => await blockNonEssentialResources(page),
+		],
 
-    async requestHandler({ page, request }) {
-      const { isRental, label } = request.userData;
-      logger.step(`Processing ${label}`);
+		async requestHandler({ page, request }) {
+			const { isRental, label } = request.userData;
+			logger.step(`Processing ${label}`);
 
-      await sleep(2000 + Math.random() * 1500);
+			await sleep(2500 + Math.random() * 1500);
 
-      // Wait for any property-like content
-      await page.waitForSelector('body', { timeout: 30000 }).catch(() => {});
+			// Scroll to load everything
+			logger.step("Infinite scroll loading...");
+			let prevHeight = 0;
+			let attempts = 0;
+			const maxAttempts = 60;
 
-      // ────────────────────────────────────────────────
-      // INFINITE SCROLL SIMULATION (most likely mechanism)
-      // ────────────────────────────────────────────────
-      logger.step("Starting scroll to load all properties...");
-      let previousHeight = 0;
-      let scrollAttempts = 0;
-      const maxScrolls = 50;
+			while (attempts < maxAttempts) {
+				await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+				await sleep(3500 + Math.random() * 2000);
 
-      while (scrollAttempts < maxScrolls) {
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await sleep(3000 + Math.random() * 2000);
+				const height = await page.evaluate(() => document.body.scrollHeight);
+				if (height === prevHeight) {
+					logger.step(`Scroll stopped - no more content (attempt ${attempts})`);
+					break;
+				}
+				prevHeight = height;
+				attempts++;
+				if (attempts % 5 === 0) logger.step(`Scroll ${attempts}/${maxAttempts}`);
+			}
 
-        const currentHeight = await page.evaluate(() => document.body.scrollHeight);
-        if (currentHeight === previousHeight) {
-          logger.step("No more content loaded (scroll height stable)");
-          break;
-        }
-        previousHeight = currentHeight;
-        scrollAttempts++;
-        logger.step(`Scroll ${scrollAttempts}/${maxScrolls} - height: ${currentHeight}`);
-      }
+			// Debug: screenshot + broad card count
+			const safeLabel = label.toLowerCase().replace(/\s+/g, '-');
+			const shotPath = `ashtons-${safeLabel}-final.png`;
+			await page.screenshot({ path: shotPath, fullPage: true });
+			logger.step(`Screenshot: ${shotPath}`);
 
-      // ────────────────────────────────────────────────
-      // DEBUG: Screenshot + count potential cards
-      // ────────────────────────────────────────────────
-      const safeLabel = label.toLowerCase().replace(/\s+/g, '-');
-      const screenshotPath = `ashtons-${safeLabel}-final.png`;
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-      logger.step(`Screenshot saved: ${screenshotPath}`);
+			const potentialCards = await page.$$eval(
+				'article, li, div[class*="card"], div[class*="property"], div[class*="listing"], div[data-testid*="property"], .result, .item',
+				els => els.length
+			);
+			logger.step(`Detected ${potentialCards} potential cards`);
 
-      const cardCount = await page.$$eval(
-        '.c-property-card, [data-testid*="property"], .property-card, .listing-item, article, li',
-        els => els.length
-      );
-      logger.step(`Detected ${cardCount} potential property card elements`);
+			// Extract – loose text-based fallback
+			const properties = await page.evaluate(() => {
+				const items = [];
+				const cardElements = document.querySelectorAll(
+					'article, li, div[class*="card"], div[class*="property"], div[class*="listing"], div[data-testid*="property"], .result, .item'
+				);
 
-      // ────────────────────────────────────────────────
-      // EXTRACT PROPERTIES - resilient version
-      // ────────────────────────────────────────────────
-      const properties = await page.evaluate(() => {
-        const items = [];
+				Array.from(cardElements).slice(0, 300).forEach((card) => {
+					try {
+						// Link
+						const linkEl = card.querySelector('a[href*="/property/"], a[href*="/details/"], a[href*="property-"], a');
+						if (!linkEl) return;
+						let href = linkEl.getAttribute('href');
+						if (!href) return;
+						const link = href.startsWith('http') ? href : `https://www.ashtons.co.uk${href.startsWith('/') ? '' : '/'}${href}`;
 
-        // Try multiple card selectors in order of likelihood
-        const cardSelectors = [
-          '.c-property-card',
-          '[data-testid*="property-card"]',
-          '.property-card',
-          '.listing-item',
-          '.search-result',
-          'article.property',
-          'li.result',
-          '.card'
-        ];
+						const cardText = card.innerText.trim().replace(/\s+/g, ' ');
 
-        let cards = [];
-        let usedSelector = '';
+						// Price - look for £ followed by digits, possibly with pcm
+						const priceMatch = cardText.match(/£[\d,]+(?:\s*(?:pcm|per\s*calendar\s*month|monthly))?/i);
+						let price = priceMatch ? priceMatch[0].replace(/[£,]/g, '').trim() : null;
+						if (!price) return;
 
-        for (const sel of cardSelectors) {
-          const found = Array.from(document.querySelectorAll(sel));
-          if (found.length > 0) {
-            cards = found;
-            usedSelector = sel;
-            break;
-          }
-        }
+						// Title
+						let title = '';
+						const heading = card.querySelector('h1,h2,h3,h4,h5,strong,.address,.title,.location,.property-address');
+						if (heading) {
+							title = heading.innerText.trim();
+						} else {
+							title = cardText.split(/[\n•]/)[0]?.trim() || '';
+						}
+						if (!title || title.length < 8) return;
 
-        if (cards.length === 0) return [];
+						// IMPROVED BEDROOMS EXTRACTION
+						let bedrooms = null;
 
-        cards.forEach(card => {
-          try {
-            // Link - most reliable signal
-            const linkEl = card.querySelector('a[href*="/property/"], a[href*="/details/"], a.card-link, a.title-link');
-            if (!linkEl) return;
-            let href = linkEl.getAttribute('href');
-            const link = href.startsWith('http') ? href : `https://www.ashtons.co.uk${href.startsWith('/') ? '' : '/'}${href}`;
+						// Try to find number right before/after "bed" keywords
+						const bedPatterns = [
+							/(\d+)\s*(?:bed|bedroom|bedrooms|bed(s)?)/i,
+							/(?:bed|bedroom|bedrooms|bed(s)?)\s*(\d+)/i,           // number after word
+							/(\d+)\s*bed/i                                         // shorter variants
+						];
 
-            // Price
-            let price = null;
-            const pricePatterns = [
-              card.querySelector('.price, .property-price, span.price-amount, .c-property-price__value'),
-              ...card.querySelectorAll('span, div, p, strong')
-            ].find(el => el?.textContent?.match(/£[\d,]+/));
+						for (const pattern of bedPatterns) {
+							const match = cardText.match(pattern);
+							if (match) {
+								const num = match[1] || match[2];
+								const parsed = parseInt(num, 10);
+								if (parsed >= 0 && parsed <= 20) {  // reasonable range for bedrooms
+									bedrooms = parsed.toString();     // keep as string for DB consistency
+									break;
+								}
+							}
+						}
 
-            if (pricePatterns) {
-              const text = pricePatterns.textContent.trim();
-              const match = text.match(/£[\d,]+(\.?\d+)?/);
-              if (match) price = match[0].replace(/[£,]/g, '');
-            }
+						// Skip sold/let agreed
+						if (/sold|stc|let\s*agreed|under offer|reserved/i.test(cardText)) return;
 
-            // Title / Address
-            const titleEl = card.querySelector('h3, h4, .title, .address, .property-title, strong');
-            const title = titleEl ? titleEl.textContent.trim() : '';
+						items.push({ link, title, price, bedrooms });
+					} catch { }
+				});
 
-            // Bedrooms
-            let bedrooms = null;
-            const bedMatch = card.innerText.match(/(\d+)\s*(bed|bedroom|beds)/i);
-            if (bedMatch) bedrooms = bedMatch[1];
+				// Debug: show sample of first card
+				if (cardElements.length > 0) {
+					const sample = cardElements[0].innerText.substring(0, 400).replace(/\n/g, ' ');
+					console.log(`Sample card text (first): ${sample}...`);
+				}
 
-            if (link && title && price) {
-              items.push({ link, title, price, bedrooms });
-            }
-          } catch {}
-        });
+				return items;
+			});
 
-        return items;
-      });
+			logger.step(`Extracted ${properties.length} valid properties`);
 
-      logger.step(`Extracted ${properties.length} valid properties`);
+			// Process in batches
+			const batchSize = 5;
+			for (let i = 0; i < properties.length; i += batchSize) {
+				const batch = properties.slice(i, i + batchSize);
 
-      // ────────────────────────────────────────────────
-      // PROCESS PROPERTIES
-      // ────────────────────────────────────────────────
-      const batchSize = 5;
-      for (let i = 0; i < properties.length; i += batchSize) {
-        const batch = properties.slice(i, i + batchSize);
+				await Promise.all(batch.map(async (property) => {
+					if (processedUrls.has(property.link)) return;
+					processedUrls.add(property.link);
 
-        await Promise.all(batch.map(async (property) => {
-          if (processedUrls.has(property.link)) return;
-          processedUrls.add(property.link);
+					try {
+						let actionTaken = "UNCHANGED";
+						const priceNum = parseInt(property.price.replace(/[^0-9]/g, ''), 10);
 
-          try {
-            let actionTaken = "UNCHANGED";
-            const priceNum = parsePrice(property.price);
+						if (isNaN(priceNum)) {
+							logger.warn(`Invalid price → ${property.link}`);
+							return;
+						}
 
-            if (!priceNum) {
-              logger.warn(`Bad price → ${property.link}`);
-              return;
-            }
+						const result = await updatePriceByPropertyURLOptimized(
+							property.link.trim(),
+							priceNum,
+							property.title,
+							property.bedrooms || null,
+							AGENT_ID,
+							isRental
+						);
 
-            const result = await updatePriceByPropertyURLOptimized(
-              property.link.trim(),
-              priceNum,
-              property.title,
-              property.bedrooms,
-              AGENT_ID,
-              isRental
-            );
+						if (result.updated) {
+							actionTaken = "UPDATED";
+							stats.totalSaved++;
+						}
 
-            if (result.updated) {
-              actionTaken = "UPDATED";
-              stats.totalSaved++;
-            }
+						if (!result.isExisting && !result.error) {
+							await scrapePropertyDetail(page.context(), { ...property, price: priceNum }, isRental);
+							actionTaken = "CREATED";
+						}
 
-            if (!result.isExisting && !result.error) {
-              await scrapePropertyDetail(page.context(), { ...property, price: priceNum }, isRental);
-              actionTaken = "CREATED";
-            }
+						logger.property(
+							null,
+							label,
+							property.title,
+							formatPriceUk(priceNum),
+							property.link,
+							isRental,
+							null,
+							actionTaken
+						);
 
-            logger.property(
-              null,
-              label,
-              property.title,
-              formatPriceUk(priceNum),
-              property.link,
-              isRental,
-              null,
-              actionTaken
-            );
+						if (actionTaken === "CREATED") await sleep(1800 + Math.random() * 1200);
+					} catch (err) {
+						logger.error(`Failed → ${property.link}`, err.message || err);
+					}
+				}));
 
-            if (actionTaken === "CREATED") {
-              await sleep(1500 + Math.random() * 1000);
-            }
-          } catch (err) {
-            logger.error(`Property failed → ${property.link}`, err.message || err);
-          }
-        }));
+				await sleep(1000 + Math.random() * 800);
+			}
+		},
 
-        await sleep(800 + Math.random() * 700);
-      }
-    },
+		failedRequestHandler({ request }) {
+			logger.error(`Failed request: ${request.url}`);
+		},
+	});
 
-    failedRequestHandler({ request }) {
-      logger.error(`Failed: ${request.url}`);
-    },
-  });
+	const initialRequests = PROPERTY_TYPES.map(t => ({
+		url: t.url,
+		userData: { isRental: t.isRental, label: t.label },
+	}));
 
-  const initialRequests = PROPERTY_TYPES.map(type => ({
-    url: type.url,
-    userData: { isRental: type.isRental, label: type.label },
-  }));
+	await crawler.run(initialRequests);
 
-  await crawler.run(initialRequests);
-
-  logger.step(`Finished - Total scraped: ${stats.totalScraped} | Saved: ${stats.totalSaved}`);
-  logger.step(`Sales: ${stats.savedSales} | Lettings: ${stats.savedRentals}`);
-
-  await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	logger.step(`Completed - Scraped: ${stats.totalScraped} | Saved: ${stats.totalSaved}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 (async () => {
-  try {
-    await scrapeAshtons();
-    logger.step("Done!");
-    process.exit(0);
-  } catch (err) {
-    logger.error("Fatal:", err?.message || err);
-    process.exit(1);
-  }
+	try {
+		await scrapeAshtons();
+		logger.step("Done");
+		process.exit(0);
+	} catch (err) {
+		logger.error("Fatal error:", err?.message || err);
+		process.exit(1);
+	}
 })();
