@@ -9,8 +9,10 @@ const { launchOptions } = require("camoufox-js");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { isSoldProperty } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
+const logger = createAgentLogger(235);
 
 const AGENT_ID = 235;
 
@@ -44,7 +46,8 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeFulford() {
-	console.log(`\n🚀 Starting Fulford scraper (Agent ${AGENT_ID})...\n`);
+	const scrapeStartTime = Date.now();
+	logger.step(`Starting Fulford scraper...`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -59,9 +62,9 @@ async function scrapeFulford() {
 		},
 
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+			const { pageNum, totalPages, isRental, label } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(pageNum, label, `Processing listing page...`, totalPages);
 
 			// Add a random delay to avoid 429
 			await page.waitForTimeout(Math.floor(Math.random() * 3000) + 2000);
@@ -69,7 +72,7 @@ async function scrapeFulford() {
 			// Wait for listing anchor links
 			await page
 				.waitForSelector("a.card__link", { timeout: 15000 })
-				.catch(() => console.log(`⚠️ No listing links found on page ${pageNum}`));
+				.catch(() => logger.warn(`No listing links found`, pageNum, label));
 
 			const properties = await page.evaluate(() => {
 				try {
@@ -243,8 +246,11 @@ async function scrapeFulford() {
 								isRental,
 							);
 
+							let actionTaken = "UNCHANGED";
+
 							if (result.updated) {
 								stats.totalSaved++;
+								actionTaken = "UPDATED";
 							}
 
 							if (!result.isExisting && !result.error) {
@@ -263,35 +269,44 @@ async function scrapeFulford() {
 								stats.totalScraped++;
 								if (isRental) stats.savedRentals++;
 								else stats.savedSales++;
+								actionTaken = "CREATED";
 							}
 
 							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPriceUk(priceNum);
-							if (coords.latitude && coords.longitude) {
-								console.log(
-									`✅ ${property.title} - ${priceDisplay} - ${coords.latitude}, ${coords.longitude}`,
+							logger.property(
+								pageNum,
+								label,
+								property.title,
+								priceDisplay,
+								property.link,
+								isRental,
+								totalPages,
+								actionTaken,
+								coords.latitude,
+								coords.longitude,
+							);
+
+							// Conditional sleep: only if property was CREATED
+							if (actionTaken === "CREATED") {
+								await new Promise((resolve) =>
+									setTimeout(resolve, Math.floor(Math.random() * 1000) + 1000),
 								);
-							} else {
-								console.log(`✅ ${property.title} - ${priceDisplay} - No coords`);
 							}
 						} catch (dbErr) {
-							log.warn(`DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+							logger.error(`DB error`, dbErr, pageNum, label);
 						}
 					}),
-				);
-
-				await new Promise((resolve) =>
-					setTimeout(resolve, Math.floor(Math.random() * 1000) + 1000),
 				);
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Request failed`);
 		},
 	});
 
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
 		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
@@ -299,31 +314,33 @@ async function scrapeFulford() {
 			const url = pg === 1 ? propertyType.urlBase : `${propertyType.urlBase}page-${pg}#/`;
 			requests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNum: pg,
+					totalPages: propertyType.totalPages,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
 			});
 		}
 
-		await crawler.addRequests(requests);
-		await crawler.run();
+		await crawler.run(requests);
 
 		// Small delay between property types
 		await new Promise((resolve) => setTimeout(resolve, 5000));
 	}
 
-	console.log(
-		`\n✅ Completed Fulford scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Completed Fulford scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 (async () => {
 	try {
 		await scrapeFulford();
-		await updateRemoveStatus(AGENT_ID);
 		console.log("\n✅ All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();
