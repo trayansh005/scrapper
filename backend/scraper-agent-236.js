@@ -11,8 +11,10 @@ const {
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
 const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
+const logger = createAgentLogger(236);
 
 const AGENT_ID = 236;
 
@@ -67,10 +69,11 @@ const PROPERTY_TYPES = [
 ];
 
 async function scrapeAvocado() {
-	console.log(`\n🚀 Starting Avocado scraper (Agent ${AGENT_ID})...\n`);
+	const scrapeStartTime = Date.now();
+	logger.step(`Starting Avocado scraper...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless...`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -84,16 +87,16 @@ async function scrapeAvocado() {
 		},
 
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label } = request.userData;
+			const { pageNum, totalPages, isRental, label } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(pageNum, label, `Processing listing page...`, totalPages);
 
 			await page.waitForTimeout(1200);
 
 			// Wait for card elements
 			await page
 				.waitForSelector(".card", { timeout: 15000 })
-				.catch(() => console.log(`⚠️ No cards found on page ${pageNum}`));
+				.catch(() => logger.warn(`No cards found`, pageNum, label));
 
 			const properties = await page.evaluate(() => {
 				try {
@@ -160,7 +163,7 @@ async function scrapeAvocado() {
 				}
 			});
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 			const batchSize = 5;
 			for (let i = 0; i < properties.length; i += batchSize) {
@@ -171,12 +174,12 @@ async function scrapeAvocado() {
 						if (!property.link) return;
 
 						if (isSoldProperty(property.statusText || "")) {
-							log.info(` Skipping sold property: ${property.title}`);
+							logger.warn(`Skipping sold property`, pageNum, label);
 							return;
 						}
 
 						if (processedUrls.has(property.link)) {
-							log.info(` Skipping duplicate: ${property.title}`);
+							logger.warn(`Skipping duplicate`, pageNum, label);
 							return;
 						}
 						processedUrls.add(property.link);
@@ -185,7 +188,7 @@ async function scrapeAvocado() {
 							const priceNum = parsePrice(property.price);
 
 							if (priceNum === null) {
-								log.warn(` No price found: ${property.title}`);
+								logger.warn(`No price found`, pageNum, label);
 								return;
 							}
 
@@ -198,8 +201,11 @@ async function scrapeAvocado() {
 								isRental,
 							);
 
+							let actionTaken = "UNCHANGED";
+							
 							if (result.updated) {
 								stats.totalSaved++;
+								actionTaken = "UPDATED";
 							}
 
 							if (!result.isExisting && !result.error) {
@@ -210,13 +216,31 @@ async function scrapeAvocado() {
 										price: priceNum,
 									},
 									isRental,
+									pageNum,
+									label,
+									totalPages,
 								);
+								actionTaken = "CREATED";
 							}
 
 							const priceDisplay = isNaN(priceNum) ? "N/A" : formatPriceUk(priceNum);
-							console.log(`✅ ${property.title} - ${priceDisplay}`);
+							logger.property(
+								pageNum,
+								label,
+								property.title,
+								priceDisplay,
+								property.link,
+								isRental,
+								totalPages,
+								actionTaken,
+							);
+
+							// Conditional sleep: only if property was CREATED
+							if (actionTaken === "CREATED") {
+								await new Promise((resolve) => setTimeout(resolve, 500));
+							}
 						} catch (dbErr) {
-							console.error(`❌ DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+							logger.error(`DB error`, dbErr, pageNum, label);
 						}
 					}),
 				);
@@ -226,37 +250,47 @@ async function scrapeAvocado() {
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Request failed`);
 		},
 	});
 
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
 		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
 			const url = `${propertyType.urlBase}${pg}${propertyType.suffix}`;
 			requests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: {
+					pageNum: pg,
+					totalPages: propertyType.totalPages,
+					isRental: propertyType.isRental,
+					label: propertyType.label,
+				},
 			});
 		}
 
-		await crawler.addRequests(requests);
-		await crawler.run();
+		await crawler.run(requests);
 	}
 
-	console.log(
-		`\n✅ Completed Avocado scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Completed Avocado scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 // ============================================================================
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
+async function scrapePropertyDetail(
+	browserContext,
+	property,
+	isRental,
+	pageNum,
+	label,
+	totalPages,
+) {
 	await sleep(500);
 
 	const detailPage = await browserContext.newPage();
@@ -293,7 +327,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		if (isRental) stats.savedRentals++;
 		else stats.savedSales++;
 	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page`, error, pageNum, label);
 	} finally {
 		await detailPage.close();
 	}
@@ -302,11 +336,10 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 (async () => {
 	try {
 		await scrapeAvocado();
-		await updateRemoveStatus(AGENT_ID);
 		console.log("\n✅ All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();

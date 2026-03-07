@@ -11,8 +11,10 @@ const {
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
 const { parsePrice } = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
+const logger = createAgentLogger(237);
 
 const AGENT_ID = 237;
 
@@ -48,7 +50,7 @@ function getBrowserlessEndpoint() {
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
+async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label, totalPages) {
 	await sleep(500);
 
 	const detailPage = await browserContext.newPage();
@@ -85,7 +87,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		if (isRental) stats.savedRentals++;
 		else stats.savedSales++;
 	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page`, error, pageNum, label);
 	} finally {
 		await detailPage.close();
 	}
@@ -110,10 +112,11 @@ const PROPERTY_TYPES = [
 const pagePropertyCount = {}; // Track properties found per page per type
 
 async function scrapeSelectiv() {
-	console.log(`\n🚀 Starting Selectiv scraper (Agent ${AGENT_ID})...\n`);
+	const scrapeStartTime = Date.now();
+	logger.step(`Starting Selectiv scraper...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Connecting to browserless...`);
 
 	const crawler = new PlaywrightCrawler({
 		maxConcurrency: 3,
@@ -127,9 +130,9 @@ async function scrapeSelectiv() {
 		},
 
 		async requestHandler({ page, request }) {
-			const { pageNum, isRental, label, typeIndex } = request.userData;
+			const { pageNum, totalPages, isRental, label, typeIndex } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(pageNum, label, `Processing listing page...`, totalPages);
 
 			await page.waitForTimeout(1000);
 
@@ -138,7 +141,7 @@ async function scrapeSelectiv() {
 				.waitForSelector('a[href*="/property-for-sale/"], a[href*="/property-to-rent/"]', {
 					timeout: 20000,
 				})
-				.catch(() => console.log(` No property links found on page ${pageNum}`));
+				.catch(() => logger.warn(`No property links found`, pageNum, label));
 
 			const properties = await page.evaluate(() => {
 				try {
@@ -202,7 +205,7 @@ async function scrapeSelectiv() {
 				}
 			});
 
-			console.log(`🔗 Found ${properties.length} properties on page ${pageNum}`);
+			logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 			pagePropertyCount[`${typeIndex}-${pageNum}`] = properties.length;
 
 			// If properties found, enqueue next page
@@ -213,6 +216,7 @@ async function scrapeSelectiv() {
 						url: `${propertyType.urlBase}${pageNum + 1}`,
 						userData: {
 							pageNum: pageNum + 1,
+							totalPages,
 							isRental,
 							label,
 							typeIndex,
@@ -278,18 +282,19 @@ async function scrapeSelectiv() {
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Request failed`);
 		},
 	});
 
 	// Enqueue first page for each property type - subsequent pages will be auto-enqueued
 	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Starting ${propertyType.label}`);
+		logger.step(`Starting ${propertyType.label}`);
 		await crawler.addRequests([
 			{
 				url: `${propertyType.urlBase}1`,
 				userData: {
 					pageNum: 1,
+					totalPages: 999, // Dynamic pagination
 					isRental: propertyType.isRental,
 					label: propertyType.label,
 					typeIndex: propertyType.typeIndex,
@@ -300,20 +305,18 @@ async function scrapeSelectiv() {
 
 	await crawler.run();
 
-	console.log(
-		`\n✅ Completed Selectiv scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Completed Selectiv scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`);
+	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 (async () => {
 	try {
 		await scrapeSelectiv();
-		await updateRemoveStatus(AGENT_ID);
 		console.log("\n✅ All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();
