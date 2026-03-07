@@ -3,14 +3,12 @@
 // Usage:
 // node backend/scraper-agent-239.js
 
-const { PlaywrightCrawler, log } = require("crawlee");
+const { PlaywrightCrawler } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
-const {
-	formatPriceUk,
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
-} = require("./lib/db-helpers.js");
+const { formatPriceUk, updatePriceByPropertyURLOptimized, processPropertyWithCoordinates, } = require("./lib/db-helpers.js");
 const { parsePrice } = require("./lib/property-helpers.js");
+const logger = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources, sleep } = require("./lib/scraper-utils.js");
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -49,6 +47,7 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
+	const scrapeStartTime = new Date();
 	await sleep(500);
 
 	const detailPage = await browserContext.newPage();
@@ -85,7 +84,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		if (isRental) stats.savedRentals++;
 		else stats.savedSales++;
 	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
+		logger.error(` Error scraping detail page ${property.link}:`, error.message);
 	} finally {
 		await detailPage.close();
 	}
@@ -124,6 +123,15 @@ async function scrapeHKLHome() {
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
 
+		navigationTimeoutSecs: 30,
+		requestHandlerTimeoutSecs: 300,
+
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+			},
+		],
+
 		launchContext: {
 			launchOptions: {
 				browserWSEndpoint,
@@ -133,7 +141,7 @@ async function scrapeHKLHome() {
 		async requestHandler({ page, request }) {
 			const { pageNum, isRental, label, typeIndex } = request.userData;
 
-			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
+			logger.page(AGENT_ID, pageNum, null, label)
 
 			await page.waitForTimeout(1200);
 
@@ -279,9 +287,14 @@ async function scrapeHKLHome() {
 							}
 
 							const priceDisplay = formatPriceUk(priceNum);
-							console.log(`✅ ${property.title} - ${priceDisplay}`);
+							logger.property({
+								agentId: AGENT_ID,
+								title: property.title,
+								price: priceDisplay,
+								isRental,
+							})
 						} catch (dbErr) {
-							console.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+							logger.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 						}
 					}),
 				);
@@ -291,7 +304,7 @@ async function scrapeHKLHome() {
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`❌ Failed: ${request.url}`);
 		},
 	});
 
@@ -315,20 +328,21 @@ async function scrapeHKLHome() {
 
 	await crawler.run();
 
-	console.log(
+	logger.step(
 		`\n✅ Completed HKL Home scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 (async () => {
 	try {
 		await scrapeHKLHome();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+		logger.step("\n✅ All done!");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("❌ Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();
