@@ -3,7 +3,7 @@
 // Usage:
 // node backend/scraper-agent-239.js
 
-const { PlaywrightCrawler } = require("crawlee");
+const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized, processPropertyWithCoordinates, } = require("./lib/db-helpers.js");
 const { parsePrice } = require("./lib/property-helpers.js");
