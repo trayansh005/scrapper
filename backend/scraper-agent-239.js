@@ -7,8 +7,10 @@ const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const { formatPriceUk, updatePriceByPropertyURLOptimized, processPropertyWithCoordinates, } = require("./lib/db-helpers.js");
 const { parsePrice } = require("./lib/property-helpers.js");
-const logger = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources, sleep } = require("./lib/scraper-utils.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+
+const logger = createAgentLogger(AGENT_ID);
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -245,8 +247,17 @@ async function scrapeHKLHome() {
 					batch.map(async (property) => {
 						if (!property.link) return;
 
+						if (actionTaken === "CREATED") {
+							await new Promise((resolve) => setTimeout(resolve, 500));
+						}
+
+						if (isSoldProperty(property.statusText || "")) {
+							logger.warn(`Skipping sold property`, pageNum, label);
+							return;
+						}
+
 						if (processedUrls.has(property.link)) {
-							log.info(` Skipping duplicate: ${property.title}`);
+							logger.warn(`Skipping duplicate`, pageNum, label);
 							return;
 						}
 						processedUrls.add(property.link);
@@ -284,12 +295,16 @@ async function scrapeHKLHome() {
 							}
 
 							const priceDisplay = formatPriceUk(priceNum);
-							logger.property({
-								agentId: AGENT_ID,
-								title: property.title,
-								price: priceDisplay,
+							logger.property(
+								pageNum,
+								label,
+								property.title,
+								priceDisplay,
+								property.link,
 								isRental,
-							})
+								totalPages,
+								actionTaken,
+							);
 						} catch (dbErr) {
 							logger.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
 						}
