@@ -297,15 +297,69 @@ async function scrapePropertyDetail(browserContext, property) {
 // REQUEST HANDLER
 // ============================================================================
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, totalPages, isRental, label } = request.userData;
+async function handleListingPage({ page, request, crawler }) {
+	const { pageNum, isRental, label } = request.userData;
+	let totalPages = request.userData.totalPages || 1;
+
+	// Detect total pages from listing pagination HTML, then queue page-2..page-N URLs.
+	if (!request.userData.totalPages) {
+		totalPages = await page.evaluate(() => {
+			const getInt = (text) => {
+				const match = String(text || "").match(/\d+/);
+				return match ? parseInt(match[0], 10) : null;
+			};
+
+			const select = document.querySelector("#pagination-select");
+			if (select) {
+				const optionVals = Array.from(select.querySelectorAll("option"))
+					.map((opt) => getInt(opt.value || opt.textContent))
+					.filter((v) => Number.isInteger(v) && v > 0);
+				if (optionVals.length > 0) return Math.max(...optionVals);
+			}
+
+			const paginationText =
+				document.querySelector(".pagination-page")?.textContent || document.body?.innerText || "";
+			const ofMatch = paginationText.match(/\bof\s+(\d+)\b/i);
+			if (ofMatch) return parseInt(ofMatch[1], 10);
+
+			const pageLinks = Array.from(document.querySelectorAll("a[href*='/page-']"))
+				.map((a) => getInt(a.textContent))
+				.filter((v) => Number.isInteger(v) && v > 0);
+			if (pageLinks.length > 0) return Math.max(...pageLinks);
+
+			return 1;
+		});
+
+		if (totalPages > pageNum) {
+			const nextRequests = [];
+			for (let pg = pageNum + 1; pg <= totalPages; pg++) {
+				const nextUrl = request.url.replace(/\/page-\d+\/?$/i, "/").replace(/\/?$/, `/page-${pg}/`);
+
+				nextRequests.push({
+					url: nextUrl,
+					userData: {
+						pageNum: pg,
+						totalPages,
+						isRental,
+						label,
+					},
+				});
+			}
+			await crawler.addRequests(nextRequests);
+		}
+	}
+
 	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
 		const propertyListSelector = ".sales-wrap, .sales-wrapper, .property-card";
 		await page.waitForSelector(propertyListSelector, { timeout: 15000 });
 	} catch (e) {
-		logger.warn(`Property containers not found on page ${pageNum} - attempting fallback`, pageNum, label);
+		logger.warn(
+			`Property containers not found on page ${pageNum} - attempting fallback`,
+			pageNum,
+			label,
+		);
 	}
 
 	await page.waitForTimeout(1500);
@@ -315,10 +369,15 @@ async function handleListingPage({ page, request }) {
 			const results = [];
 			const seenLinks = new Set();
 
-			const containers = Array.from(document.querySelectorAll(".sales-wrap, .sales-wrapper, article, .property-card"));
+			const containers = Array.from(
+				document.querySelectorAll(".sales-wrap, .sales-wrapper, article, .property-card"),
+			);
 
 			for (const container of containers) {
-				const anchor = container.querySelector("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']") || container.querySelector("a");
+				const anchor =
+					container.querySelector(
+						"a[href*='/property-for-sale/'], a[href*='/property-to-rent/']",
+					) || container.querySelector("a");
 				const href = anchor?.getAttribute("href");
 				if (!href) continue;
 
@@ -328,17 +387,21 @@ async function handleListingPage({ page, request }) {
 				if (seenLinks.has(link)) continue;
 				seenLinks.add(link);
 
-				const statusText = container.querySelector(".status, .property-status, [class*='status']")?.textContent || "";
-				
+				const statusText =
+					container.querySelector(".status, .property-status, [class*='status']")?.textContent ||
+					"";
+
 				const title =
 					container.querySelector("h3")?.textContent?.trim() ||
 					anchor.querySelector("h3")?.textContent?.trim() ||
 					anchor.textContent?.trim() ||
 					"Property";
 
-				const priceText = 
+				const priceText =
 					container.querySelector(".highlight-text")?.textContent?.trim() ||
-					container.querySelector(".price, .property-price, [class*='price']")?.textContent?.trim() || 
+					container
+						.querySelector(".price, .property-price, [class*='price']")
+						?.textContent?.trim() ||
 					"";
 
 				// Bedroom extraction from the icon-bed structure
@@ -348,7 +411,8 @@ async function handleListingPage({ page, request }) {
 					bedText = bedIcon.parentElement?.querySelector(".count")?.textContent?.trim() || "";
 				}
 				if (!bedText) {
-					bedText = container.querySelector(".bedrooms, .rooms, [class*='bed']")?.textContent?.trim() || "";
+					bedText =
+						container.querySelector(".bedrooms, .rooms, [class*='bed']")?.textContent?.trim() || "";
 				}
 
 				results.push({ link, title, statusText, priceText, bedText });
@@ -417,7 +481,7 @@ async function handleListingPage({ page, request }) {
 					stats.totalScraped++;
 					if (isRental) stats.savedRentals++;
 					else stats.savedSales++;
-					
+
 					propertyAction = "CREATED";
 					lat = detail.coords.latitude;
 					lng = detail.coords.longitude;
@@ -448,7 +512,12 @@ async function handleListingPage({ page, request }) {
 				await sleep(500);
 			}
 		} catch (err) {
-			logger.error(`Error processing property ${property.link || "unknown"}: ${err.message}`, err, pageNum, label);
+			logger.error(
+				`Error processing property ${property.link || "unknown"}: ${err.message}`,
+				err,
+				pageNum,
+				label,
+			);
 		}
 	}
 }
@@ -492,9 +561,6 @@ async function scrapeLinleyAndSimpson() {
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
 
-	const totalSalesPages = 19;
-	const totalLettingsPages = 35;
-
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
@@ -502,42 +568,32 @@ async function scrapeLinleyAndSimpson() {
 
 	const allRequests = [];
 
-	// Build Sales requests
-	for (let pg = Math.max(1, startPage); pg <= totalSalesPages; pg++) {
-		const url =
-			pg === 1
-				? "https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/"
-				: `https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/page-${pg}/`;
+	const salesUrl =
+		startPage === 1
+			? "https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/"
+			: `https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/page-${startPage}/`;
 
+	allRequests.push({
+		url: salesUrl,
+		userData: {
+			pageNum: startPage,
+			totalPages: null,
+			isRental: false,
+			label: "SALES",
+		},
+	});
+
+	// Build Lettings first page (or selected start page); handler queues page-(n+1)..page-total.
+	if (startPage === 1) {
 		allRequests.push({
-			url,
+			url: "https://www.linleyandsimpson.co.uk/property/to-rent/in-yorkshire/exclude-let-agreed/",
 			userData: {
-				pageNum: pg,
-				totalPages: totalSalesPages,
-				isRental: false,
-				label: "SALES",
+				pageNum: 1,
+				totalPages: null,
+				isRental: true,
+				label: "LETTINGS",
 			},
 		});
-	}
-
-	// Build Lettings requests
-	if (startPage === 1) {
-		for (let pg = 1; pg <= totalLettingsPages; pg++) {
-			const url =
-				pg === 1
-					? "https://www.linleyandsimpson.co.uk/property/to-rent/in-yorkshire/exclude-let-agreed/"
-					: `https://www.linleyandsimpson.co.uk/property/to-rent/in-yorkshire/exclude-let-agreed/page-${pg}/`;
-
-			allRequests.push({
-				url,
-				userData: {
-					pageNum: pg,
-					totalPages: totalLettingsPages,
-					isRental: true,
-					label: "LETTINGS",
-				},
-			});
-		}
 	}
 
 	if (allRequests.length === 0) {

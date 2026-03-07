@@ -5,7 +5,6 @@
 // node backend/scraper-agent-113.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -36,59 +35,68 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parsePropertyCard($, element) {
-	try {
-		const $li = $(element);
-
-		// Check for "Sold" status in any badge or text
-		const soldBadgeText = $li.find(".bg-plum").text().trim();
-		if (soldBadgeText.toLowerCase().includes("sold")) return null;
-
-		// General sold keyword check on the card
-		if (isSoldProperty($li.text())) return null;
-
-		const h3 = $li.find("h3");
-		const h4 = $li.find("h4");
-
-		if (!h3.length || !h4.length) return null;
-
-		const title = h3.text().trim();
-		const priceText = h4.text().trim();
-
-		const linkRel = h3.find("a").attr("href") || $li.find("a").attr("href");
-		if (!linkRel) return null;
-		const link = linkRel.startsWith("http") ? linkRel : `https://www.carterjonas.co.uk${linkRel}`;
-
-		// Specs (Bedrooms)
-		const specs = [];
-		$li.find("ul li").each((j, specEl) => {
-			specs.push($(specEl).text().trim());
-		});
-		const bedsMatch = specs.find((s) => /^\d+$/.test(s));
-		const bedroomsValue = bedsMatch || null;
-		const bedrooms = bedroomsValue ? parseInt(bedroomsValue) : null;
-
-		if (link && title) {
-			return { link, title, priceText, bedrooms };
-		}
-		return null;
-	} catch (error) {
-		return null;
-	}
+function buildApiRequestBody({ isRental, pageNum }) {
+	return {
+		searchValues: {
+			division: "Homes",
+			toBuy: !isRental,
+			area: "GreaterLondon",
+			location: { lat: 0, lng: 0 },
+			searchTerm: "",
+			radius: 10,
+			includeSoldOrSoldSTC: true,
+			includeLetAgreedOrUnderOffer: true,
+		},
+		page: Math.max(0, pageNum - 1), // API is zero-based; agent paging is one-based
+		pageSize: 12,
+		sortOrder: "HighestPriceFirst",
+	};
 }
 
-function parseListingPage(htmlContent) {
-	const $ = cheerio.load(htmlContent);
-	const properties = [];
+async function fetchPropertiesFromApi(page, { isRental, pageNum }) {
+	const requestBody = buildApiRequestBody({ isRental, pageNum });
 
-	$("li").each((index, element) => {
-		const property = parsePropertyCard($, element);
-		if (property) {
-			properties.push(property);
+	const apiResult = await page.evaluate(async (body) => {
+		const response = await fetch("/api/properties", {
+			method: "POST",
+			headers: { "content-type": "text/plain;charset=UTF-8" },
+			body: JSON.stringify(body),
+			credentials: "include",
+		});
+
+		if (!response.ok) {
+			return { ok: false, status: response.status, properties: [] };
 		}
-	});
 
-	return properties;
+		const data = await response.json();
+		return {
+			ok: true,
+			status: response.status,
+			properties: Array.isArray(data?.properties) ? data.properties : [],
+		};
+	}, requestBody);
+
+	if (!apiResult?.ok) {
+		throw new Error(`API request failed with status ${apiResult?.status || "unknown"}`);
+	}
+
+	return apiResult.properties.map((item) => {
+		const link = item?.url
+			? item.url.startsWith("http")
+				? item.url
+				: `https://www.carterjonas.co.uk${item.url}`
+			: null;
+
+		return {
+			link,
+			title: item?.name || "Property",
+			price: typeof item?.price === "number" ? item.price : parsePrice(String(item?.price || "")),
+			bedrooms: typeof item?.beds === "number" ? item.beds : null,
+			statusText: item?.status || "",
+			lat: typeof item?.location?.lat === "number" ? item.location.lat : null,
+			lng: typeof item?.location?.lng === "number" ? item.location.lng : null,
+		};
+	});
 }
 
 // ============================================================================
@@ -103,71 +111,10 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await blockNonEssentialResources(detailPage);
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 60000,
-		});
-
-		const detailData = await detailPage.evaluate(() => {
-			try {
-				let lat = null;
-				let lon = null;
-				// Check meta tags first
-				const latMeta = document.querySelector('meta[property="place:location:latitude"]');
-				const lonMeta = document.querySelector('meta[property="place:location:longitude"]');
-				if (latMeta && lonMeta) {
-					lat = parseFloat(latMeta.content);
-					lon = parseFloat(lonMeta.content);
-				}
-
-				if (!lat) {
-					const html = document.documentElement.innerHTML;
-					const latMatch = html.match(/"latitude":\s*(-?\d+\.\d+)/i);
-					const lonMatch = html.match(/"longitude":\s*(-?\d+\.\d+)/i);
-					if (latMatch && lonMatch) {
-						lat = parseFloat(latMatch[1]);
-						lon = parseFloat(lonMatch[1]);
-					}
-				}
-				
-				return { lat, lon };
-			} catch (e) {}
-			return null;
-		});
-
-		return {
-			price: property.price,
-			bedrooms: property.bedrooms,
-			title: property.title,
-			coords: {
-				latitude: detailData?.lat || null,
-				longitude: detailData?.lon || null,
-			},
-		};
-	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
-		return null;
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
 // REQUEST HANDLER
 // ============================================================================
 
-async function handleListingPage({ page, request, crawler }) {
+async function handleListingPage({ page, request }) {
 	const { pageNum, isRental, label, totalPages } = request.userData;
 	logger.page(pageNum, label, request.url, totalPages);
 
@@ -179,18 +126,18 @@ async function handleListingPage({ page, request, crawler }) {
 	}
 
 	await page.waitForTimeout(2000);
-	await page.waitForSelector("li h3", { timeout: 30000 }).catch(() => {});
 
-	const htmlContent = await page.content();
-	const properties = parseListingPage(htmlContent);
+	const properties = await fetchPropertiesFromApi(page, { isRental, pageNum });
 
 	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 	for (const property of properties) {
 		try {
-			// Skip properties with no price
-			const price = parsePrice(property.priceText);
+			const price = property.price;
 			if (!price || price === 0) continue;
+
+			if (!property.link) continue;
+			if (isSoldProperty(property.statusText || "")) continue;
 
 			if (processedUrls.has(property.link)) continue;
 			processedUrls.add(property.link);
@@ -217,29 +164,23 @@ async function handleListingPage({ page, request, crawler }) {
 			let finalBedrooms = property.bedrooms;
 
 			if (!result.isExisting && !result.error) {
-				const detail = await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
-				if (detail) {
-					lat = detail.coords.latitude;
-					lng = detail.coords.longitude;
-					finalPrice = detail.price || price;
-					finalTitle = detail.title || property.title;
-					finalBedrooms = detail.bedrooms || property.bedrooms;
+				lat = property.lat;
+				lng = property.lng;
 
-					await processPropertyWithCoordinates(
-						property.link.trim(),
-						finalPrice,
-						finalTitle,
-						finalBedrooms,
-						AGENT_ID,
-						isRental,
-						null, // html
-						lat,
-						lng
-					);
+				await processPropertyWithCoordinates(
+					property.link.trim(),
+					finalPrice,
+					finalTitle,
+					finalBedrooms,
+					AGENT_ID,
+					isRental,
+					null, // html
+					lat,
+					lng,
+				);
 
-					stats.totalSaved++;
-					propertyAction = "CREATED";
-				}
+				stats.totalSaved++;
+				propertyAction = "CREATED";
 			}
 
 			logger.property(
@@ -255,11 +196,16 @@ async function handleListingPage({ page, request, crawler }) {
 				lng,
 			);
 
-			if (propertyAction !== "UNCHANGED") {
+			if (propertyAction === "CREATED") {
 				await sleep(500);
 			}
 		} catch (err) {
-			logger.error(`Error processing property ${property.link}: ${err.message}`, err, pageNum, label);
+			logger.error(
+				`Error processing property ${property.link}: ${err.message}`,
+				err,
+				pageNum,
+				label,
+			);
 		}
 	}
 }
@@ -272,6 +218,7 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 600,
 		launchContext: {
 			launcher: undefined,
@@ -308,7 +255,7 @@ async function scrapeCarterJonas() {
 	const crawler = createCrawler(browserWSEndpoint);
 
 	const allRequests = [];
-	
+
 	// Queue SALES pages
 	for (let pg = Math.max(1, startPage); pg <= maxPages; pg++) {
 		allRequests.push({
@@ -316,7 +263,7 @@ async function scrapeCarterJonas() {
 			userData: { pageNum: pg, isRental: false, label: "SALES", totalPages: maxPages },
 		});
 	}
-	
+
 	// Queue RENTALS pages
 	if (startPage === 1) {
 		for (let pg = 1; pg <= maxPages; pg++) {
@@ -329,14 +276,12 @@ async function scrapeCarterJonas() {
 
 	if (allRequests.length > 0) {
 		logger.step(`Queueing ${allRequests.length} listing pages...`);
-		await crawler.addRequests(allRequests);
-		await crawler.run();
+		await crawler.run(allRequests);
 	}
 
 	logger.step(`Finished Carter Jonas - Saved: ${stats.totalSaved}`);
-	
+
 	if (startPage === 1) {
-		logger.step(`Updating remove status...`);
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 	}
 }
