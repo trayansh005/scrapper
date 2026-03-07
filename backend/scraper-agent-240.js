@@ -3,8 +3,7 @@
 // Usage:
 // node backend/scraper-agent-240.js
 
-const { PlaywrightCrawler } = require("crawlee");
-
+const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 
 const {
