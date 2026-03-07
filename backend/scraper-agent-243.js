@@ -1,17 +1,23 @@
 // Dixons Estate Agents scraper using Playwright with Crawlee
 // Agent ID: 243
+// Usage: node backend/scraper-agent-243.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 
-const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
+const { updateRemoveStatus } = require("./db.js");
 const {
-    formatPriceUk,
-    updatePriceByPropertyURLOptimized,
+  formatPriceUk,
+  updatePriceByPropertyURLOptimized,
 } = require("./lib/db-helpers.js");
 
-const { isSoldProperty } = require("./lib/property-helpers.js");
-const { blockNonEssentialResources, sleep } = require("./lib/scraper-utils.js");
+const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
+
+// Inline sleep – fixes "sleep is not a function" reliably
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 log.setLevel(log.LEVELS.ERROR);
 
@@ -19,354 +25,293 @@ const AGENT_ID = 243;
 const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
-    totalScraped: 0,
-    totalSaved: 0,
-    savedSales: 0,
-    savedRentals: 0,
+  totalScraped: 0,
+  totalSaved: 0,
+  savedSales: 0,
+  savedRentals: 0,
 };
 
 const processedUrls = new Set();
 
 // ============================================================================
-// BROWSERLESS
+// BROWSERLESS ENDPOINT
 // ============================================================================
 
 function getBrowserlessEndpoint() {
-    return (
-        process.env.BROWSERLESS_WS_ENDPOINT ||
-        "ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
-    );
+  return (
+    process.env.BROWSERLESS_WS_ENDPOINT ||
+    "ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv"
+  );
 }
 
 // ============================================================================
-// DETAIL SCRAPER
+// DETAIL PAGE SCRAPER
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
+async function scrapePropertyDetail(context, property, isRental) {
+  await sleep(800 + Math.random() * 700); // random delay 800–1500 ms
 
-    await sleep(500);
+  const detailPage = await context.newPage();
 
-    const detailPage = await browserContext.newPage();
+  try {
+    await detailPage.route("**/*", (route) => {
+      const type = route.request().resourceType();
+      if (["image", "font", "stylesheet", "media"].includes(type)) {
+        route.abort();
+      } else {
+        route.continue();
+      }
+    });
 
-    try {
+    await detailPage.goto(property.link, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
 
-        await detailPage.route("**/*", (route) => {
-            const type = route.request().resourceType();
+    const coords = await detailPage.evaluate(() => {
+      const html = document.documentElement.innerHTML;
+      const lat = html.match(/"latitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
+      const lon = html.match(/"longitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
+      return {
+        lat: lat ? parseFloat(lat[1]) : null,
+        lon: lon ? parseFloat(lon[1]) : null,
+      };
+    });
 
-            if (["image", "font", "stylesheet", "media"].includes(type)) {
-                route.abort();
-            } else {
-                route.continue();
-            }
-        });
-
-        await detailPage.goto(property.link, {
-            waitUntil: "domcontentloaded",
-            timeout: 60000,
-        });
-
-        const coords = await detailPage.evaluate(() => {
-
-            const html = document.documentElement.innerHTML;
-
-            const lat = html.match(/"latitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
-            const lon = html.match(/"longitude":\s*([-+]?[0-9]*\.?[0-9]+)/i);
-
-            return {
-                lat: lat ? parseFloat(lat[1]) : null,
-                lon: lon ? parseFloat(lon[1]) : null,
-            };
-        });
-
-        return {
-            latitude: coords.lat,
-            longitude: coords.lon,
-        };
-
-    } catch (err) {
-
-        logger.error(`Detail scrape failed: ${property.link}`, err.message);
-        return null;
-
-    } finally {
-
-        await detailPage.close();
-    }
+    return { latitude: coords.lat, longitude: coords.lon };
+  } catch (err) {
+    logger.error(`Detail failed → ${property.link}`, err.message || err);
+    return null;
+  } finally {
+    await detailPage.close().catch(() => {});
+  }
 }
 
 // ============================================================================
-// REQUEST HANDLER
+// LISTING PAGE HANDLER
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
+  const { pageNum, isRental, label } = request.userData;
 
-    const { pageNum, isRental, label } = request.userData;
+  logger.page(pageNum, label, "Processing listing page...");
 
-    logger.page(pageNum, label, "Processing listing page...");
+  await sleep(1500 + Math.random() * 1000);
 
-    await page.waitForTimeout(1500);
+  await page.waitForSelector(".card", { timeout: 25000 })
+    .catch(() => logger.warn("No .card elements found – selectors may have changed", pageNum, label));
 
-    await page
-        .waitForSelector(".card", { timeout: 20000 })
-        .catch(() => logger.warn("No properties found", pageNum, label));
+  const properties = await page.evaluate(() => {
+    const cards = document.querySelectorAll(".card");
+    const results = [];
+    const baseUrl = window.location.origin;
 
-    const properties = await page.evaluate(() => {
+    cards.forEach((card) => {
+      try {
+        const linkEl = card.querySelector("a.card__link");
+        if (!linkEl) return;
+        const rel = linkEl.getAttribute("href");
+        if (!rel) return;
+        const link = rel.startsWith("http") ? rel : `${baseUrl}${rel.startsWith("/") ? "" : "/"}${rel}`;
 
-        const cards = document.querySelectorAll(".card");
-        const results = [];
-        const baseUrl = window.location.origin;
+        const priceText = card.querySelector(".card__heading")?.innerText.trim() || "";
+        const title = card.querySelector(".card__text-content")?.innerText.trim() || "Property";
 
-        cards.forEach((card) => {
-
-            const priceText = card.querySelector(".card__heading")?.innerText || "";
-            const title = card.querySelector(".card__text-content")?.innerText || "Property";
-
-            const rel = card.querySelector("a.card__link")?.getAttribute("href");
-            if (!rel) return;
-
-            const link = rel.startsWith("http") ? rel : baseUrl + rel;
-
-            const statusText = card.innerText || "";
-
-            let bedrooms = null;
-
-            const specs = card.querySelectorAll(".card-content__spec-list-item");
-
-            specs.forEach((spec) => {
-
-                if (spec.querySelector(".icon-bedroom")) {
-
-                    const val = spec.querySelector(".card-content__spec-list-number")?.innerText;
-
-                    if (val) bedrooms = parseInt(val, 10);
-                }
-            });
-
-            results.push({
-                link,
-                title,
-                statusText,
-                priceText,
-                bedrooms,
-            });
+        let bedrooms = null;
+        const specs = card.querySelectorAll(".card-content__spec-list-item");
+        specs.forEach((spec) => {
+          if (spec.querySelector(".icon-bedroom")) {
+            const val = spec.querySelector(".card-content__spec-list-number")?.innerText.trim();
+            if (val) bedrooms = parseInt(val, 10);
+          }
         });
 
-        return results;
+        const statusText = card.innerText.trim().toLowerCase();
+
+        results.push({ link, title, priceText, bedrooms, statusText });
+      } catch {}
     });
 
-    logger.step(`Found ${properties.length} properties`, pageNum, label);
+    return results;
+  });
 
-    const batchSize = 5;
+  logger.step(`Found ${properties.length} properties on page ${pageNum}`, pageNum, label);
 
-    for (let i = 0; i < properties.length; i += batchSize) {
+  const batchSize = 5;
 
-        const batch = properties.slice(i, i + batchSize);
+  for (let i = 0; i < properties.length; i += batchSize) {
+    const batch = properties.slice(i, i + batchSize);
 
-        await Promise.all(
+    await Promise.all(
+      batch.map(async (property) => {
+        if (!property.link) return;
 
-            batch.map(async (property) => {
+        if (isSoldProperty(property.statusText || "")) {
+          logger.warn(`Skipping sold/let agreed → ${property.link}`, pageNum, label);
+          return;
+        }
 
-                if (!property.link) return;
+        if (processedUrls.has(property.link)) {
+          logger.warn(`Skipping duplicate → ${property.link}`, pageNum, label);
+          return;
+        }
 
-                if (isSoldProperty(property.statusText || "")) return;
+        processedUrls.add(property.link);
 
-                if (processedUrls.has(property.link)) {
-                    logger.warn("Skipping duplicate", pageNum, label);
-                    return;
-                }
+        try {
+          let actionTaken = "UNCHANGED";
 
-                processedUrls.add(property.link);
+          const priceNum = parsePrice(property.priceText);
 
-                try {
+          if (!priceNum || isNaN(priceNum)) {
+            logger.warn(`Invalid/no price → ${property.link}`, pageNum, label);
+            return;
+          }
 
-                    let actionTaken = "UNCHANGED";
+          const result = await updatePriceByPropertyURLOptimized(
+            property.link.trim(),
+            priceNum,
+            property.title,
+            property.bedrooms || null,
+            AGENT_ID,
+            isRental
+          );
 
-                    const price = formatPriceUk(property.priceText);
+          if (result.updated) {
+            actionTaken = "UPDATED";
+            stats.totalSaved++;
+          }
 
-                    if (!price) {
-                        logger.warn("No price found", pageNum, label);
-                        return;
-                    }
+          if (!result.isExisting && !result.error) {
+            logger.step(`Scraping new detail → ${property.title}`, pageNum, label);
+            const detail = await scrapePropertyDetail(page.context(), property, isRental);
 
-                    const result = await updatePriceByPropertyURLOptimized(
-                        property.link,
-                        price,
-                        property.title,
-                        property.bedrooms,
-                        AGENT_ID,
-                        isRental
-                    );
+            // Update with coordinates
+            await updatePriceByPropertyURL(
+              property.link.trim(),
+              priceNum,
+              property.title,
+              property.bedrooms || null,
+              AGENT_ID,
+              isRental,
+              detail?.latitude || null,
+              detail?.longitude || null
+            );
 
-                    if (result.updated) {
-                        stats.totalSaved++;
-                        actionTaken = "UPDATED";
-                    }
+            stats.totalSaved++;
+            stats.totalScraped++;
+            if (isRental) stats.savedRentals++;
+            else stats.savedSales++;
 
-                    if (!result.isExisting && !result.error) {
+            actionTaken = "CREATED";
+          }
 
-                        const detail = await scrapePropertyDetail(
-                            page.context(),
-                            property
-                        );
+          logger.property(
+            pageNum,
+            label,
+            property.title,
+            formatPriceUk(priceNum),
+            property.link,
+            isRental,
+            null,
+            actionTaken
+          );
 
-                        await updatePriceByPropertyURL(
-                            property.link.trim(),
-                            price,
-                            property.title,
-                            property.bedrooms,
-                            AGENT_ID,
-                            isRental,
-                            detail?.latitude || null,
-                            detail?.longitude || null
-                        );
+          if (actionTaken === "CREATED") {
+            await sleep(1200 + Math.random() * 800);
+          }
+        } catch (err) {
+          logger.error(`Property processing failed → ${property.link}`, err.message || err, pageNum, label);
+        }
+      })
+    );
 
-                        stats.totalSaved++;
-                        stats.totalScraped++;
+    await sleep(500 + Math.random() * 500);
+  }
 
-                        if (isRental) stats.savedRentals++;
-                        else stats.savedSales++;
+  // Dynamic pagination (only enqueue if we found properties)
+  if (properties.length > 0) {
+    const nextPage = pageNum + 1;
+    const type = isRental ? "lettings" : "sales";
+    const nextUrl = `https://www.dixonsestateagents.co.uk/properties/${type}/status-available/most-recent-first/page-${nextPage}#/`;
 
-                        actionTaken = "CREATED";
-                    }
+    logger.step(`Enqueuing next page ${nextPage}: ${nextUrl}`, pageNum, label);
 
-                    logger.property(
-                        pageNum,
-                        label,
-                        property.title,
-                        price,
-                        property.link,
-                        isRental,
-                        null,
-                        actionTaken
-                    );
-
-                    // STEP 7 — Conditional Sleep
-                    if (actionTaken === "CREATED") {
-                        await sleep(500);
-                    }
-
-                } catch (err) {
-
-                    logger.error("DB error", err, pageNum, label);
-                }
-            })
-        );
-
-        await sleep(200);
-    }
-
-    // Pagination
-
-    if (properties.length > 0) {
-
-        const nextPage = pageNum + 1;
-
-        const type = isRental ? "lettings" : "sales";
-
-        const nextUrl =
-            `https://www.dixonsestateagents.co.uk/properties/${type}/status-available/most-recent-first/page-${nextPage}#/`;
-
-        await crawler.addRequests([
-            {
-                url: nextUrl,
-                userData: {
-                    pageNum: nextPage,
-                    isRental,
-                    label,
-                },
-            },
-        ]);
-    }
+    await crawler.addRequests([{
+      url: nextUrl,
+      userData: { pageNum: nextPage, isRental, label },
+    }]);
+  }
 }
 
 // ============================================================================
-// CRAWLER
+// CRAWLER SETUP
 // ============================================================================
 
 function createCrawler(browserWSEndpoint) {
+  return new PlaywrightCrawler({
+    maxConcurrency: 1,              // start low to avoid context closing issues
+    maxRequestRetries: 3,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 400,
 
-    return new PlaywrightCrawler({
+    preNavigationHooks: [
+      async ({ page }) => {
+        await blockNonEssentialResources(page);
+      },
+    ],
 
-        maxConcurrency: 2,
-        maxRequestRetries: 2,
-        requestHandlerTimeoutSecs: 300,
+    launchContext: {
+      launchOptions: { browserWSEndpoint },
+    },
 
-        preNavigationHooks: [
-            async ({ page }) => {
-                await blockNonEssentialResources(page);
-            },
-        ],
+    requestHandler: handleListingPage,
 
-        launchContext: {
-            launchOptions: {
-                browserWSEndpoint,
-            },
-        },
-
-        requestHandler: handleListingPage,
-
-        failedRequestHandler({ request }) {
-            logger.error(`Failed request: ${request.url}`);
-        },
-    });
+    failedRequestHandler({ request }) {
+      logger.error(`Permanent failure: ${request.url}`);
+    },
+  });
 }
 
 // ============================================================================
-// MAIN
+// MAIN ENTRY POINT
 // ============================================================================
 
 async function scrapeDixons() {
+  const scrapeStartTime = new Date();
+  logger.step(`Starting Dixons scraper (Agent ${AGENT_ID})`);
 
-    const scrapeStartTime = new Date();
+  const browserWSEndpoint = getBrowserlessEndpoint();
 
-    logger.step("Starting Dixons scraper");
+  const crawler = createCrawler(browserWSEndpoint);
 
-    const browserWSEndpoint = getBrowserlessEndpoint();
+  // Queue both sales and lettings
+  await crawler.addRequests([
+    {
+      url: "https://www.dixonsestateagents.co.uk/properties/sales/status-available/most-recent-first/page-1#/",
+      userData: { pageNum: 1, isRental: false, label: "SALES" },
+    },
+    {
+      url: "https://www.dixonsestateagents.co.uk/properties/lettings/status-available/most-recent-first/page-1#/",
+      userData: { pageNum: 1, isRental: true, label: "LETTINGS" },
+    },
+  ]);
 
-    const crawler = createCrawler(browserWSEndpoint);
+  await crawler.run();
 
-    await crawler.addRequests([
-        {
-            url: `https://www.dixonsestateagents.co.uk/properties/lettings/status-available/most-recent-first/page-1#/`,
-            userData: {
-                pageNum: 1,
-                isRental: true,
-                label: "LETTINGS",
-            },
-        },
-    ]);
+  logger.step(`Completed – Scraped: ${stats.totalScraped}, Saved: ${stats.totalSaved}`);
+  logger.step(`Breakdown → SALES: ${stats.savedSales} | LETTINGS: ${stats.savedRentals}`);
 
-    await crawler.run();
-
-    logger.step(
-        `Completed - Scraped: ${stats.totalScraped}, Saved: ${stats.totalSaved}`
-    );
-
-    logger.step(
-        `Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`
-    );
-
-    await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+  await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
-// ============================================================================
-// EXECUTION
-// ============================================================================
-
 (async () => {
-
-    try {
-
-        await scrapeDixons();
-
-        logger.step("All done!");
-
-        process.exit(0);
-
-    } catch (err) {
-
-        logger.error("Fatal error:", err);
-
-        process.exit(1);
-    }
+  try {
+    await scrapeDixons();
+    logger.step("All done!");
+    process.exit(0);
+  } catch (err) {
+    logger.error("Fatal error:", err?.message || err);
+    process.exit(1);
+  }
 })();
