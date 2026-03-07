@@ -57,12 +57,12 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 const PROPERTY_TYPES = [
-	{
-		url: "https://www.gatekeeper.co.uk/properties",
-		isRental: false,
-		label: "SALES",
-		buttonSelector: "#buyBtn",
-	},
+	// {
+	// 	url: "https://www.gatekeeper.co.uk/properties",
+	// 	isRental: false,
+	// 	label: "SALES",
+	// 	buttonSelector: "#buyBtn",
+	// },
 	{
 		url: "https://www.gatekeeper.co.uk/properties",
 		isRental: true,
