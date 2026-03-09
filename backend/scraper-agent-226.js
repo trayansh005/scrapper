@@ -61,7 +61,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 	try {
 		await blockNonEssentialResources(detailPage);
 		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
+			waitUntil: "networkidle",
 			timeout: 60000,
 		});
 
@@ -96,27 +96,52 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			}
 
 			// ────────────────────────────────────────────────
-			// 2. NEW: Try global window.properties (common on Palmer Partners detail pages)
+			// 2. Extract coordinates from inline script: var properties = [...]
 			// ────────────────────────────────────────────────
 			if (!data.lat || !data.lng) {
-				if (window.properties && Array.isArray(window.properties) && window.properties.length > 0) {
-					const prop = window.properties[0]; // Usually first item is current property
 
-					if (prop.latitude && prop.longitude) {
-						data.lat = parseFloat(prop.latitude);
-						data.lng = parseFloat(prop.longitude);
-					} else if (prop.coordinates && prop.coordinates.lat && prop.coordinates.lng) {
-						data.lat = parseFloat(prop.coordinates.lat);
-						data.lng = parseFloat(prop.coordinates.lng);
+				const scripts = Array.from(document.querySelectorAll("script"));
+
+				for (const script of scripts) {
+
+					const text = script.textContent || "";
+
+					if (text.includes("var properties")) {
+
+						try {
+
+							const match = text.match(/var properties\s*=\s*(\[[\s\S]*?\]);/);
+
+							if (match) {
+
+								const json = JSON.parse(match[1]);
+
+								if (json[0]) {
+
+									const prop = json[0];
+
+									data.lat = parseFloat(prop.latitude || prop.coordinates?.lat);
+									data.lng = parseFloat(prop.longitude || prop.coordinates?.lng);
+
+									if (prop.NumberBedrooms) {
+										data.bedrooms = String(prop.NumberBedrooms);
+									} else if (prop.beds) {
+										data.bedrooms = String(prop.beds);
+									}
+
+									break;
+								}
+
+							}
+
+						} catch (e) {
+							// ignore parsing error
+						}
+
 					}
 
-					// Bedrooms from JSON
-					if (prop.NumberBedrooms) {
-						data.bedrooms = String(prop.NumberBedrooms);
-					} else if (prop.beds) {
-						data.bedrooms = String(prop.beds);
-					}
 				}
+
 			}
 
 			// ────────────────────────────────────────────────
@@ -144,11 +169,10 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			// ────────────────────────────────────────────────
 			if (!data.bedrooms) {
 				const bedsSelectors = [
+					'.FeaturedProperty__list-stats-item--bedrooms span',
 					'.list-stats .bedroom span',
 					'[title="Bedrooms"] span',
-					'.property-stats .beds',
-					'h1, h2, .property-title',
-					'.list-stats'
+					'.property-stats .beds'
 				];
 				for (const selector of bedsSelectors) {
 					const bedsEl = document.querySelector(selector);
