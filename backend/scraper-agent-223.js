@@ -149,52 +149,42 @@ async function handleListingPage({ page, request, crawler }) {
 
   await blockNonEssentialResources(page);
 
-  await page.waitForSelector("h2 a", { timeout: 30000 }).catch(() => {
-    logger.warn("No property links (h2 a) found – page empty/blocked?", pageNum, label);
+  await page.waitForSelector("div.property-information", { timeout: 30000 }).catch(() => {
+    logger.warn("No property-information divs found – page empty/blocked?", pageNum, label);
   });
 
   const properties = await page.evaluate(() => {
     const results = [];
-    const headings = document.querySelectorAll("h2");
+    const cards = document.querySelectorAll('div.property-information');  // top-level wrapper
 
-    headings.forEach(h2 => {
-      const a = h2.querySelector("a");
-      if (!a) return;
+    cards.forEach(card => {
+      const titleEl = card.querySelector('h2 a.property-link');
+      const title = titleEl?.textContent?.trim() || '';
+      const link = titleEl?.href || '';
 
-      const title = a.textContent.trim();
-      const link = a.href || "";
-      if (!link || !title) return;
+      if (!title || !link) return;
 
-      // Price: text node right after h2 (often direct sibling or next text)
-      let price = "";
-      let next = h2.nextSibling;
-      while (next) {
-        if (next.nodeType === Node.TEXT_NODE && /\£|Offers Over|Guide Price/i.test(next.textContent)) {
-          price = next.textContent.trim();
-          break;
-        }
-        next = next.nextSibling;
-      }
+      const priceEl = card.querySelector('p.price .price-value');
+      const priceValue = priceEl?.textContent?.trim() || '';
 
-      // Bedrooms: look for numeric line after price (often 2nd or 3rd number)
-      let bedrooms = null;
-      let numCount = 0;
-      next = h2.nextSibling;
-      while (next && numCount < 3) {
-        if (next.nodeType === Node.TEXT_NODE) {
-          const txt = next.textContent.trim();
-          if (/^\d+$/.test(txt)) {
-            numCount++;
-            if (numCount === 2) bedrooms = parseInt(txt, 10);
-          }
-        }
-        next = next.nextSibling;
-      }
+      // Full price context
+      const fullPriceP = card.querySelector('p.price');
+      const fullPriceText = fullPriceP?.textContent?.trim() || '';
 
-      results.push({ link, title, price, bedrooms });
+      // Bedrooms
+      const bedEl = card.querySelector('p.bedrooms');
+      const bedroomsText = bedEl?.textContent?.trim() || '';
+      const bedrooms = bedroomsText ? parseInt(bedroomsText.replace(/\D/g, ''), 10) : null;
+
+      results.push({
+        link,
+        title,
+        price: fullPriceText || priceValue,  // full context for parsing
+        bedrooms,
+      });
     });
 
-    return results.filter(p => p.link && p.title);
+    return results.filter(p => p.link && p.title && p.price);
   });
 
   logger.step(`Found ${properties.length} properties`, pageNum, label);
@@ -209,9 +199,31 @@ async function handleListingPage({ page, request, crawler }) {
 
     stats.totalProcessed++;
 
-    const priceNum = parsePrice(prop.price);
-    if (!priceNum || priceNum === 0) {
-      logger.warn(`Invalid/no price → ${prop.title}`, pageNum, label);
+    // Enhanced Galbraith-specific price extraction/cleanup
+    let priceText = prop.price?.trim() || '';
+
+    // 1. Prefer the inner <span class="price-value"> if present
+    if (priceText.includes('£') && !priceText.includes('Offers Over')) {
+      priceText = priceText; // already clean
+    } else {
+      // Remove common prefixes and keep only the numeric part
+      priceText = priceText
+        .replace(/Offers (Over|In Excess|Around)/gi, '')
+        .replace(/Guide Price/gi, '')
+        .replace(/Fixed Price/gi, '')
+        .replace(/POA|Price On Application/gi, '0')
+        .replace(/[^0-9.]/g, '');  // strip everything except digits and decimal
+    }
+
+    let priceNum = parseFloat(priceText);
+
+    // 3. Fallback to shared parsePrice if cleanup failed
+    if (isNaN(priceNum) || priceNum <= 0) {
+      priceNum = parsePrice(prop.price);
+    }
+
+    if (!priceNum || priceNum <= 0) {
+      logger.warn(`Price parse failed → Raw: "${prop.price}" | After cleanup: "${priceText}" → ${priceNum} for ${prop.title}`, pageNum, label);
       continue;
     }
 
