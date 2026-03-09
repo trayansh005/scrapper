@@ -59,7 +59,7 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label) {
-	await sleep(1500 + Math.random() * 1000); // polite + allow map JS to run
+	await sleep(1500 + Math.random() * 1000);
 
 	const detailPage = await browserContext.newPage();
 
@@ -67,12 +67,12 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
-			waitUntil: "networkidle", // better than domcontentloaded for JS-heavy pages
+			waitUntil: "networkidle",      // wait for all network activity (important for maps)
 			timeout: 60000,
 		});
 
-		// Give extra time for dynamic map/coords to load
-		await sleep(3000);
+		// Give Google Maps / JS time to fully load
+		await sleep(4000);
 
 		const detailData = await detailPage.evaluate(() => {
 			const result = {
@@ -81,81 +81,54 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 				bedrooms: null,
 			};
 
-			// 1. Try JSON-LD (standard schema.org)
-			const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
-			for (const script of ldScripts) {
-				try {
-					const data = JSON.parse(script.textContent);
-					if (data?.geo?.latitude && data?.geo?.longitude) {
-						result.lat = parseFloat(data.geo.latitude);
-						result.lng = parseFloat(data.geo.longitude);
-					}
-					if (data?.numberOfRooms || data?.bedrooms) {
-						result.bedrooms = parseInt(data.numberOfRooms || data.bedrooms, 10);
-					}
-				} catch { }
-			}
+			// Strategy 1: Google Maps specific patterns (very common on Palmer-like sites)
+			const scripts = Array.from(document.querySelectorAll('script'));
+			for (const s of scripts) {
+				const txt = s.textContent || '';
+				if (!txt.includes('google') && !txt.includes('map') && !txt.includes('lat')) continue;
 
-			// 2. Search all scripts for common coord patterns (lat/lng, latitude/longitude, latLng)
-			if (!result.lat || !result.lng) {
-				const scripts = Array.from(document.querySelectorAll('script'));
-				for (const s of scripts) {
-					const txt = s.textContent || '';
-					if (txt.length < 100 || !txt.includes('lat')) continue;
+				// Look for LatLng objects
+				const latLngMatch = txt.match(/new\s+google\.maps\.LatLng\s*\(\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)\s*\)/i);
+				if (latLngMatch) {
+					result.lat = parseFloat(latLngMatch[1]);
+					result.lng = parseFloat(latLngMatch[2]);
+				}
 
-					// Common patterns
-					const patterns = [
-						/lat(?:itude)?\s*[:=]\s*([-+]?[\d.]+)/i,
-						/lng(?:itude)?\s*[:=]\s*([-+]?[\d.]+)/i,
-						/latLng\s*[:=]\s*\[?\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)/i,
-						/coordinates\s*[:=]\s*\[?\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)/i,
-						/marker\s*[:=]\s*{\s*lat\s*:\s*([-+]?[\d.]+).*lng\s*:\s*([-+]?[\d.]+)/i,
-					];
+				// Look for center / position
+				const centerMatch = txt.match(/center\s*:\s*{\s*lat\s*:\s*([-+]?[\d.]+).*lng\s*:\s*([-+]?[\d.]+)/i);
+				if (centerMatch) {
+					result.lat = parseFloat(centerMatch[1]);
+					result.lng = parseFloat(centerMatch[2]);
+				}
 
-					for (const regex of patterns) {
-						const match = txt.match(regex);
-						if (match) {
-							if (regex.source.includes('latLng') || regex.source.includes('coordinates')) {
-								result.lat = parseFloat(match[1]);
-								result.lng = parseFloat(match[2]);
-							} else if (regex.source.includes('lat')) {
-								result.lat = parseFloat(match[1]);
-							} else if (regex.source.includes('lng')) {
-								result.lng = parseFloat(match[1]);
-							}
-							if (result.lat && result.lng) break;
-						}
-					}
+				const positionMatch = txt.match(/position\s*:\s*{\s*lat\s*:\s*([-+]?[\d.]+).*lng\s*:\s*([-+]?[\d.]+)/i);
+				if (positionMatch) {
+					result.lat = parseFloat(positionMatch[1]);
+					result.lng = parseFloat(positionMatch[2]);
 				}
 			}
 
-			// 3. Map container fallback
+			// Strategy 2: Any script with lat/lng pair (broad fallback)
 			if (!result.lat || !result.lng) {
-				const mapElements = document.querySelectorAll('[id*="map"], [class*="map"], [data-lat], [data-lng]');
-				for (const el of mapElements) {
-					const lat = el.dataset.lat || el.getAttribute('data-lat') || el.getAttribute('latitude');
-					const lng = el.dataset.lng || el.getAttribute('data-lng') || el.getAttribute('longitude');
-					if (lat && lng) {
-						result.lat = parseFloat(lat);
-						result.lng = parseFloat(lng);
-						break;
-					}
+				const broadMatch = document.documentElement.innerHTML.match(/"?lat"?\s*[:=]\s*([-+]?[\d.]+).*?"?lng"?\s*[:=]\s*([-+]?[\d.]+)/i);
+				if (broadMatch) {
+					result.lat = parseFloat(broadMatch[1]);
+					result.lng = parseFloat(broadMatch[2]);
 				}
 			}
 
-			// 4. Bedrooms: text-based fallback (common on detail pages)
-			if (!result.bedrooms) {
-				const bedPatterns = [
-					/(\d+)\s*(?:bed|bedroom|bedrooms)/i,
-					/bed(?:room)?s?\s*:\s*(\d+)/i,
-				];
-				const bodyText = document.body.innerText;
-				for (const regex of bedPatterns) {
-					const match = bodyText.match(regex);
-					if (match) {
-						result.bedrooms = parseInt(match[1], 10);
-						break;
-					}
+			// Bedrooms: text search on whole page (most reliable)
+			const bodyText = document.body.innerText.toLowerCase();
+			const bedPatterns = [
+				/(\d+)\s*(bed|bedroom|bedrooms)/i,
+				/bed(?:room)?s?\s*:\s*(\d+)/i,
+				/(\d+)\s*bed(?:room)?/i,
+			];
+			for (const regex of bedPatterns) {
+				const match = bodyText.match(regex);
+				if (match) {
+					result.bedrooms = parseInt(match[1], 10);
+					break;
 				}
 			}
 
@@ -164,11 +137,17 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 
 		const htmlContent = await detailPage.content();
 
-		// Debug log – keep for now, remove later
+		// Debug log – very useful, keep until fixed
 		logger.step(
-			`[Detail ${pageNum}/${label}] Extracted for "${property.title}": ` +
-			`lat=${detailData.lat ?? 'NULL'}, lng=${detailData.lng ?? 'NULL'}, beds=${detailData.bedrooms ?? 'NULL'}`
+			`[DETAIL EXTRACT ${pageNum}/${label}] "${property.title}": ` +
+			`lat = ${detailData.lat ?? 'NULL'}, lng = ${detailData.lng ?? 'NULL'}, beds = ${detailData.bedrooms ?? 'NULL'}`
 		);
+
+		// Safety: if price somehow null here, log and skip
+		if (!property.price) {
+			logger.error(`Price is null before DB call for ${property.link}`, null, pageNum, label);
+			return null;
+		}
 
 		await processPropertyWithCoordinates(
 			property.link.trim(),
@@ -184,7 +163,7 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 
 		return detailData;
 	} catch (error) {
-		logger.error(`Detail scrape failed → ${property.link}`, error.message || error, pageNum || 'unknown', label);
+		logger.error(`Detail page failed → ${property.link}`, error.message || error, pageNum || 'unknown', label);
 		return null;
 	} finally {
 		await detailPage.close().catch(() => { });
