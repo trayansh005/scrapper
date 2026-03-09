@@ -58,8 +58,8 @@ function getBrowserlessEndpoint() {
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
+async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label) {
+	await sleep(1200 + Math.random() * 800);
 
 	const detailPage = await browserContext.newPage();
 
@@ -68,50 +68,94 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 60000,
+			timeout: 45000,
 		});
 
+		await sleep(1500); // give time for map/JS to load
+
 		const detailData = await detailPage.evaluate(() => {
-			try {
-				const data = { lat: null, lng: null, bedrooms: null };
-				const bedsInput = document.querySelector('input[name="beds"]');
-				if (bedsInput) data.bedrooms = bedsInput.value;
-				
-				const allHiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'));
-				for (const input of allHiddenInputs) {
-					const val = input.value?.trim() || "";
-					if (val.startsWith("[") && val.includes('"lat"') && val.includes('"lng"')) {
-						try {
-							const coords = JSON.parse(val);
-							if (coords?.[0]) {
-								data.lat = coords[0].lat;
-								data.lng = coords[0].lng;
-								if (!data.bedrooms && coords[0].beds) data.bedrooms = coords[0].beds;
-							}
-						} catch (e) {}
+			const result = {
+				lat: null,
+				lng: null,
+				bedrooms: null,
+			};
+
+			// Strategy 1: JSON-LD (most reliable)
+			const jsonLdScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+			for (const script of jsonLdScripts) {
+				try {
+					const data = JSON.parse(script.textContent);
+					if (data?.geo?.latitude && data?.geo?.longitude) {
+						result.lat = parseFloat(data.geo.latitude);
+						result.lng = parseFloat(data.geo.longitude);
+					}
+					// Sometimes bedrooms are here too
+					if (data?.numberOfRooms) {
+						result.bedrooms = parseInt(data.numberOfRooms, 10);
+					}
+				} catch { }
+			}
+
+			// Strategy 2: Look for window variables or inline JS with coords
+			if (!result.lat || !result.lng) {
+				const scripts = Array.from(document.querySelectorAll('script'));
+				for (const s of scripts) {
+					const txt = s.textContent || '';
+					if (txt.includes('lat') && txt.includes('lng')) {
+						const latMatch = txt.match(/"?lat"?\s*[:=]\s*([-+]?[0-9.]+)/i);
+						const lngMatch = txt.match(/"?lng"?\s*[:=]\s*([-+]?[0-9.]+)/i);
+						if (latMatch) result.lat = parseFloat(latMatch[1]);
+						if (lngMatch) result.lng = parseFloat(lngMatch[1]);
 					}
 				}
-				return data;
-			} catch (e) {
-				return null;
 			}
+
+			// Strategy 3: Map container attributes
+			if (!result.lat || !result.lng) {
+				const mapDiv = document.querySelector('#map, [id*="map"], [class*="map"]');
+				if (mapDiv) {
+					result.lat = parseFloat(mapDiv.dataset.lat || mapDiv.getAttribute('data-lat'));
+					result.lng = parseFloat(mapDiv.dataset.lng || mapDiv.getAttribute('data-lng'));
+				}
+			}
+
+			// Bedrooms fallback: look for common patterns in text
+			if (!result.bedrooms) {
+				const bedText = document.body.innerHTML.match(/(\d+)\s*(bed|bedroom|beds)/i);
+				if (bedText) result.bedrooms = parseInt(bedText[1], 10);
+			}
+
+			return result;
 		});
 
 		const htmlContent = await detailPage.content();
 
-		return {
-			coords: {
-				latitude: detailData?.lat || null,
-				longitude: detailData?.lng || null,
-			},
-			bedrooms: detailData?.bedrooms || null,
-			html: htmlContent,
-		};
+		// Log what we actually found (temporary – remove after debugging)
+		logger.step(
+			`Detail extract for ${property.title}: ` +
+			`lat=${detailData.lat ?? 'null'}, lng=${detailData.lng ?? 'null'}, beds=${detailData.bedrooms ?? 'null'}`,
+			pageNum,
+			label
+		);
+
+		await processPropertyWithCoordinates(
+			property.link.trim(),
+			property.price,
+			property.title,
+			detailData.bedrooms || property.bedrooms || null, // use from detail or fallback
+			AGENT_ID,
+			isRental,
+			htmlContent,
+			detailData.lat,
+			detailData.lng
+		);
+
+		return detailData;
 	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		logger.error(`Detail page error → ${property.link}`, error.message || error, pageNum, label);
 		return null;
 	} finally {
-		await detailPage.close();
+		await detailPage.close().catch(() => { });
 	}
 }
 
@@ -124,7 +168,7 @@ async function handleListingPage({ page, request, crawler }) {
 	logger.page(pageNum, label, request.url, totalPages);
 
 	await page.waitForTimeout(2000);
-	await page.waitForSelector('.property, .property-card, a[href*="/property/"]', { timeout: 30000 }).catch(() => {});
+	await page.waitForSelector('.property, .property-card, a[href*="/property/"]', { timeout: 30000 }).catch(() => { });
 
 	// Extract properties
 	const properties = await page.evaluate(() => {
@@ -195,11 +239,24 @@ async function handleListingPage({ page, request, crawler }) {
 			let bedrooms = null;
 
 			if (!result.isExisting && !result.error) {
-				const detail = await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				logger.step(`New property → scraping detail: ${property.title}`, pageNum, label);
+
+				// Try to get bedrooms from listing if not already set
+				let bedroomsFromListing = null;
+				// If you can extract it earlier in page.evaluate, add it to property object
+
+				const detail = await scrapePropertyDetail(
+					page.context(),
+					{ ...property, bedrooms: bedroomsFromListing },
+					isRental,
+					pageNum,
+					label
+				);
+
 				if (detail) {
-					lat = detail.coords.latitude;
-					lng = detail.coords.longitude;
-					bedrooms = detail.bedrooms;
+					lat = detail.lat;
+					lng = detail.lng;
+					bedrooms = detail.bedrooms || bedroomsFromListing;
 
 					await processPropertyWithCoordinates(
 						property.link.trim(),
@@ -210,7 +267,7 @@ async function handleListingPage({ page, request, crawler }) {
 						isRental,
 						detail.html,
 						lat,
-						lng,
+						lng
 					);
 
 					stats.totalSaved++;
@@ -333,9 +390,9 @@ async function scrapePalmerPartners() {
 		await crawler.addRequests([
 			{
 				url: propertyType.urlBase,
-				userData: { 
-					isRental: propertyType.isRental, 
-					label: propertyType.label, 
+				userData: {
+					isRental: propertyType.isRental,
+					label: propertyType.label,
 					pageNum: startPage,
 					totalPages: startPage // Will be updated during pagination detection
 				},
@@ -348,7 +405,7 @@ async function scrapePalmerPartners() {
 		`Completed Palmer Partners Agent ${AGENT_ID}`,
 		`found=${stats.totalFound}, scraped=${stats.totalScraped}, saved=${stats.totalSaved}, skipped=${stats.totalSkipped}, sales=${stats.savedSales}, rentals=${stats.savedRentals}`,
 	);
-	
+
 	if (!isPartialRun) {
 		logger.step(`Updating remove status...`);
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
