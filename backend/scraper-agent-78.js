@@ -1,379 +1,378 @@
-// Robert Holmes scraper (optimized for 401 bypass & baseline compliance)
-// Agent ID: 78
-// Usage: node backend/scraper-agent-78.js [startPage]
-
 const { PlaywrightCrawler, log } = require("crawlee");
-
 const { updateRemoveStatus } = require("./db.js");
 const {
-  updatePriceByPropertyURLOptimized,
-  processPropertyWithCoordinates,
-  formatPriceUk, // assuming you have this; fallback to formatPriceDisplay if needed
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
-const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
+// Reduce verbosity
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 78;
 const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
-  totalProcessed: 0,
-  totalSaved: 0,
-  savedSales: 0,
-  savedRentals: 0,
+	totalScraped: 0,
+	totalSaved: 0,
+	savedSales: 0,
+	savedRentals: 0,
 };
 
 const processedUrls = new Set();
 
-// Realistic headers to mimic real Chrome
-const browserHeaders = {
-  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-  "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
-  "sec-ch-ua": '"Google Chrome";v="120", "Chromium";v="120", "Not=A?Brand";v="24"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"Windows"',
-  "sec-fetch-dest": "document",
-  "sec-fetch-mode": "navigate",
-  "sec-fetch-site": "none",
-  "sec-fetch-user": "?1",
-  "upgrade-insecure-requests": "1",
-};
-
-// Random lightweight UA rotation
-const userAgents = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
-];
-
-function getRandomUA() {
-  return userAgents[Math.floor(Math.random() * userAgents.length)];
-}
-
-// Sleep helper
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// ============================================================================
+// PROPERTY TYPES CONFIGURATION
+// ============================================================================
 
 const PROPERTY_TYPES = [
-  {
-    urlBase: "https://robertholmes.co.uk/search/",
-    params: "address_keyword=&department=residential-sales&availability=2",
-    totalPages: 10,
-    isRental: false,
-    label: "SALES",
-  },
-  {
-    urlBase: "https://robertholmes.co.uk/search/",
-    params: "address_keyword=&department=residential-lettings",
-    totalPages: 10,
-    isRental: true,
-    label: "RENTALS",
-  },
+	{
+		urlBase: "https://robertholmes.co.uk/search/",
+		params: "address_keyword=&department=residential-sales&availability=2",
+		totalPages: 10,
+		recordsPerPage: 12,
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		urlBase: "https://robertholmes.co.uk/search/",
+		params: "address_keyword=&department=residential-lettings",
+		totalPages: 10,
+		recordsPerPage: 12,
+		isRental: true,
+		label: "RENTALS",
+	},
 ];
 
-async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label) {
-  await sleep(1200 + Math.random() * 800);
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-  const detailPage = await browserContext.newPage();
-
-  try {
-    await detailPage.setExtraHTTPHeaders({
-      ...browserHeaders,
-      "user-agent": getRandomUA(),
-    });
-
-    await blockNonEssentialResources(detailPage);
-
-    await detailPage.goto(property.link, {
-      waitUntil: "domcontentloaded",
-      timeout: 45000,
-    });
-
-    await sleep(1500); // give time for any lazy JS
-
-    const htmlContent = await detailPage.content();
-
-    const coords = await detailPage.evaluate(() => {
-      const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-      for (const s of scripts) {
-        try {
-          const data = JSON.parse(s.textContent);
-          if (data?.["@type"] === "GeoCoordinates" && data.latitude && data.longitude) {
-            return {
-              lat: parseFloat(data.latitude),
-              lon: parseFloat(data.longitude),
-            };
-          }
-        } catch {}
-      }
-
-      // Fallback regex
-      const html = document.documentElement.innerHTML;
-      const m1 = html.match(/"latitude"\s*:\s*([-+]?[0-9.]+).*?"longitude"\s*:\s*([-+]?[0-9.]+)/i);
-      if (m1) return { lat: parseFloat(m1[1]), lon: parseFloat(m1[2]) };
-
-      return null;
-    });
-
-    await processPropertyWithCoordinates(
-      property.link,
-      property.price,
-      property.title,
-      property.bedrooms || null,
-      AGENT_ID,
-      isRental,
-      htmlContent,
-      coords?.lat ?? null,
-      coords?.lon ?? null
-    );
-
-    stats.totalSaved++;
-    if (isRental) stats.savedRentals++;
-    else stats.savedSales++;
-
-    logger.property(
-      pageNum,
-      label,
-      property.title,
-      formatPriceUk?.(property.price) || property.price,
-      property.link,
-      isRental,
-      null,
-      "CREATED",
-      coords?.lat,
-      coords?.lon
-    );
-
-    return coords;
-  } catch (err) {
-    logger.error(`Detail failed → ${property.link}`, err.message || err, pageNum, label);
-    return null;
-  } finally {
-    await detailPage.close().catch(() => {});
-  }
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function handleListingPage({ page, request, crawler }) {
-  const { pageNum, isRental, label, totalPages } = request.userData;
+// ============================================================================
+// BROWSERLESS SETUP
+// ============================================================================
 
-  logger.page(pageNum, label, request.url);
-
-  // Apply headers
-  await page.setExtraHTTPHeaders({
-    ...browserHeaders,
-    "user-agent": getRandomUA(),
-  });
-
-  await blockNonEssentialResources(page);
-
-  try {
-    await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  } catch (err) {
-    logger.error(`Navigation failed → ${request.url}`, err.message, pageNum, label);
-    return;
-  }
-
-  await page.waitForSelector(".grid-box-card", { timeout: 30000 }).catch(() => {
-    logger.warn("No .grid-box-card found – possibly empty or blocked", pageNum, label);
-  });
-
-  const properties = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll(".grid-box-card"))
-      .map(el => {
-        const link = el.querySelector("a")?.href;
-        if (!link) return null;
-
-        const fullLink = link.startsWith("http") ? link : "https://robertholmes.co.uk" + link;
-
-        const title = el.querySelector(".property-archive-title h4")?.textContent?.trim() || "Unknown";
-
-        const priceText = el.querySelector(".property-archive-price")?.textContent?.trim() || "";
-
-        let bedrooms = null;
-        const bedLi = Array.from(el.querySelectorAll(".icons-list li")).find(li =>
-          li.innerText.toLowerCase().includes("bed")
-        );
-        if (bedLi) {
-          const match = bedLi.innerText.match(/\d+/);
-          bedrooms = match ? parseInt(match[0], 10) : null;
-        }
-
-        return { link: fullLink, title, priceText, bedrooms, statusText: el.innerText.toLowerCase() };
-      })
-      .filter(Boolean);
-  });
-
-  logger.step(`Found ${properties.length} properties`, pageNum, label);
-
-  if (properties.length === 0) {
-    logger.step("Empty page – stopping further pagination for this type", pageNum, label);
-    return; // prevents infinite enqueue
-  }
-
-  for (const property of properties) {
-    if (processedUrls.has(property.link)) continue;
-    processedUrls.add(property.link);
-
-    stats.totalProcessed++;
-
-    if (isSoldProperty(property.statusText)) {
-      logger.property(pageNum, label, property.title, null, property.link, isRental, null, "SKIPPED_SOLD");
-      continue;
-    }
-
-    const price = parsePrice(property.priceText);
-    if (!price || price === 0) {
-      logger.warn(`Invalid price → ${property.link}`, pageNum, label);
-      continue;
-    }
-
-    const result = await updatePriceByPropertyURLOptimized(
-      property.link,
-      price,
-      property.title,
-      property.bedrooms || null,
-      AGENT_ID,
-      isRental
-    );
-
-    let action = "UNCHANGED";
-
-    if (result.updated) {
-      action = "UPDATED";
-      stats.totalSaved++;
-      if (isRental) stats.savedRentals++;
-      else stats.savedSales++;
-    }
-
-    if (!result.isExisting && !result.error) {
-      logger.step(`New → detail scrape ${property.title}`, pageNum, label);
-      await scrapePropertyDetail(page.context(), { ...property, price }, isRental, pageNum, label);
-      action = "CREATED";
-    }
-
-    logger.property(
-      pageNum,
-      label,
-      property.title,
-      formatPriceUk?.(price) || price,
-      property.link,
-      isRental,
-      null,
-      action
-    );
-
-    if (action === "CREATED") {
-      await sleep(1500 + Math.random() * 800);
-    }
-  }
-
-  // Pagination: only enqueue if we found properties
-  if (properties.length > 0 && pageNum < totalPages) {
-    const nextPage = pageNum + 1;
-    const type = PROPERTY_TYPES.find(t => t.label === label);
-    const nextUrl = nextPage === 1
-      ? `${type.urlBase}?${type.params}`
-      : `${type.urlBase}page/${nextPage}/?${type.params}`;
-
-    logger.step(`Enqueue page ${nextPage}`, pageNum, label);
-    await crawler.addRequests([{
-      url: nextUrl,
-      userData: { pageNum: nextPage, totalPages: type.totalPages, isRental, label },
-    }]);
-  }
+function getBrowserlessEndpoint() {
+	return (
+		process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+	);
 }
+
+// ============================================================================
+// DETAIL PAGE SCRAPING
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	await sleep(1000);
+
+	const detailPage = await browserContext.newPage();
+
+	try {
+		await blockNonEssentialResources(detailPage);
+
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
+
+		const coords = await detailPage.evaluate(() => {
+			try {
+				// Look for GeoCoordinates JSON-LD data
+				const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+				for (const s of scripts) {
+					try {
+						const data = JSON.parse(s.textContent);
+						if (data && data["@type"] === "GeoCoordinates" && data.latitude && data.longitude) {
+							if (Math.abs(data.latitude) > 0.1 && Math.abs(data.longitude) > 0.1) {
+								return { lat: parseFloat(data.latitude), lng: parseFloat(data.longitude) };
+							}
+						}
+					} catch (e) {}
+				}
+
+				// Regex search for GeoCoordinates pattern as fallback
+				const html = document.documentElement.innerHTML;
+				const geoMatch = html.match(
+					/"@type":"GeoCoordinates","latitude":([0-9e.-]+),"longitude":([0-9e.-]+)/,
+				);
+				if (geoMatch) {
+					return { lat: parseFloat(geoMatch[1]), lng: parseFloat(geoMatch[2]) };
+				}
+
+				const geoMatch2 = html.match(
+					/"latitude"\s*:\s*([0-9e.-]+)\s*,\s*"longitude"\s*:\s*([0-9e.-]+)/,
+				);
+				if (geoMatch2) {
+					return { lat: parseFloat(geoMatch2[1]), lng: parseFloat(geoMatch2[2]) };
+				}
+
+				return null;
+			} catch (e) {
+				return null;
+			}
+		});
+
+		return {
+			...property,
+			coords: {
+				latitude: coords?.lat || null,
+				longitude: coords?.lng || null,
+			},
+		};
+	} catch (error) {
+		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
+		return null;
+	} finally {
+		await detailPage.close();
+	}
+}
+
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request }) {
+	const { pageNum, isRental, label, totalPages } = request.userData;
+	logger.page(pageNum, label, request.url, totalPages);
+
+	await page.waitForTimeout(2000);
+	await page.waitForSelector(".grid-box-card", { timeout: 30000 }).catch(() => {});
+
+	const properties = await page.evaluate(() => {
+		try {
+			const items = Array.from(document.querySelectorAll(".grid-box-card"));
+			return items
+				.map((el) => {
+					const linkEl = el.querySelector("a");
+					let link = linkEl ? linkEl.getAttribute("href") : null;
+					if (link && !link.startsWith("http")) {
+						link = "https://robertholmes.co.uk" + link;
+					}
+
+					const title =
+						el.querySelector(".property-archive-title h4")?.textContent?.trim() || "Property";
+					const priceText = el.querySelector(".property-archive-price")?.textContent?.trim() || "";
+
+					// Bedrooms extraction
+					const icons = Array.from(el.querySelectorAll(".icons-list li"));
+					const bedEl = icons.find(
+						(li) => li.querySelector(".icon-bed") || li.innerText.toLowerCase().includes("bed"),
+					);
+					const bedText = bedEl ? bedEl.innerText.trim() : "";
+					const bedroomsMatch = bedText.match(/\d+/);
+					const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[0]) : null;
+
+					const statusText = el.innerText || "";
+
+					return { link, title, priceText, bedrooms, statusText };
+				})
+				.filter((p) => p.link);
+		} catch (e) {
+			return [];
+		}
+	});
+
+	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+
+	for (const property of properties) {
+		try {
+			if (isSoldProperty(property.statusText)) {
+				logger.property(
+					pageNum,
+					label,
+					property.title.substring(0, 40),
+					formatPriceDisplay(null, isRental),
+					property.link,
+					isRental,
+					totalPages,
+					"SKIPPED",
+				);
+				continue;
+			}
+
+			const price = parsePrice(property.priceText);
+			if (!price || price === 0) continue;
+
+			if (processedUrls.has(property.link)) continue;
+			processedUrls.add(property.link);
+
+			const result = await updatePriceByPropertyURLOptimized(
+				property.link.trim(),
+				price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			let propertyAction = "UNCHANGED";
+			if (result.updated) {
+				stats.totalSaved++;
+				propertyAction = "UPDATED";
+				if (isRental) stats.savedRentals++;
+				else stats.savedSales++;
+			}
+
+			let lat = null;
+			let lng = null;
+
+			if (!result.isExisting && !result.error) {
+				const detail = await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				if (detail) {
+					lat = detail.coords.latitude;
+					lng = detail.coords.longitude;
+
+					await processPropertyWithCoordinates(
+						property.link.trim(),
+						price,
+						property.title,
+						property.bedrooms,
+						AGENT_ID,
+						isRental,
+						null,
+						lat,
+						lng,
+					);
+
+					stats.totalSaved++;
+					propertyAction = "CREATED";
+					if (isRental) stats.savedRentals++;
+					else stats.savedSales++;
+				}
+			}
+
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				formatPriceDisplay(price, isRental),
+				property.link,
+				isRental,
+				totalPages,
+				propertyAction,
+				lat,
+				lng,
+			);
+
+			if (propertyAction !== "UNCHANGED") {
+				await sleep(500);
+			}
+		} catch (err) {
+			logger.error(
+				`Error processing property ${property.link}: ${err.message}`,
+				err,
+				pageNum,
+				label,
+			);
+		}
+	}
+}
+
+// ============================================================================
+// CRAWLER SETUP
+// ============================================================================
 
 function createCrawler(browserWSEndpoint) {
-  return new PlaywrightCrawler({
-    maxConcurrency: 1,
-    maxRequestRetries: 3,
-    navigationTimeoutSecs: 60,
-    requestHandlerTimeoutSecs: 300,
-
-    preNavigationHooks: [
-      async ({ page }) => {
-        await page.setExtraHTTPHeaders(browserHeaders);
-        await blockNonEssentialResources(page);
-      },
-    ],
-
-    launchContext: {
-      launchOptions: {
-        browserWSEndpoint,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
-      },
-    },
-
-    requestHandler: handleListingPage,
-
-    failedRequestHandler: ({ request, error }) => {
-      logger.error(`Permanent fail → ${request.url} (${error?.message || 'unknown'})`);
-    },
-  });
+	return new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 600,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await blockNonEssentialResources(page);
+				await page.setExtraHTTPHeaders({
+					"user-agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				});
+			},
+		],
+		launchContext: {
+			launcher: undefined,
+			launchOptions: {
+				browserWSEndpoint,
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		requestHandler: handleListingPage,
+		failedRequestHandler({ request }) {
+			const { pageNum, label } = request.userData || {};
+			logger.error(`Failed listing page: ${request.url}`, null, pageNum, label);
+		},
+	});
 }
 
+// ============================================================================
+// MAIN SCRAPER LOGIC
+// ============================================================================
+
 async function scrapeRobertHolmes() {
-  const scrapeStartTime = new Date();
-  logger.step(`Starting Robert Holmes (Agent ${AGENT_ID})`);
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
 
-  const startPage = Number(process.argv[2]) || 1;
-  const isPartial = startPage > 1;
+	logger.step(`Starting Robert Holmes scraper (Agent ${AGENT_ID})...`);
 
-  const browserWSEndpoint = process.env.BROWSERLESS_WS_ENDPOINT ||
-    "ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv";
+	const browserWSEndpoint = getBrowserlessEndpoint();
+	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
 
-  const crawler = createCrawler(browserWSEndpoint);
+	const crawler = createCrawler(browserWSEndpoint);
+	const allRequests = [];
 
-  const requests = [];
+	for (const type of PROPERTY_TYPES) {
+		const effectiveStartPage = Math.max(1, startPage);
 
-  for (const type of PROPERTY_TYPES) {
-    const fromPage = Math.max(1, startPage);
-    for (let p = fromPage; p <= type.totalPages; p++) {
-      const url = p === 1
-        ? `${type.urlBase}?${type.params}`
-        : `${type.urlBase}page/${p}/?${type.params}`;
+		for (let pg = effectiveStartPage; pg <= type.totalPages; pg++) {
+			const url =
+				pg === 1 ? `${type.urlBase}?${type.params}` : `${type.urlBase}page/${pg}/?${type.params}`;
 
-      requests.push({
-        url,
-        userData: {
-          pageNum: p,
-          totalPages: type.totalPages,
-          isRental: type.isRental,
-          label: type.label,
-        },
-      });
-    }
-  }
+			allRequests.push({
+				url,
+				userData: {
+					pageNum: pg,
+					totalPages: type.totalPages,
+					isRental: type.isRental,
+					label: type.label,
+				},
+			});
+		}
+	}
 
-  if (requests.length === 0) {
-    logger.step("Nothing to scrape");
-    return;
-  }
+	if (allRequests.length === 0) {
+		logger.step("No pages to scrape with current arguments.");
+		return;
+	}
 
-  await crawler.addRequests(requests);
-  await crawler.run();
+	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
+	await crawler.run(allRequests);
 
-  logger.step(`Finished – Processed: ${stats.totalProcessed} | Saved: ${stats.totalSaved} (Sales: ${stats.savedSales} | Rentals: ${stats.savedRentals})`);
+	logger.step(
+		`Completed Robert Holmes - Total saved: ${stats.totalSaved}, New rentals: ${stats.savedRentals}`,
+	);
 
-  if (!isPartial) {
-    await updateRemoveStatus(AGENT_ID, scrapeStartTime);
-  } else {
-    logger.step(`Partial run (from page ${startPage}) – skipping remove status`);
-  }
+	if (!isPartialRun) {
+		logger.step(`Updating remove status...`);
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+	} else {
+		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+	}
 }
 
 (async () => {
-  try {
-    await scrapeRobertHolmes();
-    logger.step("Done");
-    process.exit(0);
-  } catch (err) {
-    logger.error("Fatal", err?.message || err);
-    process.exit(1);
-  }
+	try {
+		await scrapeRobertHolmes();
+		logger.step("All done!");
+		process.exit(0);
+	} catch (err) {
+		logger.error("Fatal error", err);
+		process.exit(1);
+	}
 })();
