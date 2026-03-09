@@ -290,12 +290,39 @@ async function handleListingPage({ page, request, crawler }) {
 
 			// Existing property → only update price
 			else if (result.isExisting) {
+
 				if (result.updated) {
 					stats.totalSaved++;
 					propertyAction = "UPDATED";
 
 					if (isRental) stats.savedRentals++;
 					else stats.savedSales++;
+				}
+
+				// NEW FIX → fetch coordinates if missing
+				const detail = await scrapePropertyDetail(
+					page.context(),
+					{ ...property, price },
+					isRental
+				);
+
+				if (detail && (detail.coords.latitude || detail.coords.longitude || detail.bedrooms)) {
+
+					lat = detail.coords.latitude;
+					lng = detail.coords.longitude;
+					bedrooms = detail.bedrooms;
+
+					await processPropertyWithCoordinates(
+						property.link.trim(),
+						price,
+						property.title,
+						bedrooms,
+						AGENT_ID,
+						isRental,
+						detail.html,
+						lat,
+						lng
+					);
 				}
 			}
 
