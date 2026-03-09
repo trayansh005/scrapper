@@ -59,7 +59,7 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label) {
-	await sleep(1200 + Math.random() * 800);
+	await sleep(1500 + Math.random() * 1000); // polite + allow map JS to run
 
 	const detailPage = await browserContext.newPage();
 
@@ -67,11 +67,12 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 45000,
+			waitUntil: "networkidle", // better than domcontentloaded for JS-heavy pages
+			timeout: 60000,
 		});
 
-		await sleep(1500); // give time for map/JS to load
+		// Give extra time for dynamic map/coords to load
+		await sleep(3000);
 
 		const detailData = await detailPage.evaluate(() => {
 			const result = {
@@ -80,49 +81,82 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 				bedrooms: null,
 			};
 
-			// Strategy 1: JSON-LD (most reliable)
-			const jsonLdScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-			for (const script of jsonLdScripts) {
+			// 1. Try JSON-LD (standard schema.org)
+			const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+			for (const script of ldScripts) {
 				try {
 					const data = JSON.parse(script.textContent);
 					if (data?.geo?.latitude && data?.geo?.longitude) {
 						result.lat = parseFloat(data.geo.latitude);
 						result.lng = parseFloat(data.geo.longitude);
 					}
-					// Sometimes bedrooms are here too
-					if (data?.numberOfRooms) {
-						result.bedrooms = parseInt(data.numberOfRooms, 10);
+					if (data?.numberOfRooms || data?.bedrooms) {
+						result.bedrooms = parseInt(data.numberOfRooms || data.bedrooms, 10);
 					}
 				} catch { }
 			}
 
-			// Strategy 2: Look for window variables or inline JS with coords
+			// 2. Search all scripts for common coord patterns (lat/lng, latitude/longitude, latLng)
 			if (!result.lat || !result.lng) {
 				const scripts = Array.from(document.querySelectorAll('script'));
 				for (const s of scripts) {
 					const txt = s.textContent || '';
-					if (txt.includes('lat') && txt.includes('lng')) {
-						const latMatch = txt.match(/"?lat"?\s*[:=]\s*([-+]?[0-9.]+)/i);
-						const lngMatch = txt.match(/"?lng"?\s*[:=]\s*([-+]?[0-9.]+)/i);
-						if (latMatch) result.lat = parseFloat(latMatch[1]);
-						if (lngMatch) result.lng = parseFloat(lngMatch[1]);
+					if (txt.length < 100 || !txt.includes('lat')) continue;
+
+					// Common patterns
+					const patterns = [
+						/lat(?:itude)?\s*[:=]\s*([-+]?[\d.]+)/i,
+						/lng(?:itude)?\s*[:=]\s*([-+]?[\d.]+)/i,
+						/latLng\s*[:=]\s*\[?\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)/i,
+						/coordinates\s*[:=]\s*\[?\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)/i,
+						/marker\s*[:=]\s*{\s*lat\s*:\s*([-+]?[\d.]+).*lng\s*:\s*([-+]?[\d.]+)/i,
+					];
+
+					for (const regex of patterns) {
+						const match = txt.match(regex);
+						if (match) {
+							if (regex.source.includes('latLng') || regex.source.includes('coordinates')) {
+								result.lat = parseFloat(match[1]);
+								result.lng = parseFloat(match[2]);
+							} else if (regex.source.includes('lat')) {
+								result.lat = parseFloat(match[1]);
+							} else if (regex.source.includes('lng')) {
+								result.lng = parseFloat(match[1]);
+							}
+							if (result.lat && result.lng) break;
+						}
 					}
 				}
 			}
 
-			// Strategy 3: Map container attributes
+			// 3. Map container fallback
 			if (!result.lat || !result.lng) {
-				const mapDiv = document.querySelector('#map, [id*="map"], [class*="map"]');
-				if (mapDiv) {
-					result.lat = parseFloat(mapDiv.dataset.lat || mapDiv.getAttribute('data-lat'));
-					result.lng = parseFloat(mapDiv.dataset.lng || mapDiv.getAttribute('data-lng'));
+				const mapElements = document.querySelectorAll('[id*="map"], [class*="map"], [data-lat], [data-lng]');
+				for (const el of mapElements) {
+					const lat = el.dataset.lat || el.getAttribute('data-lat') || el.getAttribute('latitude');
+					const lng = el.dataset.lng || el.getAttribute('data-lng') || el.getAttribute('longitude');
+					if (lat && lng) {
+						result.lat = parseFloat(lat);
+						result.lng = parseFloat(lng);
+						break;
+					}
 				}
 			}
 
-			// Bedrooms fallback: look for common patterns in text
+			// 4. Bedrooms: text-based fallback (common on detail pages)
 			if (!result.bedrooms) {
-				const bedText = document.body.innerHTML.match(/(\d+)\s*(bed|bedroom|beds)/i);
-				if (bedText) result.bedrooms = parseInt(bedText[1], 10);
+				const bedPatterns = [
+					/(\d+)\s*(?:bed|bedroom|bedrooms)/i,
+					/bed(?:room)?s?\s*:\s*(\d+)/i,
+				];
+				const bodyText = document.body.innerText;
+				for (const regex of bedPatterns) {
+					const match = bodyText.match(regex);
+					if (match) {
+						result.bedrooms = parseInt(match[1], 10);
+						break;
+					}
+				}
 			}
 
 			return result;
@@ -130,19 +164,17 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 
 		const htmlContent = await detailPage.content();
 
-		// Log what we actually found (temporary – remove after debugging)
+		// Debug log – keep for now, remove later
 		logger.step(
-			`Detail extract for ${property.title}: ` +
-			`lat=${detailData.lat ?? 'null'}, lng=${detailData.lng ?? 'null'}, beds=${detailData.bedrooms ?? 'null'}`,
-			pageNum,
-			label
+			`[Detail ${pageNum}/${label}] Extracted for "${property.title}": ` +
+			`lat=${detailData.lat ?? 'NULL'}, lng=${detailData.lng ?? 'NULL'}, beds=${detailData.bedrooms ?? 'NULL'}`
 		);
 
 		await processPropertyWithCoordinates(
 			property.link.trim(),
 			property.price,
 			property.title,
-			detailData.bedrooms || property.bedrooms || null, // use from detail or fallback
+			detailData.bedrooms || null,
 			AGENT_ID,
 			isRental,
 			htmlContent,
@@ -152,7 +184,7 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 
 		return detailData;
 	} catch (error) {
-		logger.error(`Detail page error → ${property.link}`, error.message || error, pageNum, label);
+		logger.error(`Detail scrape failed → ${property.link}`, error.message || error, pageNum || 'unknown', label);
 		return null;
 	} finally {
 		await detailPage.close().catch(() => { });
