@@ -59,7 +59,7 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label) {
-	await sleep(1500 + Math.random() * 1000);
+	await sleep(2000 + Math.random() * 1500); // Give map time to load
 
 	const detailPage = await browserContext.newPage();
 
@@ -67,12 +67,12 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
-			waitUntil: "networkidle",      // wait for all network activity (important for maps)
+			waitUntil: "networkidle0", // stricter: wait until no network activity
 			timeout: 60000,
 		});
 
-		// Give Google Maps / JS time to fully load
-		await sleep(4000);
+		// Extra wait for Google Maps to initialize
+		await sleep(5000);
 
 		const detailData = await detailPage.evaluate(() => {
 			const result = {
@@ -81,50 +81,49 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 				bedrooms: null,
 			};
 
-			// Strategy 1: Google Maps specific patterns (very common on Palmer-like sites)
-			const scripts = Array.from(document.querySelectorAll('script'));
-			for (const s of scripts) {
-				const txt = s.textContent || '';
-				if (!txt.includes('google') && !txt.includes('map') && !txt.includes('lat')) continue;
+			// === COORDINATES ===
 
-				// Look for LatLng objects
-				const latLngMatch = txt.match(/new\s+google\.maps\.LatLng\s*\(\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)\s*\)/i);
-				if (latLngMatch) {
-					result.lat = parseFloat(latLngMatch[1]);
-					result.lng = parseFloat(latLngMatch[2]);
-				}
-
-				// Look for center / position
-				const centerMatch = txt.match(/center\s*:\s*{\s*lat\s*:\s*([-+]?[\d.]+).*lng\s*:\s*([-+]?[\d.]+)/i);
-				if (centerMatch) {
-					result.lat = parseFloat(centerMatch[1]);
-					result.lng = parseFloat(centerMatch[2]);
-				}
-
-				const positionMatch = txt.match(/position\s*:\s*{\s*lat\s*:\s*([-+]?[\d.]+).*lng\s*:\s*([-+]?[\d.]+)/i);
-				if (positionMatch) {
-					result.lat = parseFloat(positionMatch[1]);
-					result.lng = parseFloat(positionMatch[2]);
-				}
-			}
-
-			// Strategy 2: Any script with lat/lng pair (broad fallback)
-			if (!result.lat || !result.lng) {
-				const broadMatch = document.documentElement.innerHTML.match(/"?lat"?\s*[:=]\s*([-+]?[\d.]+).*?"?lng"?\s*[:=]\s*([-+]?[\d.]+)/i);
-				if (broadMatch) {
-					result.lat = parseFloat(broadMatch[1]);
-					result.lng = parseFloat(broadMatch[2]);
-				}
-			}
-
-			// Bedrooms: text search on whole page (most reliable)
-			const bodyText = document.body.innerText.toLowerCase();
-			const bedPatterns = [
-				/(\d+)\s*(bed|bedroom|bedrooms)/i,
-				/bed(?:room)?s?\s*:\s*(\d+)/i,
-				/(\d+)\s*bed(?:room)?/i,
+			// 1. Broad search in all scripts for any lat/lng pair
+			const allScripts = document.documentElement.innerHTML;
+			const coordPatterns = [
+				/lat(?:itude)?\s*[:=]\s*([-+]?[\d.]+).*?lng(?:itude)?\s*[:=]\s*([-+]?[\d.]+)/is,
+				/lng(?:itude)?\s*[:=]\s*([-+]?[\d.]+).*?lat(?:itude)?\s*[:=]\s*([-+]?[\d.]+)/is,
+				/new\s+LatLng\s*\(\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)\s*\)/i,
+				/center\s*:\s*new\s+LatLng\s*\(\s*([-+]?[\d.]+)\s*,\s*([-+]?[\d.]+)\s*\)/i,
+				/position\s*:\s*{\s*lat\s*:\s*([-+]?[\d.]+).*?lng\s*:\s*([-+]?[\d.]+)/i,
+				/marker\.setPosition\({lat:\s*([-+]?[\d.]+).*?lng:\s*([-+]?[\d.]+)/i,
 			];
-			for (const regex of bedPatterns) {
+
+			for (const regex of coordPatterns) {
+				const match = allScripts.match(regex);
+				if (match) {
+					result.lat = parseFloat(match[1]);
+					result.lng = parseFloat(match[2]);
+					if (result.lat && result.lng) break;
+				}
+			}
+
+			// 2. Google Maps marker or map init fallback
+			if (!result.lat || !result.lng) {
+				const markerMatch = allScripts.match(/marker\s*=\s*new\s+google\.maps\.Marker\s*\({.*?position\s*:\s*([-+]?[\d.]+).*?([-+]?[\d.]+)/is);
+				if (markerMatch) {
+					result.lat = parseFloat(markerMatch[1]);
+					result.lng = parseFloat(markerMatch[2]);
+				}
+			}
+
+			// === BEDROOMS ===
+
+			// Search entire page text for bedroom count
+			const bodyText = document.body.innerText.toLowerCase();
+			const bedRegexes = [
+				/(\d+)\s*(?:bed|bedroom|bedrooms)\b/i,
+				/bed(?:room)?s?\s*[:\-]\s*(\d+)/i,
+				/(\d+)\s*bed(?:room)?\b/i,
+				/number of bedrooms\s*(\d+)/i,
+			];
+
+			for (const regex of bedRegexes) {
 				const match = bodyText.match(regex);
 				if (match) {
 					result.bedrooms = parseInt(match[1], 10);
@@ -137,15 +136,15 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 
 		const htmlContent = await detailPage.content();
 
-		// Debug log – very useful, keep until fixed
+		// Debug log – keep this for now
 		logger.step(
-			`[DETAIL EXTRACT ${pageNum}/${label}] "${property.title}": ` +
-			`lat = ${detailData.lat ?? 'NULL'}, lng = ${detailData.lng ?? 'NULL'}, beds = ${detailData.bedrooms ?? 'NULL'}`
+			`[DETAIL ${pageNum}/${label}] "${property.title}": ` +
+			`lat=${detailData.lat ?? 'NULL'}, lng=${detailData.lng ?? 'NULL'}, beds=${detailData.bedrooms ?? 'NULL'}`
 		);
 
-		// Safety: if price somehow null here, log and skip
-		if (!property.price) {
-			logger.error(`Price is null before DB call for ${property.link}`, null, pageNum, label);
+		// Safety check: prevent null price crash
+		if (!property.price || isNaN(property.price) || property.price <= 0) {
+			logger.error(`Skipping DB insert - invalid price (${property.price}) for ${property.link}`, null, pageNum, label);
 			return null;
 		}
 
@@ -163,7 +162,7 @@ async function scrapePropertyDetail(browserContext, property, isRental, pageNum,
 
 		return detailData;
 	} catch (error) {
-		logger.error(`Detail page failed → ${property.link}`, error.message || error, pageNum || 'unknown', label);
+		logger.error(`Detail scrape failed → ${property.link}`, error.message || error, pageNum || 'unknown', label);
 		return null;
 	} finally {
 		await detailPage.close().catch(() => { });
