@@ -241,16 +241,16 @@ async function scrapeWhiteAndSons() {
 							}
 
 							// 1️⃣ Optimized update
-							await updatePriceByPropertyURLOptimized({
-								link: property.link,
-								price: formattedPrice,
-								title: property.title,
-								bedrooms: property.bedrooms,
-								agentId: AGENT_ID,
+							await updatePriceByPropertyURLOptimized(
+								property.link,
+								formattedPrice,
+								property.title,
+								property.bedrooms,
+								AGENT_ID,
 								isRental,
-								latitude: coords?.latitude || null,
-								longitude: coords?.longitude || null,
-							});
+								coords?.latitude || null,
+								coords?.longitude || null
+							);
 
 							// 2️⃣ Fallback safety update
 							await updatePriceByPropertyURL(

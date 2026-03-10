@@ -132,9 +132,11 @@ async function scrapeLeaders() {
 							const price = el.querySelector(".property-price")?.textContent?.trim() || "";
 
 							let bedrooms = null;
-							const bedroomsEls = el.querySelectorAll("li.list-inline-item");
-							if (bedroomsEls.length > 1) {
-								bedrooms = bedroomsEls[1].textContent.trim();
+
+							const bedEl = el.querySelector("li.list-inline-item");
+							if (bedEl) {
+								const match = bedEl.textContent.match(/\d+/);
+								if (match) bedrooms = parseInt(match[0]);
 							}
 
 							const statusText = el.innerText || "";
@@ -257,6 +259,8 @@ async function scrapeLeaders() {
 
 						const price = formatPriceUk(property.price);
 						if (!price) return;
+						
+						if (bedrooms && isNaN(bedrooms)) bedrooms = null;
 
 						const result = await updatePriceByPropertyURLOptimized(
 							property.link,
