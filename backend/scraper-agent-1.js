@@ -2,7 +2,6 @@
 // Agent ID: 1
 // Usage:
 // node backend/scraper-agent-1.js
-// node backend/scraper-agent-1.js 2 (start from page 2)
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
