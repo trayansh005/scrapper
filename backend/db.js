@@ -2,7 +2,7 @@ const mysql = require("mysql2"); // Use mysql2 for better performance
 
 // Create a connection pool
 const DB_URI =
-	process.env.DATABASE_URL || "mysql://mysql:b4ckf3xoq52drfgh@57.129.139.233:3307/scraper";
+	process.env.DATABASE_URL || "mysql://mysql:b4ckf3xoq52drfgh@57.129.139.233:3307/scrape";
 
 const pool = mysql.createPool({
 	uri: DB_URI,
