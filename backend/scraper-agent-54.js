@@ -94,11 +94,6 @@ async function scrapeLeaders() {
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
 
-		gotoOptions: {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		},
-
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
