@@ -28,8 +28,25 @@ const scrapeStartTime = new Date();
 const startPageArgument = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
 const isPartialRun = startPageArgument > 1;
 
+const PROPERTY_TYPES = [
+	{
+		baseUrl: "https://www.jackson-stops.co.uk/properties/sales",
+		isRental: false,
+		label: "SALES",
+	},
+	{
+		baseUrl: "https://www.jackson-stops.co.uk/properties/lettings",
+		isRental: true,
+		label: "RENTALS",
+	},
+];
+
 async function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildListingUrl(baseUrl, pageNum) {
+	return pageNum <= 1 ? baseUrl : `${baseUrl.replace(/\/$/, "")}/page-${pageNum}`;
 }
 
 async function scrapePropertyDetail(page, property, isRental, pageNum, label, totalPages) {
@@ -141,7 +158,7 @@ const crawler = new PlaywrightCrawler({
 	],
 
 	async requestHandler({ page, request, crawler }) {
-		const { pageNum, isRental, label, totalPages } = request.userData;
+		const { pageNum, isRental, label, totalPages, isDiscoveryPage, baseUrl } = request.userData;
 
 		// Extract properties from listing
 		const properties = await page.evaluate((isRental) => {
@@ -180,7 +197,7 @@ const crawler = new PlaywrightCrawler({
 
 		// Handle pagination discovery
 		let currentPageTotalPages = totalPages || 1;
-		if (pageNum === 1) {
+		if (isDiscoveryPage) {
 			currentPageTotalPages = await page.evaluate(() => {
 				const span = document.querySelector(".pagination span");
 				if (span) {
@@ -190,22 +207,25 @@ const crawler = new PlaywrightCrawler({
 				return 1;
 			});
 
-			for (let p = 2; p <= currentPageTotalPages; p++) {
-				const pagedUrl = request.url.includes("?")
-					? request.url.replace(/\?/, `/page-${p}?`)
-					: `${request.url.replace(/\/$/, "")}/page-${p}`;
+			for (let p = pageNum + 1; p <= currentPageTotalPages; p++) {
+				const pagedUrl = buildListingUrl(baseUrl, p);
 
 				await crawler.addRequests([
 					{
 						url: pagedUrl,
-						userData: { ...request.userData, pageNum: p, totalPages: currentPageTotalPages },
+						userData: {
+							...request.userData,
+							pageNum: p,
+							totalPages: currentPageTotalPages,
+							isDiscoveryPage: false,
+						},
 					},
 				]);
 			}
 			request.userData.totalPages = currentPageTotalPages;
 		}
 
-		logger.page(pageNum, currentPageTotalPages, `Found ${properties.length} items`);
+		logger.page(pageNum, label, `Found ${properties.length} items`, currentPageTotalPages);
 
 		for (const property of properties) {
 			if (!property.link) continue;
@@ -250,7 +270,6 @@ const crawler = new PlaywrightCrawler({
 						"UPDATED",
 					);
 					stats.totalSaved++;
-					await sleep(100);
 				} else {
 					logger.property(
 						pageNum,
@@ -284,27 +303,27 @@ const crawler = new PlaywrightCrawler({
 async function run() {
 	logger.step(`Starting Jackson-Stops scraper (Agent ${AGENT_ID})`);
 
-	const startUrls = [
-		{
-			url: "https://www.jackson-stops.co.uk/properties/sales",
-			userData: { pageNum: 1, isRental: false, label: "SALES" },
-		},
-		{
-			url: "https://www.jackson-stops.co.uk/properties/lettings",
-			userData: { pageNum: 1, isRental: true, label: "RENTALS" },
-		},
-	];
-
 	if (isPartialRun) {
 		logger.step(
 			`Partial run detected (startPage=${startPageArgument}). Remove status update will be skipped.`,
 		);
-		// For Jackson-Stops, we need to adjust start URLs to skip pages if needed,
-		// but simple implementation just runs from page 1.
-		// If user passes startPage, we should really only start from that page.
 	}
 
-	await crawler.run(startUrls);
+	for (const type of PROPERTY_TYPES) {
+		logger.step(`Queueing ${type.label} starting from page ${startPageArgument}...`);
+		await crawler.run([
+			{
+				url: buildListingUrl(type.baseUrl, startPageArgument),
+				userData: {
+					pageNum: startPageArgument,
+					isRental: type.isRental,
+					label: type.label,
+					baseUrl: type.baseUrl,
+					isDiscoveryPage: true,
+				},
+			},
+		]);
+	}
 
 	if (!isPartialRun) {
 		logger.step("Updating removed status for inactive properties...");
