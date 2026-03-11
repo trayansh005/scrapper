@@ -89,6 +89,11 @@ async function handleListingPage({ page, request }) {
 			if (processedUrls.has(link)) continue;
 			processedUrls.add(link);
 
+			if (!prop.price || !prop.latitude || !prop.longitude) {
+			logger.step(`Skipping incomplete property: ${link}`);
+			continue;
+		}
+
 			const price = parseInt(prop.price) || 0;
 			const title = prop.title || "Property";
 			const bedrooms = prop.beds ? parseInt(prop.beds) : null;
