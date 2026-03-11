@@ -224,7 +224,9 @@ async function handleListingPage({ page, request }) {
 
 				if (!container) continue;
 
-				const fullLink = link.startsWith("http") ? link : new URL(link, window.location.origin).href;
+				const fullLink = link.startsWith("http")
+					? link
+					: new URL(link, window.location.origin).href;
 
 				// Extract title - usually comes from h2 or h3 with property address
 				let title = "Property";
