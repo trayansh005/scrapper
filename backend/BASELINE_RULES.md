@@ -44,7 +44,7 @@ Agent `4` is the baseline implementation style.
 6. **Data flow**
    - For each listing:
      - **Detail Page Optimization**: Only visit the property detail page for **new** properties (specifically to extract coordinates). For existing properties, skip the detail page load entirely if the price can be updated from the listing page results.
-    - **JSON-based extraction skip**: If coordinates and bedrooms are available in the JSON payload, call `processPropertyWithCoordinates(...)` directly for new records and skip the detail page entirely.
+   - **JSON-based extraction skip**: If coordinates and bedrooms are available in the JSON payload, call `processPropertyWithCoordinates(...)` directly for new records and skip the detail page entirely.
 7. **Enhanced Remove-Status Strategy**
    - **Full Scrape**: Capture `scrapeStartTime` at the start of the execution.
    - **Safety Window**: Pass `scrapeStartTime` to `updateRemoveStatus(agentId, scrapeStartTime)`. This ensures only records NOT updated during THIS specific run are flagged as removed.
@@ -82,16 +82,16 @@ Agent `4` is the baseline implementation style.
 ## Logging Rules
 
 1. Use only shared logger from `backend/lib/logger-helpers.js`.
-2. **Mandatory Logging Methods**: Use `logger.step()`, `logger.page()`, `logger.property()`, and `logger.error()`. Avoid using `console.log` directly or non-standard methods like `logger.info`.
-3. Include page progress using `totalPages` in `request.userData`.
-4. **Verbose Status Logging**:
+2. **Mandatory Logging Methods**: Use `logger.step()`, `logger.page()`, `logger.property()`, and `logger.error()`. Avoid using `console.log` directly or non-standard methods like `logger.info`. - **Status Badges**: Use standard action strings (`CREATED`, `UPDATED`, `UNCHANGED`, `SKIPPED`, `ERROR`).
+   - **SKIPPED Handling**: Always mark properties that are sold, under offer, or filtered out as `SKIPPED` in the `logger.property()` call to ensure they appear as `⏭️ SKIPPED` in logs instead of falling back to `UNCHANGED`.3. Include page progress using `totalPages` in `request.userData`.
+3. **Verbose Status Logging**:
    - Log skip reasons clearly (e.g., `Skipped: Sold`, `Skipped: Already Processed`).
    - Log detail page progress (`[Detail] Scraping coordinates...`, `[Detail] Found coordinates`).
    - **Coordinate Logging**: When a property is `CREATED`, ensure the latitude and longitude are passed to `logger.property()` so they appear in the log output.
-5. **Final Summary & Maintenance**:
+4. **Final Summary & Maintenance**:
    - Every agent should output a final summary block of stats.
    - **Mandatory**: Call `await updateRemoveStatus(AGENT_ID)` at the very end of every successful `run()`.
-6. Avoid duplicate DB-level per-property noise:
+5. Avoid duplicate DB-level per-property noise:
    - Keep DB verbose logs behind `DB_VERBOSE_LOGS=1`.
 
 ## Request Metadata Standard

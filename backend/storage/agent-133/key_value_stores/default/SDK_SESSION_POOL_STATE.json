@@ -1,0 +1,861 @@
+{
+  "usableSessionsCount": 19,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_cLCcoazq6p",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:28.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.514Z",
+            "lastAccessed": "2026-03-11T09:00:28.514Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "N2QwSmVHZFJJT09MOHRkU24yZmZ4NGJUVTdBVmpmZTk3Vk1QZkVrSytBZHJrUWtNNzFLNHpJY1ZFN0lPRGxZaC9yV0tLN3c5UVlVdHM0Q0Y2eDAxUUF4UU5kcTNlZTlGa0QwdDl3NEZLeWg1M1phMnArdE9Pb2dpMUNPcldEMmJYbDJ2UjcvN1prUmpqSks2Z3VMdHVRPT0tLXZ3Y3ZoZHF2WnA1VUNhMCtmdHJMSWc9PQ%3D%3D--b5d6f2542342f736c8c3417439f0f41ab06c41bb",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.514Z",
+            "lastAccessed": "2026-03-11T09:00:28.514Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:26.563Z",
+      "createdAt": "2026-03-11T09:00:26.563Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_okSwblbPlU",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:28.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.462Z",
+            "lastAccessed": "2026-03-11T09:00:28.462Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "V0VFMEVDZTZ4L3pBU3JHSHJ0QnF6SFpna3lScU5hbGxWZXpYbzNZd2ZWV1h0eFE4dEZZVlJEME9TM3hvNGk2MkVEa1VtTXM1aElsVElmeDFRL2E5Mzh3YkgxMkNXcllyS1gxelp6RWk1MDczQkVFYTBaR3BOdlZnQnBPRjlvN2FWVThabzJTYnFiN1NHeFBVSXhBSjdnPT0tLTZ3UXdtSU1oUTFRUUprS04vVWM3WkE9PQ%3D%3D--d0868805d59154be89a599501ef48c891075a4a9",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.462Z",
+            "lastAccessed": "2026-03-11T09:00:28.462Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:26.862Z",
+      "createdAt": "2026-03-11T09:00:26.862Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_fbxp4zYfVP",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:28.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.324Z",
+            "lastAccessed": "2026-03-11T09:00:28.324Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "cVRPR2hGZnJXMHdsNkFFK1Z6TlEwdWxLZVhJK3NEcE9xTm9VYnFZRGp4aHpaQnRLVExHcEc1cFRGWVVwSjd5V3VidzJTQ1QrQnQxbDFWN1RPOEUxS3ZEK0VFOUVSMDFzc2lMU0d5THQxNlJCNUdEZWo2NWlMV1FIc3VNSEhITGM2RU5LWWFwWGhEVERpd3p5eDd0TkpBPT0tLTRaWlc3UkJ6QjhrY1RQTXl6NmFWNmc9PQ%3D%3D--43ab651a2da7419fa85deea7ee38ff231c2805e1",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.328Z",
+            "lastAccessed": "2026-03-11T09:00:28.328Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:26.864Z",
+      "createdAt": "2026-03-11T09:00:26.864Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_zS6NbZQb8s",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:28.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.486Z",
+            "lastAccessed": "2026-03-11T09:00:28.486Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "VlZvOUd5QUhJYWV1MXgzSy9QNURQVXliZVJWaVlHMFNMZ28vS3NHb3hFNjUybXdnQ1VUZ1RMQktFQkgxQjhiOFVHcks4WDdLZ1E3Yk5NVVNiU1NJSmxqTm16S3ExdHFhT3g4VWU0Y3VKN3VlZW5TVGMxL2FPeVIzaUNtM2RRN0NGcWFMRWdFUGxyMlU1OU5BejRWbUdRPT0tLXk1YVJsL05ZUFNiazVZVStlOS9VMVE9PQ%3D%3D--90634806acfa8669ce64f2ed305a5378cb265a3c",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.486Z",
+            "lastAccessed": "2026-03-11T09:00:28.486Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:26.866Z",
+      "createdAt": "2026-03-11T09:00:26.866Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_PxdyfOyJDr",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:28.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.439Z",
+            "lastAccessed": "2026-03-11T09:00:28.439Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "T21DTU95Qkp2ajdzVkVqbE9uMUtRRnFubVZ5ZUJDMENmNUdvTndDaUZHUFA4dWw3aWoyRzI3d2JMblNDdVZCOE00bVB3L2hsekZGYjgrWTBhdjJabjJmcXpFcFBKQjNhQ2JFMnJGYkJOcldyTDZ5K05vd3JWZlRNdUx5RDdXbkNQTDZtV1JGUzdmakVkUXlCbjRtbE1BPT0tLUJ3Z2hrUFU5UzdxNjlycFpyZjNaOUE9PQ%3D%3D--dce618db1a8d6542841cd4820b384f4a1c34ff8d",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:28.439Z",
+            "lastAccessed": "2026-03-11T09:00:28.439Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:26.869Z",
+      "createdAt": "2026-03-11T09:00:26.869Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_7J6dRVegRq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:35.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.738Z",
+            "lastAccessed": "2026-03-11T09:00:34.738Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "WER6d1RmeFcxQmIra2IzalN4ajQ1T01TZitOZ0xRMFFrbDRsOXArUy94eFZSRmIyVGlSWFlsM2UyWTNaZnNZY0pEU3drV0s0NVVKZmlXUW5PWkloM3dNMFpqeTVhdlphdmxNSVVOL0J5YmhhN0YxU0F5eDlCM211WVY2RU1GcFhFMHN4N21HaFhHL2h1NS82a050Q1lnPT0tLTIxQjB5Nml6UC9yZUFDVmY0UTdDTmc9PQ%3D%3D--b3c5eee441c0b6a1cabdfac47c85fd9490c62e86",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.738Z",
+            "lastAccessed": "2026-03-11T09:00:34.738Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:33.713Z",
+      "createdAt": "2026-03-11T09:00:33.713Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Z7VQQM7p2i",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:35.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.655Z",
+            "lastAccessed": "2026-03-11T09:00:34.655Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "U1BlV040RCtid25nSzlUcGxnSlJ6WVJyWUpySDNncVkzSW03QVhBM3JQSm43eHdTaEMrYUZlcXhWMVJWSmlxbHNkQ3UrYTEzb1JWZHpqL1JZU2lwQlRHdzh3T0c1eEhJcDkzWUxIOFBhOUtRMkRnZzNqN24xMkNYRlUzZ0Y2aWtkdjA0YzhxN0xhVTdTUlc4SDlLYnBBPT0tLVVuUGlxWStGMUVXVThPTm1FU0RDZEE9PQ%3D%3D--599d8d5742b7865bc8333d1bc01add9ed5040085",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.655Z",
+            "lastAccessed": "2026-03-11T09:00:34.655Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:33.718Z",
+      "createdAt": "2026-03-11T09:00:33.718Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_I4aH4j8piN",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:35.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.720Z",
+            "lastAccessed": "2026-03-11T09:00:34.720Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "MUxPeXJJRUZ3NlpYVEJVS1hUNHRTS0puZTFBZEhBcUV2WEt6L1JyZGEwbjdXbFBHSEhKUzhQeUY1SG1raWg4MWpkQzYwbEpaeDZYeExGWEVUWVNtamRKT21mSlJGR01aODd6MGhmNW9LbGtjRk8xQ01OOThMcjBBVU9zUzFYeWRtUm44MC9YUTYzS1RodFJySVlhSG13PT0tLVVlY2NWN1d3RS96ZnhwQU1PZS9XVmc9PQ%3D%3D--4ac33d9cf2fa43ca8d42b2b57b9d495bc5925d78",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.720Z",
+            "lastAccessed": "2026-03-11T09:00:34.720Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:33.724Z",
+      "createdAt": "2026-03-11T09:00:33.724Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_naRJY3T2Ck",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:35.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.819Z",
+            "lastAccessed": "2026-03-11T09:00:34.819Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "bG9UNVNtdldKUHJYT0dNNndLaXpyZDBGaFdvU1FnTkVLNmlNbEhDdi82UWFzblRnNzdCU3pyQ1dqcUd3d0RwWk1kOElCYjl5WFUxdkZ1ZEtyV003c3RzMXVSeExOWWE2NmR5VG9PeFZkMHE2SDVMN3dLSEdMelhseTRpRkZwSVFDZVRtQ3NVY2o2eE5lQzFLRUVEdGFBPT0tLVlYYk96V0Rib29GZXM1ajhRWGZObGc9PQ%3D%3D--9b6d142897b4f315d4873dbf7631991fb2788077",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.819Z",
+            "lastAccessed": "2026-03-11T09:00:34.819Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:33.773Z",
+      "createdAt": "2026-03-11T09:00:33.773Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_IiEHQptOl8",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:35.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.848Z",
+            "lastAccessed": "2026-03-11T09:00:34.848Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "YmdOQlVVY1V2TlAvVnVKT2JtMC83MlovZGIvdnFGSmphS1N3M1RaWkRKTFJSSUJYdTMwbFV0emI1UWlGTkhxTmlpMWE5eUQyaVU0cnZMYVBrREpXd2lRSUsraWY0Qm00bDlFK1MzVE9Jc2VDWnRhcVNXaGs3a3pZakZrb1lPOHZWTmhueVBRVGYvaDRBdDJOQkRKZk53PT0tLTI5NE9GUzlsYkVTU0RXRzFkdy93Ync9PQ%3D%3D--e1c055bc74c4853f4f315756834fbed6cd21c3aa",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:34.848Z",
+            "lastAccessed": "2026-03-11T09:00:34.848Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:34.139Z",
+      "createdAt": "2026-03-11T09:00:34.139Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_VLfhGYFem8",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:47.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:46.664Z",
+            "lastAccessed": "2026-03-11T09:00:46.664Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "bUJrb0FCSEVHenFlTHFrWW5rd09GaHRNNStsQkNDaHVsMlAxVTY4dm1MUEhGSTJyeXI4WW9Bdy96eCswdXgzOFlqUUVxTG5LY0lWQjJCc1hWTnlsbm1CY0J6dm0xcEEwbU1vV1p6UjkzMm81d3NTazJGZ2l1K0NxdG1QVjdIR0RiMkpYQ0kxZXIxL1ozWVI2MVBtQXRnPT0tLUNETy9GWTlSZ0tBTWVpQUEyWVJpUUE9PQ%3D%3D--2de1601b770aefc90a534baae5557c77508bd0ef",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:46.664Z",
+            "lastAccessed": "2026-03-11T09:00:46.664Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:45.642Z",
+      "createdAt": "2026-03-11T09:00:45.642Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_JhbeAArqmE",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:47.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:46.767Z",
+            "lastAccessed": "2026-03-11T09:00:46.767Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "WnhjM24wcVhXYytQS0ViNkk5SEVOY2N6N3RmemF1eGZzNW1IS3JSbG1kOVJBY3pFY0FUb1BiQUFST2FsOWZaUjNyaFNxR1VqWXdSc0VGZFgwa2Zxbm5FM0RsMmNrQ21UMVNHd0dUM2pIQWo2NXFYQ05lZGNuNCtQcVlNcTNVWDR0MjR6SDZidDQxdzhuMHExdW81MXZ3PT0tLUtxNkorb0lySDZUNWZ3a3pLTHR0YWc9PQ%3D%3D--8f3d49997f5a51be26d939a695fe7384b2e73922",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:46.767Z",
+            "lastAccessed": "2026-03-11T09:00:46.767Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:45.980Z",
+      "createdAt": "2026-03-11T09:00:45.980Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_v9MhHGkHaV",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:47.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:46.872Z",
+            "lastAccessed": "2026-03-11T09:00:46.872Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "YzJGNlRNTllBQ0czd0tIb21Fd3doMm1FYnhkYVJ6SHFveHlIU3NJWlJGMjByT1JGVWJNbnc3OWJzY3FlYXhicnhIOVJOaHZxYlVqbTE2TGRCa2kwUzFlZmhoUmtyS0huZFpTZWUrNjh3RWdlSjNNbGl5YnBleFljbjVYQTNJQU8xckQvQkQwT2dOTzJuNThsaGtYdnpBPT0tLWdleFFTaXkrMm5MTjc5WXVoQXIyeHc9PQ%3D%3D--45d7448548797c1d5a59e71b899aa17492c4223b",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:46.872Z",
+            "lastAccessed": "2026-03-11T09:00:46.872Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:46.295Z",
+      "createdAt": "2026-03-11T09:00:46.295Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_l8Opz5iDW1",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:47.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:47.243Z",
+            "lastAccessed": "2026-03-11T09:00:47.243Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "UE4zREZDQzlWVlhHUGlFSDdjTzgyc0M1czBRcTVUTU85MG5GUnlGLzJsbEF6SXhBS1lUeXhrWjdnc2wzM0N1cTlvLzZWOFRBb2t4bko2Mi9vTGt4dEZ2V05YRUNTamhmclNOcTltT1V6OUJaaHhYVmVzYWtodXpXWVVNem0vSG9aY3VuWEpNejhSempsa1pZNWVxL2hBPT0tLWlCL3lBVFNyUDFrZGx6amZtVDUvakE9PQ%3D%3D--b325497bfcf65c220bd16c5061fccf7917de54a3",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:47.243Z",
+            "lastAccessed": "2026-03-11T09:00:47.243Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:46.674Z",
+      "createdAt": "2026-03-11T09:00:46.674Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_W37sLJL4aq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:48.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:47.592Z",
+            "lastAccessed": "2026-03-11T09:00:47.592Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "RFVqZytDc3g5T2g2cXcxUXJNVC91WmNqTDdEMUZ2N3N4Z1hHbXM2S2tJT29xQTNFZ1V1UU5sMGJKR2tBbkE0amh3NFRPaVpjVll6UTc4ZHpIOHhlV3gyRWk4Z1prM214cS90Zy9XMkc3dFh0elFGckdPVG9vMVQraFZwSXZKaDF4RHYrRzB3cERyRk9pZTIwVTAvbjV3PT0tLWRPWGV5YXpCWjl5c3BrcytrUUJYYUE9PQ%3D%3D--2038048c0ebfbd3921a512809e7099c4e82b8ca2",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:47.592Z",
+            "lastAccessed": "2026-03-11T09:00:47.592Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:46.910Z",
+      "createdAt": "2026-03-11T09:00:46.910Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_nSHe6GyYsI",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:51.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:51.395Z",
+            "lastAccessed": "2026-03-11T09:00:51.395Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "cHpxTzJuOFVoWTRkQ2RrQjhaM0JESTZaOVdFellpTXdFUFZPeGVNSHQ1ZStsWDUzbFVtckl5TWhoc0NyK0JON0M4ZUNQN25kbjh1QXphK2lSYmp2eGhJNzZLeWtLUjVUajF2OWlTdHdPRGFCR3pLM1NiZ1JLSHpOWUtmUGt1Mm91UWZYQVQ1MXVvb0hmMERCMytUNXhnPT0tLTNQZXVKbi96aDR3aUkvUUxYVTBKYXc9PQ%3D%3D--158bc73714b60c42f24e5c5e31deab42d2e6fd7a",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:51.395Z",
+            "lastAccessed": "2026-03-11T09:00:51.395Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:50.460Z",
+      "createdAt": "2026-03-11T09:00:50.460Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_fpmjWXLMID",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:55.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:54.837Z",
+            "lastAccessed": "2026-03-11T09:00:54.837Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "Yi8wWHdVcmhGbWxWNE9WZXc1dWRDWGhsYjJmMUd2YlBTeWJRQjVvNFUzbWphSzRwTXBvMU5zTlUxVGZ5d1dCMWNTekdYWnJDbzJSa3R6ejFhNlh4RHZIOGU1eHE0TGhhN2lIZWZtZCt2YnZGTkduYmFTbm41bE93cFBtbXZ2Sk50UjR3dlU2K1c0eWRsVkxDTkZLNUpnPT0tLWpUcTZqamw5RisyUlZtR2l1Mmd5a2c9PQ%3D%3D--9fb39ac2245d469112059b02b1900abf0e5a8408",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:54.837Z",
+            "lastAccessed": "2026-03-11T09:00:54.837Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:53.965Z",
+      "createdAt": "2026-03-11T09:00:53.965Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_x8lpdsdeQ1",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:57.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:56.827Z",
+            "lastAccessed": "2026-03-11T09:00:56.827Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "NkdJYXhaRitiek44NXlqVDVjWTM5T0g1aFlGRzZaTmxCUUZ5cGVLOVV6V2JxZXBIeFJKUnBFSDM2aHBZNEhEUGZQYUdlQVo2dms5Nk9NRmlDRS9jL2hFRWlqSXgrTmMyN2UyMkpCUGVrQW9nTlZBRVhaNDZVS1VoV3N6YWJIbXZaaWoraHluNWZxZFlWMDZKZ3ZHRGp3PT0tLXdaQytZa1l3akJYdEdLWVhVbnNwWnc9PQ%3D%3D--dacd509f2cdb41c5f93e308d579981b324ccdb3c",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:56.827Z",
+            "lastAccessed": "2026-03-11T09:00:56.827Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:56.133Z",
+      "createdAt": "2026-03-11T09:00:56.133Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_D61C1rAdbC",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-18T09:00:58.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:57.868Z",
+            "lastAccessed": "2026-03-11T09:00:57.868Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "TXdSaTkzR3ZFN2NIK2tJWWpDclUzVzBzVkNCWlcxY2FUZ09xZFpNMSthWVZ2Mm9PMzUwZWhlN3FZYkNOeWNwRVNTN3g3KzlKQ3grYStRWkRSenVQNnJ2ZitTeHQrRkxESjZBdks2dFZ4ZzNBajUrN1pHN2x2RE1OcWxMY1JKcFZMVW5MTzZUZU1yWUgyb2x6U2FCNEN3PT0tLUkvaDh0UWREb3lZd29IanZRTzRmU2c9PQ%3D%3D--9c31122eb5c673b051c0996fd4f90b4fed2e6212",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:00:57.868Z",
+            "lastAccessed": "2026-03-11T09:00:57.868Z",
+            "sameSite": "strict"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T09:50:57.116Z",
+      "createdAt": "2026-03-11T09:00:57.116Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

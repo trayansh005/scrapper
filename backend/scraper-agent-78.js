@@ -262,7 +262,7 @@ async function handleListingPage({ page, request }) {
 			);
 
 			if (propertyAction !== "UNCHANGED") {
-				await sleep(500);
+				await sleep(1000);
 			}
 		} catch (err) {
 			logger.error(

@@ -32,6 +32,8 @@ function createAgentLogger(agentId) {
 				return "🆕 CREATED";
 			case "UPDATED":
 				return "✏️ UPDATED";
+			case "SKIPPED":
+				return "⏭️ SKIPPED";
 			case "QUEUED":
 				return "🔜 QUEUED";
 			case "ERROR":

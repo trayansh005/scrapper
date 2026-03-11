@@ -1,0 +1,148 @@
+{
+  "usableSessionsCount": 5,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_9eZJMoOICc",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T10:13:05.984Z",
+      "createdAt": "2026-03-11T09:23:05.984Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ICXfB2Bp4N",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "CookieScriptConsent",
+            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"},\"bannershown\":1}",
+            "expires": "2026-04-10T09:23:13.000Z",
+            "domain": "www.connells.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T09:23:26.126Z",
+            "lastAccessed": "2026-03-11T09:23:57.044Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "pb8oxj%5E1773220994518%5E1%5E1%5Eb.clarity.ms%2Fcollect",
+            "expires": "2026-03-12T09:23:14.000Z",
+            "domain": "connells.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-11T09:23:26.127Z",
+            "lastAccessed": "2026-03-11T09:23:57.044Z"
+          },
+          {
+            "key": "giosg_sgid_2803",
+            "value": "ynimujlmqazhehozriaakaacontqeehpm3pbyhjlchyyw4acikwbeaajbq",
+            "expires": "2027-03-11T09:23:16.000Z",
+            "domain": "www.connells.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-11T09:23:26.136Z",
+            "lastAccessed": "2026-03-11T09:23:57.044Z"
+          },
+          {
+            "key": "giosg_chat_id_2803",
+            "value": "ag5o7pg6rx75jbg3yaaapjw6ik2737nqnzttaonsbco4xxam",
+            "expires": "2027-03-11T09:23:16.000Z",
+            "domain": "www.connells.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-11T09:23:26.136Z",
+            "lastAccessed": "2026-03-11T09:23:57.044Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T10:13:05.993Z",
+      "createdAt": "2026-03-11T09:23:05.993Z",
+      "usageCount": 3,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_YrzeT1nLnb",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T10:13:22.260Z",
+      "createdAt": "2026-03-11T09:23:22.260Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_FuYhG3AxPF",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T10:13:37.919Z",
+      "createdAt": "2026-03-11T09:23:37.919Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_kQnFwWzkSu",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T10:13:54.573Z",
+      "createdAt": "2026-03-11T09:23:54.573Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

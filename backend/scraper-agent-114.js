@@ -6,7 +6,10 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
-const { updatePriceByPropertyURLOptimized, processPropertyWithCoordinates } = require("./lib/db-helpers.js");
+const {
+	updatePriceByPropertyURLOptimized,
+	processPropertyWithCoordinates,
+} = require("./lib/db-helpers.js");
 const { isSoldProperty, parsePrice, formatPriceUk } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
@@ -29,9 +32,8 @@ async function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function scrapePropertyDetail(page, property, isRental) {
+async function scrapePropertyDetail(page, property, isRental, pageNum, label, totalPages) {
 	try {
-		logger.property(property.link, "DETAIL", "Scraping coordinates and content...");
 		await page.goto(property.link, { waitUntil: "domcontentloaded", timeout: 45000 });
 		await sleep(500);
 
@@ -44,7 +46,7 @@ async function scrapePropertyDetail(page, property, isRental) {
 
 				// 1. loadLocratingPlugin match
 				const locratingMatch = allScripts.match(
-					/loadLocratingPlugin\s*\(\s*\{[^}]*lat\s*:\s*([0-9.+-]+)[^}]*lng\s*:\s*([0-9.+-]+)/
+					/loadLocratingPlugin\s*\(\s*\{[^}]*lat\s*:\s*([0-9.+-]+)[^}]*lng\s*:\s*([0-9.+-]+)/,
 				);
 				if (locratingMatch) {
 					return {
@@ -86,7 +88,7 @@ async function scrapePropertyDetail(page, property, isRental) {
 			}
 		});
 
-		const dbResult = await processPropertyWithCoordinates(
+		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
@@ -95,16 +97,24 @@ async function scrapePropertyDetail(page, property, isRental) {
 			isRental,
 			detailData.html,
 			detailData.lat,
-			detailData.lng
+			detailData.lng,
 		);
 
-		if (dbResult.isExisting && !dbResult.updated) {
-			logger.property(property.link, "UNCHANGED");
-		} else {
-			logger.property(property.link, dbResult.updated ? "UPDATED" : "CREATED");
-			stats.totalSaved++;
-			await sleep(200);
-		}
+		logger.property(
+			pageNum,
+			label,
+			property.title,
+			formatPriceUk(property.price),
+			property.link,
+			isRental,
+			totalPages,
+			"CREATED",
+			detailData.lat,
+			detailData.lng,
+		);
+
+		stats.totalSaved++;
+		await sleep(1000);
 		stats.totalScraped++;
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
@@ -131,7 +141,7 @@ const crawler = new PlaywrightCrawler({
 	],
 
 	async requestHandler({ page, request, crawler }) {
-		const { pageNum, isRental, label } = request.userData;
+		const { pageNum, isRental, label, totalPages } = request.userData;
 
 		// Extract properties from listing
 		const properties = await page.evaluate((isRental) => {
@@ -156,7 +166,7 @@ const crawler = new PlaywrightCrawler({
 				let bedrooms = null;
 				if (roomsDiv) {
 					const bedroomSpan = Array.from(roomsDiv.querySelectorAll("span")).find((span) =>
-						/Bedrooms?/i.test(span.textContent)
+						/Bedrooms?/i.test(span.textContent),
 					);
 					if (bedroomSpan) {
 						const match = bedroomSpan.textContent.match(/(\d+)\s*Bedrooms?/i);
@@ -169,8 +179,9 @@ const crawler = new PlaywrightCrawler({
 		}, isRental);
 
 		// Handle pagination discovery
+		let currentPageTotalPages = totalPages || 1;
 		if (pageNum === 1) {
-			const totalPages = await page.evaluate(() => {
+			currentPageTotalPages = await page.evaluate(() => {
 				const span = document.querySelector(".pagination span");
 				if (span) {
 					const match = span.textContent.match(/of\s+(\d+)/i);
@@ -179,7 +190,7 @@ const crawler = new PlaywrightCrawler({
 				return 1;
 			});
 
-			for (let p = 2; p <= totalPages; p++) {
+			for (let p = 2; p <= currentPageTotalPages; p++) {
 				const pagedUrl = request.url.includes("?")
 					? request.url.replace(/\?/, `/page-${p}?`)
 					: `${request.url.replace(/\/$/, "")}/page-${p}`;
@@ -187,21 +198,30 @@ const crawler = new PlaywrightCrawler({
 				await crawler.addRequests([
 					{
 						url: pagedUrl,
-						userData: { ...request.userData, pageNum: p, totalPages },
+						userData: { ...request.userData, pageNum: p, totalPages: currentPageTotalPages },
 					},
 				]);
 			}
-			request.userData.totalPages = totalPages;
+			request.userData.totalPages = currentPageTotalPages;
 		}
 
-		logger.page(pageNum, request.userData.totalPages || "?", `Found ${properties.length} items`);
+		logger.page(pageNum, currentPageTotalPages, `Found ${properties.length} items`);
 
 		for (const property of properties) {
 			if (!property.link) continue;
 			stats.totalFound++;
 
 			if (isSoldProperty(property.statusText)) {
-				logger.property(property.link, "SKIP", `Status is: ${property.statusText}`);
+				logger.property(
+					pageNum,
+					label,
+					property.title,
+					property.priceText,
+					property.link,
+					isRental,
+					currentPageTotalPages,
+					"SKIPPED",
+				);
 				stats.totalSkipped++;
 				continue;
 			}
@@ -209,20 +229,52 @@ const crawler = new PlaywrightCrawler({
 			const numericPrice = parsePrice(property.priceText);
 
 			// Optimized check
-			const priceCheck = await updatePriceByPropertyURLOptimized(property.link, numericPrice, AGENT_ID);
+			const priceCheck = await updatePriceByPropertyURLOptimized(
+				property.link,
+				numericPrice,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
 			if (priceCheck.isExisting) {
 				if (priceCheck.updated) {
-					logger.property(property.link, "UPDATED", `Price: ${formatPriceUk(numericPrice)}`);
+					logger.property(
+						pageNum,
+						label,
+						property.title,
+						formatPriceUk(numericPrice),
+						property.link,
+						isRental,
+						currentPageTotalPages,
+						"UPDATED",
+					);
 					stats.totalSaved++;
 					await sleep(100);
 				} else {
-					logger.property(property.link, "UNCHANGED");
+					logger.property(
+						pageNum,
+						label,
+						property.title,
+						formatPriceUk(numericPrice),
+						property.link,
+						isRental,
+						currentPageTotalPages,
+						"UNCHANGED",
+					);
 				}
 			} else {
 				// New property, visit detail
 				const detailPage = await page.context().newPage();
 				await blockNonEssentialResources(detailPage);
-				await scrapePropertyDetail(detailPage, { ...property, price: numericPrice }, isRental);
+				await scrapePropertyDetail(
+					detailPage,
+					{ ...property, price: numericPrice },
+					isRental,
+					pageNum,
+					label,
+					currentPageTotalPages,
+				);
 				await detailPage.close();
 			}
 		}
@@ -244,8 +296,10 @@ async function run() {
 	];
 
 	if (isPartialRun) {
-		logger.step(`Partial run detected (startPage=${startPageArgument}). Remove status update will be skipped.`);
-		// For Jackson-Stops, we need to adjust start URLs to skip pages if needed, 
+		logger.step(
+			`Partial run detected (startPage=${startPageArgument}). Remove status update will be skipped.`,
+		);
+		// For Jackson-Stops, we need to adjust start URLs to skip pages if needed,
 		// but simple implementation just runs from page 1.
 		// If user passes startPage, we should really only start from that page.
 	}
@@ -261,7 +315,7 @@ async function run() {
 	}
 
 	logger.step(
-		`Scrape completed. Found: ${stats.totalFound}, Saved/Updated: ${stats.totalSaved}, Skipped: ${stats.totalSkipped}`
+		`Scrape completed. Found: ${stats.totalFound}, Saved/Updated: ${stats.totalSaved}, Skipped: ${stats.totalSkipped}`,
 	);
 }
 

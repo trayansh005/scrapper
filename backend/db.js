@@ -5,7 +5,7 @@ const pool = mysql.createPool({
 	host: process.env.DB_HOST || "localhost",
 	user: "root",
 	password: process.env.PASSWORD || "",
-	database: "scrape",
+	database: "scraper",
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
 	queueLimit: 0,
@@ -150,7 +150,6 @@ async function updateRemoveStatus(agent_id, scrapeStartTime = null) {
 		console.error("Error updating remove status:", error.message);
 	}
 }
-
 
 module.exports = {
 	promisePool,
