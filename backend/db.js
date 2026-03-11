@@ -1,14 +1,12 @@
 const mysql = require("mysql2"); // Use mysql2 for better performance
 
 // Create a connection pool
-const DB_URI =
-	process.env.DATABASE_URL || "mysql://mysql:b4ckf3xoq52drfgh@57.129.139.233:3307/scrape";
-
 const pool = mysql.createPool({
-	uri: DB_URI,
-	waitForConnections: true,
-	connectionLimit: 10, // Limits active connections to 10
-	queueLimit: 0,
+	host: process.env.DB_HOST,
+	port: process.env.PORT,
+	user: process.env.USER,
+	password: process.env.PASSWORD,
+	database: process.env.DATABASE,
 });
 
 console.log("Database pool created and ready for connections");
