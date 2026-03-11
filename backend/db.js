@@ -1,11 +1,11 @@
 const mysql = require("mysql2"); // Use mysql2 for better performance
 
 // Create a connection pool
+const DB_URI =
+	process.env.DATABASE_URL || "mysql://mysql:b4ckf3xoq52drfgh@57.129.139.233:3307/scraper";
+
 const pool = mysql.createPool({
-	host: process.env.DB_HOST || "localhost",
-	user: "root",
-	password: process.env.PASSWORD || "",
-	database: "scrape",
+	uri: DB_URI,
 	waitForConnections: true,
 	connectionLimit: 10, // Limits active connections to 10
 	queueLimit: 0,
