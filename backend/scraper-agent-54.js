@@ -89,10 +89,15 @@ async function scrapeLeaders() {
 	}
 
 	const crawler = new PlaywrightCrawler({
-		navigationTimeoutSecs: 60,
+		navigationTimeoutSecs: 120,
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
+
+		gotoOptions: {
+			waitUntil: "domcontentloaded",
+			timeout: 90000,
+		},
 
 		launchContext: {
 			launcher: undefined,
@@ -107,8 +112,7 @@ async function scrapeLeaders() {
 
 			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
-			await page.waitForTimeout(700);
-
+			await page.waitForTimeout(2000);
 			await page
 				.waitForSelector(".property-card-wrapper", { timeout: 20000 })
 				.catch(() => logger.step(`No property cards found on page ${pageNum}`));
@@ -259,7 +263,7 @@ async function scrapeLeaders() {
 
 						const price = formatPriceUk(property.price);
 						if (!price) return;
-						
+
 						if (bedrooms && isNaN(bedrooms)) bedrooms = null;
 
 						const result = await updatePriceByPropertyURLOptimized(
