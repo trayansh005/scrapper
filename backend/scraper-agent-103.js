@@ -6,7 +6,7 @@
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updatePriceByPropertyURL, updateRemoveStatus } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
+const { updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 const { extractCoordinatesFromHTML } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
@@ -15,6 +15,18 @@ log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 103;
 const logger = createAgentLogger(AGENT_ID);
+
+const BROWSER_HEADERS = {
+	"User-Agent":
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+	Accept:
+		"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+	"Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+	"Upgrade-Insecure-Requests": "1",
+	"Sec-Fetch-Mode": "navigate",
+	"Sec-Fetch-Dest": "document",
+	"Sec-Fetch-User": "?1",
+};
 
 const stats = {
 	totalScraped: 0,
@@ -26,19 +38,20 @@ const stats = {
 const recentPageSignatures = new Map();
 const processedUrls = new Set();
 
-function formatPrice(price) {
-	if (!price && price !== 0) return "N/A";
-	const num = Number(price);
-	if (isNaN(num)) return "N/A";
-	return "£" + num.toLocaleString("en-GB");
-}
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function applyBrowserLikeHeaders(page, secFetchSite = "none") {
+	await page.setExtraHTTPHeaders({
+		...BROWSER_HEADERS,
+		"Sec-Fetch-Site": secFetchSite,
+		Referer: "https://www.alandemaid.co.uk/",
+	});
 }
 
 function formatPriceDisplay(price, isRental) {
@@ -65,6 +78,8 @@ async function scrapePropertyDetail(browserContext, property) {
 	await sleep(700);
 	const detailPage = await browserContext.newPage();
 	try {
+		await applyBrowserLikeHeaders(detailPage, "same-origin");
+
 		await detailPage.route("**/*", (route) => {
 			const resourceType = route.request().resourceType();
 			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
@@ -242,7 +257,7 @@ async function handleListingPage({ page, request }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
-			
+
 			await sleep(500);
 		}
 
@@ -256,7 +271,7 @@ async function handleListingPage({ page, request }) {
 			totalPages,
 			action,
 			lat,
-			lng
+			lng,
 		);
 	}
 }
@@ -265,17 +280,24 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
+		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
+		preNavigationHooks: [
+			async ({ page }) => {
+				await applyBrowserLikeHeaders(page, "none");
+			},
+		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				viewport: { width: 1920, height: 1080 },
 			},
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -319,10 +341,11 @@ async function scrapeAlanDeMaid() {
 	}
 
 	logger.step(`Queueing ${allRequests.length} listing pages...`);
-	await crawler.addRequests(allRequests);
-	await crawler.run();
+	await crawler.run(allRequests);
 
-	logger.step(`Completed Alan de Maid - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`);
+	logger.step(
+		`Completed Alan de Maid - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	);
 	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
 }
 

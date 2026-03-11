@@ -1,0 +1,190 @@
+{
+  "usableSessionsCount": 8,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_179noRKHJ1",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:27:26.173Z",
+      "createdAt": "2026-03-11T10:37:26.173Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_7BnOW5zdIB",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ctesius2_session",
+            "value": "VHR5WFVTRzkrWmtISzQxQVVqRHdSWnorRTBRc1VWTktnWmNTMFVsWXV5YmVzd0JDOFBHazNVTjVVZTU4eVlIdWJISkNXMEtCaFVSSzVzMXI5cVkvZTExcUpCY2lhbjUzOE5tMndSMFdJSW9yV2tKNTdxaFREamVNSm1JMEcrVUd0cVY2ckV1cDR4bGtQbGJlTWJIWXJBPT0tLUJ4eHFGS1F3L29NQ1djaUdjSXMvUVE9PQ%3D%3D--0e8c13258f688a61495454d455a3fdfb4cbf3ba9",
+            "expires": "2026-03-11T11:28:21.201Z",
+            "domain": "www.alandemaid.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T10:37:32.362Z",
+            "lastAccessed": "2026-03-11T10:38:21.202Z"
+          },
+          {
+            "key": "CookieScriptConsent",
+            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
+            "expires": "2026-04-10T10:38:20.000Z",
+            "domain": "www.alandemaid.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-11T10:37:32.364Z",
+            "lastAccessed": "2026-03-11T10:38:21.202Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:27:26.178Z",
+      "createdAt": "2026-03-11T10:37:26.178Z",
+      "usageCount": 6,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_4adA1d6Sjw",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:27:37.437Z",
+      "createdAt": "2026-03-11T10:37:37.437Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_aKovxZSG06",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:27:45.868Z",
+      "createdAt": "2026-03-11T10:37:45.868Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Z1KtiZaTkq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:27:53.930Z",
+      "createdAt": "2026-03-11T10:37:53.930Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_LxLeBOGA4a",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:28:02.109Z",
+      "createdAt": "2026-03-11T10:38:02.109Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_KKPdmONgbB",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:28:09.903Z",
+      "createdAt": "2026-03-11T10:38:09.903Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_FcOmHG1ihA",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-11T11:28:18.455Z",
+      "createdAt": "2026-03-11T10:38:18.455Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}
