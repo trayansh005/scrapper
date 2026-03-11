@@ -89,7 +89,7 @@ async function scrapeLeaders() {
 	}
 
 	const crawler = new PlaywrightCrawler({
-		navigationTimeoutSecs: 60,
+		navigationTimeoutSecs: 120,
 		maxConcurrency: 1,
 		maxRequestRetries: 2,
 		requestHandlerTimeoutSecs: 300,
@@ -107,8 +107,7 @@ async function scrapeLeaders() {
 
 			console.log(`📋 ${label} - Page ${pageNum} - ${request.url}`);
 
-			await page.waitForTimeout(700);
-
+			await page.waitForTimeout(2000);
 			await page
 				.waitForSelector(".property-card-wrapper", { timeout: 20000 })
 				.catch(() => logger.step(`No property cards found on page ${pageNum}`));
@@ -132,9 +131,11 @@ async function scrapeLeaders() {
 							const price = el.querySelector(".property-price")?.textContent?.trim() || "";
 
 							let bedrooms = null;
-							const bedroomsEls = el.querySelectorAll("li.list-inline-item");
-							if (bedroomsEls.length > 1) {
-								bedrooms = bedroomsEls[1].textContent.trim();
+
+							const bedEl = el.querySelector("li.list-inline-item");
+							if (bedEl) {
+								const match = bedEl.textContent.match(/\d+/);
+								if (match) bedrooms = parseInt(match[0]);
 							}
 
 							const statusText = el.innerText || "";
@@ -258,6 +259,10 @@ async function scrapeLeaders() {
 						const price = formatPriceUk(property.price);
 						if (!price) return;
 
+						if (property.bedrooms && isNaN(property.bedrooms)) {
+							property.bedrooms = null;
+						}
+
 						const result = await updatePriceByPropertyURLOptimized(
 							property.link,
 							price,
@@ -332,7 +337,7 @@ async function scrapeLeaders() {
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		logger.error("Fatal error:", err?.message || err);
+		logger.error(`Fatal error: ${err?.stack || err}`);
 		process.exit(1);
 	}
 })();

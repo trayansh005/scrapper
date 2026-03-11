@@ -1,282 +1,374 @@
-﻿// Galbraithgroup scraper using Playwright with Crawlee
+﻿// Galbraith Group scraper (Scotland-focused)
 // Agent ID: 223
-// Website: galbraithgroup.com
-// Usage:
-// node backend/scraper-agent-223.js
+// Usage: node backend/scraper-agent-223.js [startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
-const { updateRemoveStatus, updatePriceByPropertyURL } = require("./db.js");
-const { formatPriceUk, updatePriceByPropertyURLOptimized } = require("./lib/db-helpers.js");
 
-// Reduce verbosity
+const { updateRemoveStatus } = require("./db.js");
+const {
+  updatePriceByPropertyURLOptimized,
+  processPropertyWithCoordinates,
+  formatPriceUk,
+} = require("./lib/db-helpers.js");
+
+const { parsePrice } = require("./lib/property-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 223;
+const logger = createAgentLogger(AGENT_ID);
+
 const stats = {
-	totalScraped: 0,
-	totalSaved: 0,
-	savedSales: 0,
-	savedRentals: 0,
+  totalProcessed: 0,
+  totalSaved: 0,
+  savedSales: 0,
+  savedRentals: 0,
 };
 
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
+const processedUrls = new Set();
 
-// Configuration for sales and lettings
+// ============================================================================
+// CONFIG
+// ============================================================================
+
 const PROPERTY_TYPES = [
-	{
-		urlBase:
-			"https://www.galbraithgroup.com/sales-and-lettings/search/?sq.BuyOrLet=true&sq.MaxDistance=30&sq.sq_stc=true&sq.Sort=newest",
-		totalPages: 10,
-		recordsPerPage: 10,
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		urlBase:
-			"https://www.galbraithgroup.com/sales-and-lettings/search/?sq.BuyOrLet=false&sq.MaxDistance=30&sq.sq_stc=true&sq.Sort=newest",
-		totalPages: 5,
-		recordsPerPage: 10,
-		isRental: true,
-		label: "RENTALS",
-	},
+  {
+    baseUrl: "https://www.galbraithgroup.com/sales-and-lettings/search/",
+    params: "sq.BuyOrLet=true&sq.MaxDistance=30&sq.sq_stc=true&sq.Sort=newest",
+    maxPages: 24,          // observed up to ~24 for sales
+    isRental: false,
+    label: "SALES",
+  },
+  {
+    baseUrl: "https://www.galbraithgroup.com/sales-and-lettings/search/",
+    params: "sq.BuyOrLet=false&sq.MaxDistance=30&sq.sq_stc=true&sq.Sort=newest",
+    maxPages: 10,
+    isRental: true,
+    label: "RENTALS",
+  },
 ];
 
+// ============================================================================
+// UTILS
+// ============================================================================
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function buildPageUrl(base, params, pageNum, pageSize = 10) {
+  const query = pageNum === 1
+    ? params
+    : `${params}&sq.Page=${pageNum}&sq.PageSize=${pageSize}`;
+  return `${base}?${query}`;
+}
+
+// ============================================================================
+// DETAIL SCRAPER (coords only for new properties)
+// ============================================================================
+
+async function scrapePropertyDetail(browserContext, property, isRental, pageNum, label) {
+  const detailPage = await browserContext.newPage();
+
+  try {
+    await detailPage.route("**/*", route => {
+      const rt = route.request().resourceType();
+      if (["image", "font", "stylesheet", "media"].includes(rt)) route.abort();
+      else route.continue();
+    });
+
+    await detailPage.goto(property.link, {
+      waitUntil: "domcontentloaded",
+      timeout: 45000,
+    });
+
+    const htmlContent = await detailPage.content();
+
+    const coords = await detailPage.evaluate(() => {
+      const scripts = Array.from(document.querySelectorAll("script"));
+      for (const s of scripts) {
+        const txt = s.textContent || "";
+        if (txt.includes("GeoCoordinates")) {
+          const match = txt.match(/{\s*"@type"\s*:\s*"GeoCoordinates"[^}]*}/);
+          if (match) {
+            try {
+              const geo = JSON.parse(match[0]);
+              if (geo.latitude && geo.longitude) {
+                return { lat: parseFloat(geo.latitude), lon: parseFloat(geo.longitude) };
+              }
+            } catch {}
+          }
+        }
+      }
+      return null;
+    });
+
+    await processPropertyWithCoordinates(
+      property.link,
+      property.price,
+      property.title,
+      property.bedrooms || null,
+      AGENT_ID,
+      isRental,
+      htmlContent,
+      coords?.lat ?? null,
+      coords?.lon ?? null
+    );
+
+    stats.totalSaved++;
+    if (isRental) stats.savedRentals++;
+    else stats.savedSales++;
+
+    logger.property(
+      pageNum,
+      label,
+      property.title,
+      formatPriceUk(property.price),
+      property.link,
+      isRental,
+      coords ? `${coords.lat?.toFixed(5)}, ${coords.lon?.toFixed(5)}` : null,
+      "CREATED"
+    );
+  } catch (err) {
+    logger.error(`Detail failed → ${property.link}`, err.message || err, pageNum, label);
+  } finally {
+    await detailPage.close().catch(() => {});
+  }
+}
+
+// ============================================================================
+// LISTING HANDLER
+// ============================================================================
+
+async function handleListingPage({ page, request, crawler }) {
+  const { pageNum, isRental, label } = request.userData;
+
+  logger.page(pageNum, label, request.url);
+
+  await blockNonEssentialResources(page);
+
+  await page.waitForSelector("div.property-information", { timeout: 30000 }).catch(() => {
+    logger.warn("No property-information divs found – page empty/blocked?", pageNum, label);
+  });
+
+  const properties = await page.evaluate(() => {
+    const results = [];
+    const cards = document.querySelectorAll('div.property-information');  // top-level wrapper
+
+    cards.forEach(card => {
+      const titleEl = card.querySelector('h2 a.property-link');
+      const title = titleEl?.textContent?.trim() || '';
+      const link = titleEl?.href || '';
+
+      if (!title || !link) return;
+
+      const priceEl = card.querySelector('p.price .price-value');
+      const priceValue = priceEl?.textContent?.trim() || '';
+
+      // Full price context
+      const fullPriceP = card.querySelector('p.price');
+      const fullPriceText = fullPriceP?.textContent?.trim() || '';
+
+      // Bedrooms
+      const bedEl = card.querySelector('p.bedrooms');
+      const bedroomsText = bedEl?.textContent?.trim() || '';
+      const bedrooms = bedroomsText ? parseInt(bedroomsText.replace(/\D/g, ''), 10) : null;
+
+      results.push({
+        link,
+        title,
+        price: fullPriceText || priceValue,  // full context for parsing
+        bedrooms,
+      });
+    });
+
+    return results.filter(p => p.link && p.title && p.price);
+  });
+
+  logger.step(`Found ${properties.length} properties`, pageNum, label);
+
+  if (properties.length === 0) return; // stop pagination if empty
+
+  for (const prop of properties) {
+    const fullLink = prop.link.startsWith("http") ? prop.link : `https://www.galbraithgroup.com${prop.link}`;
+
+    if (processedUrls.has(fullLink)) continue;
+    processedUrls.add(fullLink);
+
+    stats.totalProcessed++;
+
+    // Enhanced Galbraith-specific price extraction/cleanup
+    let priceText = prop.price?.trim() || '';
+
+    // 1. Prefer the inner <span class="price-value"> if present
+    if (priceText.includes('£') && !priceText.includes('Offers Over')) {
+      priceText = priceText; // already clean
+    } else {
+      // Remove common prefixes and keep only the numeric part
+      priceText = priceText
+        .replace(/Offers (Over|In Excess|Around)/gi, '')
+        .replace(/Guide Price/gi, '')
+        .replace(/Fixed Price/gi, '')
+        .replace(/POA|Price On Application/gi, '0')
+        .replace(/[^0-9.]/g, '');  // strip everything except digits and decimal
+    }
+
+    let priceNum = parseFloat(priceText);
+
+    // 3. Fallback to shared parsePrice if cleanup failed
+    if (isNaN(priceNum) || priceNum <= 0) {
+      priceNum = parsePrice(prop.price);
+    }
+
+    if (!priceNum || priceNum <= 0) {
+      logger.warn(`Price parse failed → Raw: "${prop.price}" | After cleanup: "${priceText}" → ${priceNum} for ${prop.title}`, pageNum, label);
+      continue;
+    }
+
+    const result = await updatePriceByPropertyURLOptimized(
+      fullLink,
+      priceNum,
+      prop.title,
+      prop.bedrooms || null,
+      AGENT_ID,
+      isRental
+    );
+
+    let action = "UNCHANGED";
+
+    if (result.updated) {
+      action = "UPDATED";
+      stats.totalSaved++;
+      if (isRental) stats.savedRentals++;
+      else stats.savedSales++;
+    }
+
+    if (!result.isExisting && !result.error) {
+      logger.step(`New property → detail scrape ${prop.title}`, pageNum, label);
+      await scrapePropertyDetail(page.context(), { ...prop, link: fullLink, price: priceNum }, isRental, pageNum, label);
+      action = "CREATED";
+    }
+
+    logger.property(
+      pageNum,
+      label,
+      prop.title,
+      formatPriceUk(priceNum),
+      fullLink,
+      isRental,
+      null,
+      action
+    );
+
+    if (action === "CREATED") {
+      await sleep(1200 + Math.random() * 800);
+    }
+  }
+
+  // Pagination: enqueue next if properties found
+  if (properties.length > 0) {
+    const type = PROPERTY_TYPES.find(t => t.label === label);
+    if (pageNum < type.maxPages) {
+      const nextUrl = buildPageUrl(type.baseUrl, type.params, pageNum + 1);
+      logger.step(`Enqueuing page ${pageNum + 1}`, pageNum, label);
+      await crawler.addRequests([{
+        url: nextUrl,
+        userData: { pageNum: pageNum + 1, isRental, label },
+      }]);
+    }
+  }
+}
+
+// ============================================================================
+// CRAWLER
+// ============================================================================
+
 function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		requestHandlerTimeoutSecs: 300,
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			},
-		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			log.error(`Failed listing page: ${request.url}`);
-		},
-	});
+  return new PlaywrightCrawler({
+    maxConcurrency: 1,
+    maxRequestRetries: 3,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 300,
+
+    preNavigationHooks: [
+      async ({ page }) => {
+        await blockNonEssentialResources(page);
+      },
+    ],
+
+    launchContext: {
+      launchOptions: {
+        browserWSEndpoint,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      },
+    },
+
+    requestHandler: handleListingPage,
+
+    failedRequestHandler({ request }) {
+      logger.error(`Permanent failure → ${request.url}`);
+    },
+  });
 }
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
+// ============================================================================
+// MAIN
+// ============================================================================
 
-	console.log(` ${label} - Page ${pageNum} - ${request.url}`);
+async function scrapeGalbraith() {
+  const scrapeStartTime = new Date();
+  logger.step(`Starting Galbraith scraper (Agent ${AGENT_ID})`);
 
-	try {
-		await page.waitForTimeout(3000);
+  const startPage = Number(process.argv[2]) || 1;
+  const isPartial = startPage > 1;
 
-		// Wait for property cards to load
-		await page.waitForSelector("div[class*='carousel']", { timeout: 30000 }).catch(() => {
-			console.log(` No listing container found on page ${pageNum}`);
-		});
+  const browserWSEndpoint = process.env.BROWSERLESS_WS_ENDPOINT ||
+    "ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv";
 
-		// Extract properties from the DOM
-		const properties = await page.evaluate(() => {
-			try {
-				const containers = Array.from(document.querySelectorAll("div[class*='generic']")).filter(
-					(el) => {
-						return el.querySelector("img[alt*='Bedroom Count']") !== null;
-					},
-				);
+  const crawler = createCrawler(browserWSEndpoint);
 
-				return containers
-					.map((container) => {
-						try {
-							const titleEl = container.querySelector("h2 a, h3 a");
-							const title = titleEl ? titleEl.textContent.trim() : "";
-							const link = titleEl ? titleEl.getAttribute("href") : null;
-							const fullLink = link
-								? link.startsWith("http")
-									? link
-									: "https://www.galbraithgroup.com" + link
-								: null;
+  const requests = [];
 
-							const priceTexts = Array.from(container.querySelectorAll("p")).map((p) =>
-								p.textContent.trim(),
-							);
-							const priceEl = priceTexts.find((t) => t.includes("") || t.includes("Offers Over"));
-							const price = priceEl || "";
+  for (const type of PROPERTY_TYPES) {
+    const from = Math.max(1, startPage);
+    for (let p = from; p <= type.maxPages; p++) {
+      const url = buildPageUrl(type.baseUrl, type.params, p);
+      requests.push({
+        url,
+        userData: { pageNum: p, isRental: type.isRental, label: type.label },
+      });
+    }
+  }
 
-							const bedroomImg = container.querySelector("img[alt*='Bedroom Count']");
-							const bedroomEl =
-								bedroomImg?.nextElementSibling || bedroomImg?.parentElement?.querySelector("p");
-							const bedrooms = bedroomEl ? bedroomEl.textContent.trim() : null;
+  if (requests.length === 0) {
+    logger.step("No pages queued");
+    return;
+  }
 
-							if (!fullLink || !title) return null;
+  await crawler.addRequests(requests);
+  await crawler.run();
 
-							return { link: fullLink, title, price, bedrooms };
-						} catch (e) {
-							return null;
-						}
-					})
-					.filter((p) => p);
-			} catch (e) {
-				return [];
-			}
-		});
+  logger.step(
+    `Finished – Processed: ${stats.totalProcessed} | Saved: ${stats.totalSaved} ` +
+    `(Sales: ${stats.savedSales} | Rentals: ${stats.savedRentals})`
+  );
 
-		console.log(` Found ${properties.length} properties on page ${pageNum}`);
-		stats.totalScraped += properties.length;
-
-		const batchSize = 2;
-		for (let i = 0; i < properties.length; i += batchSize) {
-			const batch = properties.slice(i, i + batchSize);
-
-			await Promise.all(
-				batch.map(async (property) => {
-					if (!property.link) return;
-
-					let coords = { latitude: null, longitude: null };
-
-					const detailPage = await page.context().newPage();
-					try {
-						await detailPage.goto(property.link, {
-							waitUntil: "domcontentloaded",
-							timeout: 40000,
-						});
-						await detailPage.waitForTimeout(1000);
-
-						const detailCoords = await detailPage.evaluate(() => {
-							try {
-								const scripts = Array.from(document.querySelectorAll("script"));
-								for (const script of scripts) {
-									const content = script.textContent;
-									if (content.includes("GeoCoordinates")) {
-										const geoMatch = content.match(/{\s*"@type"\s*:\s*"GeoCoordinates"[^}]*}/);
-										if (geoMatch) {
-											const geo = JSON.parse(geoMatch[0]);
-											if (geo.latitude && geo.longitude) {
-												return { lat: parseFloat(geo.latitude), lng: parseFloat(geo.longitude) };
-											}
-										}
-									}
-								}
-								return null;
-							} catch (e) {
-								return null;
-							}
-						});
-
-						if (detailCoords) {
-							coords.latitude = detailCoords.lat;
-							coords.longitude = detailCoords.lng;
-						}
-					} catch (err) {
-						// ignore detail page errors
-					} finally {
-						await detailPage.close();
-					}
-
-					try {
-						const priceClean = property.price ? property.price.replace(/[^0-9.]/g, "") : null;
-						const priceNum = priceClean ? parseFloat(priceClean) : null;
-
-						if (priceNum === null) {
-							console.log(` No price found: ${property.title}`);
-							return;
-						}
-
-						const updateResult = await updatePriceByPropertyURLOptimized(
-							property.link.trim(),
-							priceNum,
-							property.title,
-							property.bedrooms,
-							AGENT_ID,
-							isRental,
-						);
-
-						let persisted = !!updateResult.updated;
-
-						if (!updateResult.isExisting) {
-							await updatePriceByPropertyURL(
-								property.link.trim(),
-								formatPriceUk(priceNum),
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-								coords.latitude,
-								coords.longitude,
-							);
-							persisted = true;
-						}
-
-						if (persisted) {
-							stats.totalSaved++;
-							if (isRental) stats.savedRentals++;
-							else stats.savedSales++;
-						}
-
-						console.log(
-							` ${property.title} - ${formatPriceUk(priceNum)} - ${
-								coords.latitude && coords.longitude
-									? `${coords.latitude}, ${coords.longitude}`
-									: "No coords"
-							}`,
-						);
-					} catch (dbErr) {
-						console.error(` DB error for ${property.link}: ${dbErr.message}`);
-					}
-				}),
-			);
-
-			await page.waitForTimeout(500);
-		}
-	} catch (error) {
-		console.error(` Error in ${label} page ${pageNum}: ${error.message}`);
-	}
-}
-
-async function scrapeGalbraithgroup() {
-	console.log(`\n Starting Galbraithgroup scraper (Agent ${AGENT_ID})...\n`);
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`\n Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
-
-		const crawler = createCrawler(browserWSEndpoint);
-		const requests = [];
-		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const pageSize = propertyType.recordsPerPage;
-			const url =
-				pg === 1
-					? propertyType.urlBase
-					: `${propertyType.urlBase}&sq.Page=${pg}&sq.PageSize=${pageSize}`;
-
-			requests.push({
-				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
-			});
-		}
-
-		await crawler.addRequests(requests);
-		await crawler.run();
-	}
-
-	console.log(`\n Scraping complete!`);
-	console.log(`Total scraped: ${stats.totalScraped}`);
-	console.log(`Total saved: ${stats.totalSaved}`);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, RENTALS: ${stats.savedRentals}\n`);
+  if (!isPartial) {
+    await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+  } else {
+    logger.step(`Partial run from page ${startPage} → skipping remove status`);
+  }
 }
 
 (async () => {
-	try {
-		await scrapeGalbraithgroup();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n All done!");
-		process.exit(0);
-	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
-		process.exit(1);
-	}
+  try {
+    await scrapeGalbraith();
+    logger.step("Done");
+    process.exit(0);
+  } catch (err) {
+    logger.error("Fatal error", err?.message || err);
+    process.exit(1);
+  }
 })();

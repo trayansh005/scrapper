@@ -89,11 +89,24 @@ async function handleListingPage({ page, request }) {
 			if (processedUrls.has(link)) continue;
 			processedUrls.add(link);
 
+			if (!prop.price || !prop.latitude || !prop.longitude) {
+			logger.step(`Skipping incomplete property: ${link}`);
+			continue;
+		}
+
 			const price = parseInt(prop.price) || 0;
-			const bedrooms = parseInt(prop.beds) || null;
 			const title = prop.title || "Property";
-			const lat = parseFloat(prop.latitude) || null;
-			const lng = parseFloat(prop.longitude) || null;
+			const bedrooms = prop.beds ? parseInt(prop.beds) : null;
+
+			const lat =
+				prop.latitude !== undefined && prop.latitude !== null && prop.latitude !== ""
+					? parseFloat(prop.latitude)
+					: null;
+
+			const lng =
+				prop.longitude !== undefined && prop.longitude !== null && prop.longitude !== ""
+					? parseFloat(prop.longitude)
+					: null;
 
 			// Check if property is sold/unavailable
 			if (

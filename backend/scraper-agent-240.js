@@ -1,7 +1,6 @@
 // Ashtons scraper using Playwright with Crawlee
 // Agent ID: 240
-// Usage:
-// node backend/scraper-agent-240.js
+// Usage: node backend/scraper-agent-240.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
@@ -11,10 +10,18 @@ const {
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
 const { parsePrice } = require("./lib/property-helpers.js");
+const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
+
+// Inline sleep
+function sleep(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 240;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
 	totalScraped: 0,
@@ -32,27 +39,27 @@ function getBrowserlessEndpoint() {
 	);
 }
 
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// ------------------------------------------------------------------
+// DETAIL PAGE
+// ------------------------------------------------------------------
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	const detailPage = await browserContext.newPage();
+async function scrapePropertyDetail(context, property, isRental) {
+	await sleep(1200 + Math.random() * 800);
+
+	const detailPage = await context.newPage();
+
 	try {
-		await detailPage.route("**/*", (route) => {
-			if (["image", "font", "stylesheet", "media"].includes(route.request().resourceType())) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
+		await blockNonEssentialResources(detailPage);
+
+		logger.step(`[Detail] ${property.title || 'Property'}`);
 
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
-			timeout: 30000,
+			timeout: 45000,
 		});
 
 		const htmlContent = await detailPage.content();
+
 		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
@@ -60,278 +67,253 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
-			htmlContent,
+			htmlContent
 		);
 
 		stats.totalScraped++;
-		if (isRental) {
-			stats.savedRentals++;
-		} else {
-			stats.savedSales++;
-		}
+		if (isRental) stats.savedRentals++;
+		else stats.savedSales++;
+
+		logger.step(`[Detail] Saved`);
 	} catch (err) {
-		console.error(` Detail scrape error: ${err?.message || err}`);
+		logger.error(`Detail failed → ${property.link}`, err.message || err);
 	} finally {
-		await detailPage.close();
+		await detailPage.close().catch(() => { });
 	}
 }
 
-// Ashtons uses "Show more" button to load properties dynamically
+// ------------------------------------------------------------------
+// PROPERTY TYPES
+// ------------------------------------------------------------------
+
 const PROPERTY_TYPES = [
-	// {
-	// 	url: "https://www.ashtons.co.uk/buy?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
-	// 	isRental: false,
-	// 	label: "FOR SALE",
-	// 	typeIndex: 0,
-	// },
+	{
+		url: "https://www.ashtons.co.uk/buy?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
+		isRental: false,
+		label: "FOR SALE",
+	},
 	{
 		url: "https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on",
 		isRental: true,
 		label: "FOR LETTING",
-		typeIndex: 0,
 	},
 ];
 
+// ------------------------------------------------------------------
+// MAIN SCRAPER
+// ------------------------------------------------------------------
+
 async function scrapeAshtons() {
-	console.log(`\n🚀 Starting Ashtons scraper (Agent ${AGENT_ID})...\n`);
+	const scrapeStartTime = new Date();
+	logger.step(`Starting Ashtons (Agent ${AGENT_ID})...`);
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	console.log(` Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+	logger.step(`Browserless connected`);
 
 	const crawler = new PlaywrightCrawler({
-		maxConcurrency: 2,
-		maxRequestRetries: 2,
+		maxConcurrency: 1,
+		maxRequestRetries: 3,
+		navigationTimeoutSecs: 60,
 		requestHandlerTimeoutSecs: 600,
 
-		launchContext: {
-			launchOptions: {
-				browserWSEndpoint,
-			},
-		},
+		launchContext: { launchOptions: { browserWSEndpoint } },
+
+		preNavigationHooks: [
+			async ({ page }) => await blockNonEssentialResources(page),
+		],
 
 		async requestHandler({ page, request }) {
-			const { isRental, label, url } = request.userData;
+			const { isRental, label } = request.userData;
+			logger.step(`Processing ${label}`);
 
-			console.log(`📋 ${label} - ${url}`);
+			await sleep(2500 + Math.random() * 1500);
 
-			await page.waitForTimeout(2000);
+			// Scroll to load everything
+			logger.step("Infinite scroll loading...");
+			let prevHeight = 0;
+			let attempts = 0;
+			const maxAttempts = 60;
 
-			// Wait for property cards to load
-			await page
-				.waitForSelector(".c-property-card", {
-					timeout: 15000,
-				})
-				.catch(() => console.log(`⚠️ No property cards found`));
+			while (attempts < maxAttempts) {
+				await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+				await sleep(3500 + Math.random() * 2000);
 
-			// Keep clicking "Show more" button until all properties are loaded
-			let clickCount = 0;
-			const maxClicks = 50; // Safety limit
-
-			while (clickCount < maxClicks) {
-				try {
-					// Check if "Show more" button exists and is enabled
-					const showMoreButton = await page.$(
-						".c-property-search__list-action button.c-button--tertiary",
-					);
-
-					if (!showMoreButton) {
-						console.log(`  ℹ️ No more "Show more" button found after ${clickCount} clicks`);
-						break;
-					}
-
-					const isDisabled = await showMoreButton.evaluate((el) => el.disabled);
-					if (isDisabled) {
-						console.log(`  ℹ️ "Show more" button is disabled after ${clickCount} clicks`);
-						break;
-					}
-
-					console.log(`  🔄 Clicking "Show more" button (click ${clickCount + 1})...`);
-
-					// Click using JavaScript to avoid timeout issues
-					await page.evaluate(() => {
-						const button = document.querySelector(
-							".c-property-search__list-action button.c-button--tertiary",
-						);
-						if (button) button.click();
-					});
-
-					// Wait for new properties to load
-					await page.waitForTimeout(2000);
-
-					// Wait for loading state to finish
-					await page
-						.waitForFunction(
-							() => {
-								const button = document.querySelector(
-									".c-property-search__list-action button.c-button--tertiary",
-								);
-								return button && !button.classList.contains("is-waiting");
-							},
-							{ timeout: 10000 },
-						)
-						.catch(() => {});
-
-					await page.waitForTimeout(500);
-					clickCount++;
-				} catch (err) {
-					console.log(`  ⚠️ Error clicking "Show more": ${err.message}`);
+				const height = await page.evaluate(() => document.body.scrollHeight);
+				if (height === prevHeight) {
+					logger.step(`Scroll stopped - no more content (attempt ${attempts})`);
 					break;
 				}
+				prevHeight = height;
+				attempts++;
+				if (attempts % 5 === 0) logger.step(`Scroll ${attempts}/${maxAttempts}`);
 			}
 
-			console.log(`  ✅ Finished loading properties after ${clickCount} clicks`);
+			// Debug: screenshot + broad card count
+			const safeLabel = label.toLowerCase().replace(/\s+/g, '-');
+			const shotPath = `ashtons-${safeLabel}-final.png`;
+			await page.screenshot({ path: shotPath, fullPage: true });
+			logger.step(`Screenshot: ${shotPath}`);
 
+			const potentialCards = await page.$$eval(
+				'article, li, div[class*="card"], div[class*="property"], div[class*="listing"], div[data-testid*="property"], .result, .item',
+				els => els.length
+			);
+			logger.step(`Detected ${potentialCards} potential cards`);
+
+			// Extract – loose text-based fallback
 			const properties = await page.evaluate(() => {
-				try {
-					const cards = Array.from(document.querySelectorAll(".c-property-card"));
-					return cards
-						.map((card) => {
-							try {
-								// Extract property URL
-								const linkEl = card.querySelector("a.c-property-card__anchor");
-								if (!linkEl) return null;
+				const items = [];
+				const cardElements = document.querySelectorAll(
+					'article, li, div[class*="card"], div[class*="property"], div[class*="listing"], div[data-testid*="property"], .result, .item'
+				);
 
-								const href = linkEl.getAttribute("href");
-								if (!href) return null;
-								const link = href.startsWith("/") ? `https://www.ashtons.co.uk${href}` : href;
+				Array.from(cardElements).slice(0, 300).forEach((card) => {
+					try {
+						// Link
+						const linkEl = card.querySelector('a[href*="/property/"], a[href*="/details/"], a[href*="property-"], a');
+						if (!linkEl) return;
+						let href = linkEl.getAttribute('href');
+						if (!href) return;
+						const link = href.startsWith('http') ? href : `https://www.ashtons.co.uk${href.startsWith('/') ? '' : '/'}${href}`;
 
-								// Extract price
-								let price = "";
-								const priceEl = card.querySelector(".c-property-price__value");
-								if (priceEl) {
-									const priceText = priceEl.textContent.trim();
-									const m = priceText.match(/£([0-9,]+)/);
-									if (m) {
-										price = parseInt(m[1].replace(/,/g, "")).toLocaleString();
-									}
+						const cardText = card.innerText.trim().replace(/\s+/g, ' ');
+
+						// Price - look for £ followed by digits, possibly with pcm
+						const priceMatch = cardText.match(/£[\d,]+(?:\s*(?:pcm|per\s*calendar\s*month|monthly))?/i);
+						let price = priceMatch ? priceMatch[0].replace(/[£,]/g, '').trim() : null;
+						if (!price) return;
+
+						// Title
+						let title = '';
+						const heading = card.querySelector('h1,h2,h3,h4,h5,strong,.address,.title,.location,.property-address');
+						if (heading) {
+							title = heading.innerText.trim();
+						} else {
+							title = cardText.split(/[\n•]/)[0]?.trim() || '';
+						}
+						if (!title || title.length < 8) return;
+
+						// IMPROVED BEDROOMS EXTRACTION
+						let bedrooms = null;
+
+						// Try to find number right before/after "bed" keywords
+						const bedPatterns = [
+							/(\d+)\s*(?:bed|bedroom|bedrooms|bed(s)?)/i,
+							/(?:bed|bedroom|bedrooms|bed(s)?)\s*(\d+)/i,           // number after word
+							/(\d+)\s*bed/i                                         // shorter variants
+						];
+
+						for (const pattern of bedPatterns) {
+							const match = cardText.match(pattern);
+							if (match) {
+								const num = match[1] || match[2];
+								const parsed = parseInt(num, 10);
+								if (parsed >= 0 && parsed <= 20) {  // reasonable range for bedrooms
+									bedrooms = parsed.toString();     // keep as string for DB consistency
+									break;
 								}
-
-								// Extract address/title from h2
-								let title = "";
-								const titleEl = card.querySelector(".c-property-card__title");
-								if (titleEl) {
-									title = titleEl.textContent.trim().replace(/\s+/g, " ");
-								}
-
-								// Extract bedrooms
-								let bedrooms = null;
-								const bedroomsFeature = card.querySelector(
-									".c-property-feature--bedrooms .c-property-feature__value",
-								);
-								if (bedroomsFeature) {
-									const text = bedroomsFeature.textContent.trim();
-									const match = text.match(/(\d+)/);
-									if (match) {
-										bedrooms = match[1];
-									}
-								}
-
-								return { link, title, price, bedrooms };
-							} catch (e) {
-								return null;
 							}
-						})
-						.filter((p) => p !== null);
-				} catch (err) {
-					return [];
+						}
+
+						// Skip sold/let agreed
+						if (/sold|stc|let\s*agreed|under offer|reserved/i.test(cardText)) return;
+
+						items.push({ link, title, price, bedrooms });
+					} catch { }
+				});
+
+				// Debug: show sample of first card
+				if (cardElements.length > 0) {
+					const sample = cardElements[0].innerText.substring(0, 400).replace(/\n/g, ' ');
+					console.log(`Sample card text (first): ${sample}...`);
 				}
+
+				return items;
 			});
 
-			console.log(`🔗 Found ${properties.length} properties total`);
+			logger.step(`Extracted ${properties.length} valid properties`);
 
+			// Process in batches
 			const batchSize = 5;
 			for (let i = 0; i < properties.length; i += batchSize) {
 				const batch = properties.slice(i, i + batchSize);
 
-				await Promise.all(
-					batch.map(async (property) => {
-						if (!property.link) return;
+				await Promise.all(batch.map(async (property) => {
+					if (processedUrls.has(property.link)) return;
+					processedUrls.add(property.link);
 
-						if (processedUrls.has(property.link)) {
-							log.info(` Skipping duplicate: ${property.title}`);
+					try {
+						let actionTaken = "UNCHANGED";
+						const priceNum = parseInt(property.price.replace(/[^0-9]/g, ''), 10);
+
+						if (isNaN(priceNum)) {
+							logger.warn(`Invalid price → ${property.link}`);
 							return;
 						}
-						processedUrls.add(property.link);
 
-						try {
-							const priceNum = parsePrice(property.price);
+						const result = await updatePriceByPropertyURLOptimized(
+							property.link.trim(),
+							priceNum,
+							property.title,
+							property.bedrooms || null,
+							AGENT_ID,
+							isRental
+						);
 
-							if (priceNum === null) {
-								log.warn(` No price found: ${property.title}`);
-								return;
-							}
-
-							const result = await updatePriceByPropertyURLOptimized(
-								property.link.trim(),
-								priceNum,
-								property.title,
-								property.bedrooms,
-								AGENT_ID,
-								isRental,
-							);
-
-							if (result.updated) {
-								stats.totalSaved++;
-							}
-
-							if (!result.isExisting && !result.error) {
-								await scrapePropertyDetail(
-									page.context(),
-									{
-										...property,
-										price: priceNum,
-									},
-									isRental,
-								);
-							}
-
-							const priceDisplay = formatPriceUk(priceNum);
-							console.log(`✅ ${property.title} - ${priceDisplay}`);
-						} catch (dbErr) {
-							console.error(` DB error for ${property.link}: ${dbErr?.message || dbErr}`);
+						if (result.updated) {
+							actionTaken = "UPDATED";
+							stats.totalSaved++;
 						}
-					}),
-				);
 
-				await new Promise((resolve) => setTimeout(resolve, 200));
+						if (!result.isExisting && !result.error) {
+							await scrapePropertyDetail(page.context(), { ...property, price: priceNum }, isRental);
+							actionTaken = "CREATED";
+						}
+
+						logger.property(
+							null,
+							label,
+							property.title,
+							formatPriceUk(priceNum),
+							property.link,
+							isRental,
+							null,
+							actionTaken
+						);
+
+						if (actionTaken === "CREATED") await sleep(1800 + Math.random() * 1200);
+					} catch (err) {
+						logger.error(`Failed → ${property.link}`, err.message || err);
+					}
+				}));
+
+				await sleep(1000 + Math.random() * 800);
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			console.error(`❌ Failed: ${request.url}`);
+			logger.error(`Failed request: ${request.url}`);
 		},
 	});
 
-	for (const propertyType of PROPERTY_TYPES) {
-		console.log(`🏠 Processing ${propertyType.label}`);
+	const initialRequests = PROPERTY_TYPES.map(t => ({
+		url: t.url,
+		userData: { isRental: t.isRental, label: t.label },
+	}));
 
-		await crawler.addRequests([
-			{
-				url: propertyType.url,
-				userData: {
-					isRental: propertyType.isRental,
-					label: propertyType.label,
-					url: propertyType.url,
-				},
-			},
-		]);
-		await crawler.run();
-	}
+	await crawler.run(initialRequests);
 
-	console.log(
-		`\n✅ Completed Ashtons scraper - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
-	);
-	console.log(` Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
+	logger.step(`Completed - Scraped: ${stats.totalScraped} | Saved: ${stats.totalSaved}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 }
 
 (async () => {
 	try {
 		await scrapeAshtons();
-		await updateRemoveStatus(AGENT_ID);
-		console.log("\n✅ All done!");
+		logger.step("Done");
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Fatal error:", err?.message || err);
+		logger.error("Fatal error:", err?.message || err);
 		process.exit(1);
 	}
 })();

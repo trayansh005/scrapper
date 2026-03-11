@@ -57,12 +57,12 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 const PROPERTY_TYPES = [
-	{
-		url: "https://www.gatekeeper.co.uk/properties",
-		isRental: false,
-		label: "SALES",
-		buttonSelector: "#buyBtn",
-	},
+	// {
+	// 	url: "https://www.gatekeeper.co.uk/properties",
+	// 	isRental: false,
+	// 	label: "SALES",
+	// 	buttonSelector: "#buyBtn",
+	// },
 	{
 		url: "https://www.gatekeeper.co.uk/properties",
 		isRental: true,
@@ -224,7 +224,7 @@ async function extractCoordsFromDetailsPage(browserContext, propertyUrl) {
 		return null;
 	} finally {
 		if (detailPage) {
-			await detailPage.close().catch(() => {});
+			await detailPage.close().catch(() => { });
 		}
 	}
 }
@@ -446,26 +446,19 @@ function createCrawler(browserWSEndpoint) {
 
 			await page.waitForSelector("#properties_list", { timeout: 30000 }).catch(() => null);
 
-			const button = await page.$(label === "RENTALS" ? "#rentBtn" : "#buyBtn");
-			if (button) {
-				await button.click();
-				await page.waitForTimeout(2000);
+			const buttonSelector = label === "RENTALS" ? "#rentBtn" : "#buyBtn";
 
-				const searchButton =
-					(await page.$('button[onclick*="search_properties_form"]')) ||
-					(await page.$('#search_properties_form button[type="submit"]')) ||
-					(await page.$('button:has-text("Search")'));
+			await page.click(buttonSelector);
+			await page.waitForTimeout(1000);
 
-				if (searchButton) {
-					await Promise.all([
-						searchButton.click(),
-						page
-							.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 })
-							.catch(() => {}),
-					]);
-					await page.waitForTimeout(1500);
+			// trigger property search after selecting tab
+			await page.evaluate(() => {
+				if (typeof search_properties_form === "function") {
+					search_properties_form();
 				}
-			}
+			});
+
+			await page.waitForTimeout(3000);
 
 			await loadAllProperties(page);
 
