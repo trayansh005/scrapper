@@ -264,7 +264,9 @@ async function scrapeLeaders() {
 						const price = formatPriceUk(property.price);
 						if (!price) return;
 
-						if (bedrooms && isNaN(bedrooms)) bedrooms = null;
+						if (property.bedrooms && isNaN(property.bedrooms)) {
+							property.bedrooms = null;
+						}
 
 						const result = await updatePriceByPropertyURLOptimized(
 							property.link,
@@ -340,7 +342,7 @@ async function scrapeLeaders() {
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		logger.error("Fatal error:", err?.message || err);
+		logger.error(`Fatal error: ${err?.stack || err}`);
 		process.exit(1);
 	}
 })();
