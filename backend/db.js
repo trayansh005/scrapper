@@ -1,4 +1,5 @@
 const mysql = require("mysql2"); // Use mysql2 for better performance
+require("dotenv").config(); // Load environment variables from .env file
 
 // Create a connection pool
 const pool = mysql.createPool({

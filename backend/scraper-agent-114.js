@@ -30,7 +30,7 @@ const isPartialRun = startPageArgument > 1;
 
 const PROPERTY_TYPES = [
 	{
-		baseUrl: "https://www.jackson-stops.co.uk/properties/sales",
+		baseUrl: "https://www.jackson-stops.co.uk/london/sales",
 		isRental: false,
 		label: "SALES",
 	},

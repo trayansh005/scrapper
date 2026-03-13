@@ -1,8 +1,8 @@
 {
 	"id": "THIlnRCOBKmbZuc",
-	"json": "{\"id\":\"THIlnRCOBKmbZuc\",\"url\":\"https://www.connells.co.uk/properties/sales?page=6\",\"uniqueKey\":\"https://www.connells.co.uk/properties/sales?page=6\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":6}}",
+	"json": "{\"id\":\"THIlnRCOBKmbZuc\",\"url\":\"https://www.connells.co.uk/properties/sales?page=6\",\"loadedUrl\":\"https://www.connells.co.uk/properties/sales?page=6\",\"uniqueKey\":\"https://www.connells.co.uk/properties/sales?page=6\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":6,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-12T08:25:23.807Z\"}",
 	"method": "GET",
-	"orderNo": 1773221427129,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.connells.co.uk/properties/sales?page=6",
 	"url": "https://www.connells.co.uk/properties/sales?page=6"
