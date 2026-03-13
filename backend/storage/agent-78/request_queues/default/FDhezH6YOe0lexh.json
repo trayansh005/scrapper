@@ -1,6 +1,10 @@
 {
 	"id": "FDhezH6YOe0lexh",
+<<<<<<< HEAD
 	"json": "{\"id\":\"FDhezH6YOe0lexh\",\"url\":\"https://robertholmes.co.uk/search/page/9/?address_keyword=&department=residential-lettings\",\"loadedUrl\":\"https://robertholmes.co.uk/search/page/9/?address_keyword=&department=residential-lettings\",\"uniqueKey\":\"https://robertholmes.co.uk/search/page/9?address_keyword=&department=residential-lettings\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":9,\"totalPages\":10,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-12T10:33:23.623Z\"}",
+=======
+	"json": "{\"id\":\"FDhezH6YOe0lexh\",\"url\":\"https://robertholmes.co.uk/search/page/9/?address_keyword=&department=residential-lettings\",\"loadedUrl\":\"https://robertholmes.co.uk/search/page/9/?address_keyword=&department=residential-lettings\",\"uniqueKey\":\"https://robertholmes.co.uk/search/page/9?address_keyword=&department=residential-lettings\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":9,\"totalPages\":10,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-11T12:16:04.533Z\"}",
+>>>>>>> d00d3de95fe6c0cc5a5ce20429b51fa82588aa62
 	"method": "GET",
 	"orderNo": null,
 	"retryCount": 0,

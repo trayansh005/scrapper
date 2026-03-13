@@ -1,19 +1,17 @@
-// Sequence Home scraper using Playwright with Crawlee
+// Sequence Home scraper using Hybrid API/Browser approach
 // Agent ID: 15
 // Usage:
 // node backend/scraper-agent-15.js
 
-const { PlaywrightCrawler, log } = require("crawlee");
+const { PlaywrightCrawler } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { extractCoordinatesFromHTML, isSoldProperty } = require("./lib/property-helpers.js");
+const { isSoldProperty } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
-
-log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 15;
 const logger = createAgentLogger(AGENT_ID);
@@ -52,182 +50,112 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING (Fallback if API lacks coordinates)
+// API FETCHING (via Browser Context)
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property) {
-	logger.step(`[Detail] Scraping coordinates for: ${property.title}`);
-
-	const detailPage = await browserContext.newPage();
-
-	try {
-		await blockNonEssentialResources(detailPage);
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		});
-
-		await detailPage.waitForTimeout(3000);
-
-		const htmlContent = await detailPage.content();
-		const coords = await extractCoordinatesFromHTML(htmlContent);
-
-		if (coords.latitude && coords.longitude) {
-			logger.step(`[Detail] Found coordinates: ${coords.latitude}, ${coords.longitude}`);
-		} else {
-			logger.step(`[Detail] No coordinates found in HTML`);
-		}
-
-		return {
-			coords: {
-				latitude: coords.latitude || null,
-				longitude: coords.longitude || null,
-			},
-		};
-	} catch (error) {
-		logger.error(`[Detail] Error scraping detail page ${property.link}`, error);
-		return null;
-	} finally {
-		await detailPage.close();
-	}
-}
-
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
-
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label } = request.userData;
-	logger.page(pageNum, label, request.url);
-
-	const finalUrl = page.url();
-	const isExpectedFirstPageRedirect =
-		pageNum === 1 && /\/properties\/(sales|lettings)\/?$/.test(finalUrl);
-	if (!finalUrl.includes(`page-${pageNum}`) && !isExpectedFirstPageRedirect) {
-		logger.page(pageNum, label, `Pagination mismatch: landed on ${finalUrl}`);
-	}
-
-	try {
-		await page.waitForLoadState("networkidle");
-	} catch (e) {
-		logger.error(`Network loading failed on page ${pageNum}`, e);
-	}
-
-	// Fetch JSON API from within browser context to bypass Cloudflare
-	const properties = await page.evaluate(
+async function fetchFromApi(page, channel, pageNum) {
+	const result = await page.evaluate(
 		async ({ channel, pageNum }) => {
+			const fragment = pageNum > 1 ? `/page-${pageNum}` : "";
+			const apiUrl = `https://www.sequencehome.co.uk/search.ljson?channel=${channel}&fragment=${encodeURIComponent(fragment)}`;
+
 			try {
-				const fragment = pageNum > 1 ? `/page-${pageNum}` : "";
-				const apiUrl = `https://www.sequencehome.co.uk/search.ljson?channel=${channel}&fragment=${encodeURIComponent(fragment)}`;
 				const response = await fetch(apiUrl, {
 					headers: {
 						Accept: "application/json",
-						"User-Agent": navigator.userAgent,
+						"X-Requested-With": "XMLHttpRequest",
 					},
-					credentials: "include", // Include cookies/auth from browser session
 				});
 
-				if (!response.ok) {
-					console.error(`API error: ${response.status}`);
-					return [];
-				}
-
-				const data = await response.json();
-				const results = [];
-
-				if (Array.isArray(data.properties)) {
-					for (const prop of data.properties) {
-						const rawLink = prop.property_url || null;
-						if (!rawLink) continue;
-
-						const link = rawLink.startsWith("http")
-							? rawLink
-							: `https://www.sequencehome.co.uk${rawLink}`;
-						const title = prop.display_address || prop.short_description || "Property";
-						const priceRaw = Number.isFinite(prop.price_value) ? String(prop.price_value) : "";
-						const bedrooms = Number.isFinite(prop.bedrooms) ? prop.bedrooms : null;
-						const statusText = prop.status || "";
-						const latitude = Number.isFinite(prop.lat) ? prop.lat : null;
-						const longitude = Number.isFinite(prop.lng) ? prop.lng : null;
-
-						results.push({
-							link,
-							title,
-							priceRaw,
-							bedrooms,
-							statusText,
-							latitude,
-							longitude,
-						});
-					}
-				}
-
-				return results;
+				if (!response.ok) return null;
+				return await response.json();
 			} catch (e) {
-				console.error(`API fetch error: ${e.message}`);
-				return [];
+				return null;
 			}
 		},
-		{ channel: isRental ? "lettings" : "sales", pageNum },
+		{ channel, pageNum },
 	);
 
+	return result;
+}
+
+// ============================================================================
+// PROPERTY PROCESSING
+// ============================================================================
+
+async function processProperties(properties, pageNum, label, isRental, totalPages) {
 	logger.page(pageNum, label, `Processing ${properties.length} properties from API`);
 
-	for (const property of properties) {
-		if (!property.link) {
-			logger.page(pageNum, label, `Skipped: Missing link for property`);
+	let createdInBatch = 0;
+
+	for (const prop of properties) {
+		const rawLink = prop.property_url || null;
+		if (!rawLink) continue;
+
+		const link = rawLink.startsWith("http")
+			? rawLink
+			: `https://www.sequencehome.co.uk${rawLink}`;
+
+		const title = prop.display_address || prop.short_description || "Property";
+		const price = Number.isFinite(prop.price_value) ? prop.price_value : null;
+
+		if (isSoldProperty(prop.status || "")) {
+			logger.property(
+				pageNum,
+				label,
+				title.substring(0, 40),
+				formatPriceDisplay(price, isRental),
+				link,
+				isRental,
+				totalPages,
+				"SKIPPED",
+			);
 			continue;
 		}
 
-		if (isSoldProperty(property.statusText || "")) {
-			logger.page(pageNum, label, `Skipped: Property is Sold/Under Offer (${property.link})`);
+		if (processedUrls.has(link)) {
 			continue;
 		}
+		processedUrls.add(link);
 
-		if (processedUrls.has(property.link)) {
-			logger.page(pageNum, label, `Skipped: Already processed (${property.link})`);
-			continue;
-		}
-		processedUrls.add(property.link);
-
-		const price = property.priceRaw ? parseInt(property.priceRaw) : null;
-		const bedrooms = property.bedrooms || null;
+		const bedrooms = Number.isFinite(prop.bedrooms) ? prop.bedrooms : null;
+		const latitude = Number.isFinite(prop.lat) ? prop.lat : null;
+		const longitude = Number.isFinite(prop.lng) ? prop.lng : null;
 
 		if (!price) {
-			logger.page(pageNum, label, `Skipped: No price found for ${property.link}`);
+			logger.property(
+				pageNum,
+				label,
+				title.substring(0, 40),
+				"No Price",
+				link,
+				isRental,
+				totalPages,
+				"SKIPPED",
+			);
 			continue;
 		}
 
 		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
+			link,
 			price,
-			property.title,
+			title,
 			bedrooms,
 			AGENT_ID,
 			isRental,
 		);
 
+		let propertyAction = "UNCHANGED";
 		if (result.updated) {
 			stats.totalSaved++;
+			propertyAction = "UPDATED";
 		}
 
-		let latitude = property.latitude;
-		let longitude = property.longitude;
-
-		// If API provides coordinates, use them directly; otherwise scrape detail page
 		if (!result.isExisting && !result.error) {
-			if (!latitude || !longitude) {
-				const detail = await scrapePropertyDetail(page.context(), property);
-				latitude = detail?.coords?.latitude || null;
-				longitude = detail?.coords?.longitude || null;
-			}
-
-			// Save new property with coordinates
 			await processPropertyWithCoordinates(
-				property.link.trim(),
+				link.trim(),
 				price,
-				property.title,
+				title,
 				bedrooms,
 				AGENT_ID,
 				isRental,
@@ -240,27 +168,66 @@ async function handleListingPage({ page, request }) {
 			stats.totalScraped++;
 			if (isRental) stats.savedRentals++;
 			else stats.savedSales++;
+			
+			propertyAction = "CREATED";
+			createdInBatch++;
+			
+			// Rule 5: Conditional Loop Sleep - only sleep if property was actually CREATED
+			await sleep(2000); 
 		}
 
-		let propertyAction = "UNCHANGED";
-		if (result.updated) propertyAction = "UPDATED";
-		if (!result.isExisting && !result.error) propertyAction = "CREATED";
 		logger.property(
 			pageNum,
 			label,
-			property.title.substring(0, 40),
+			title.substring(0, 40),
 			formatPriceDisplay(price, isRental),
-			property.link,
+			link,
 			isRental,
-			0,
+			totalPages,
 			propertyAction,
+			latitude,
+			longitude,
 		);
 	}
+	
+	return createdInBatch;
+}
 
-	// Delay before the next page/API call to avoid rate-limiting
-	const pageJitter = Math.floor(Math.random() * 2000) + 2000;
-	logger.step(`Waiting ${pageJitter}ms before next API call...`);
-	await sleep(pageJitter);
+// ============================================================================
+// REQUEST HANDLER
+// ============================================================================
+
+async function handleRequest({ page, request }) {
+	const { channel, pageNum, label, isRental } = request.userData;
+
+	// Initial wait to ensure page is loaded/Cloudflare handled
+	await page.waitForTimeout(2000);
+
+	let currentPage = pageNum;
+
+	while (true) {
+		const currentLabel = `${label}_PAGE_${currentPage}`;
+		logger.page(currentPage, currentLabel, `Fetching and processing page ${currentPage}...`);
+
+		const data = await fetchFromApi(page, channel, currentPage);
+
+		if (!data || !Array.isArray(data.properties) || data.properties.length === 0) {
+			logger.page(currentPage, currentLabel, `No more properties found for ${label}. Ending pagination.`);
+			break;
+		}
+
+		// Try to extract total pages for better logging if available
+		const totalPages = data.total_pages || 0;
+
+		await processProperties(data.properties, currentPage, currentLabel, isRental, totalPages);
+
+		currentPage++;
+		// Rule 5: Skip the sleep between pages if we are efficiently skipping unchanged/updated records
+		// But keep a minimal safety pulse if we hit too many pages at once
+		if (currentPage % 5 === 0) {
+			await sleep(500);
+		}
+	}
 }
 
 // ============================================================================
@@ -270,37 +237,20 @@ async function handleListingPage({ page, request }) {
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
-		maxRequestRetries: 3, // Increased retries for 403 handling
-		requestHandlerTimeoutSecs: 300,
+		maxRequestRetries: 2,
+		requestHandlerTimeoutSecs: 600000, // Increased to 1 hour to handle many pages in a single loop
 		preNavigationHooks: [
-			async ({ page, request }) => {
+			async ({ page }) => {
 				await blockNonEssentialResources(page);
-
-				// Rotate User-Agent to a common desktop one
-				const userAgents = [
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-					"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-				];
-				const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
-				await page.setExtraHTTPHeaders({ "User-Agent": randomUA });
 			},
 		],
 		launchContext: {
-			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
-				args: [
-					"--no-sandbox",
-					"--disable-setuid-sandbox",
-					"--disable-blink-features=AutomationControlled", // Help bypass detection
-				],
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
-		},
+		requestHandler: handleRequest,
 	});
 }
 
@@ -310,7 +260,7 @@ function createCrawler(browserWSEndpoint) {
 
 async function scrapeSequenceHome() {
 	const scrapeStartTime = new Date();
-	logger.step(`Starting Sequence Home scraper at ${scrapeStartTime.toISOString()}...`);
+	logger.step(`Starting Sequence Home scraper (Hybrid version) at ${scrapeStartTime.toISOString()}...`);
 
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -322,60 +272,30 @@ async function scrapeSequenceHome() {
 		);
 	}
 
-	const PROPERTY_TYPES = [
-		{
-			urlBase: "https://www.sequencehome.co.uk/properties/sales",
-			isRental: false,
-			label: "SALES",
-			totalRecords: 16362,
-			recordsPerPage: 10,
-		},
-		{
-			urlBase: "https://www.sequencehome.co.uk/properties/lettings",
-			isRental: true,
-			label: "LETTINGS",
-			totalRecords: 1907,
-			recordsPerPage: 10,
-		},
-	];
-
 	const browserWSEndpoint = getBrowserlessEndpoint();
-	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
-
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [];
+	const CHANNELS = [
+		{ name: "sales", label: "SALES", isRental: false, url: "https://www.sequencehome.co.uk/properties/sales/" },
+		{ name: "lettings", label: "LETTINGS", isRental: true, url: "https://www.sequencehome.co.uk/properties/lettings/" },
+	];
 
-	for (const type of PROPERTY_TYPES) {
-		const totalPages = Math.ceil(type.totalRecords / type.recordsPerPage);
-		const effectiveStartPage = Math.max(1, startPage);
+	const requests = CHANNELS.map((channel) => ({
+		url: channel.url,
+		userData: {
+			channel: channel.name,
+			pageNum: startPage,
+			label: channel.label,
+			isRental: channel.isRental,
+		},
+	}));
 
-		for (let pg = effectiveStartPage; pg <= totalPages; pg++) {
-			allRequests.push({
-				url: `${type.urlBase}/page-${pg}`,
-				userData: {
-					pageNum: pg,
-					isRental: type.isRental,
-					label: `${type.label}_PAGE_${pg}`,
-				},
-			});
-		}
-	}
-
-	if (allRequests.length === 0) {
-		logger.step("No pages to scrape with current arguments.");
-		return;
-	}
-
-	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.addRequests(allRequests);
+	await crawler.addRequests(requests);
 	await crawler.run();
 
 	logger.step(
-		`Completed Sequence Home - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Sequence Home - Total collected: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
 	);
-	logger.step(`Breakdown - SALES: ${stats.savedSales}, LETTINGS: ${stats.savedRentals}`);
-
 	return { scrapeStartTime, isPartialRun };
 }
 
@@ -391,10 +311,6 @@ async function scrapeSequenceHome() {
 			logger.step("Full run completed. Starting cleanup of stale properties...");
 			await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 			logger.step("Cleanup finished successfully.");
-		} else {
-			logger.step(
-				"Partial run completed. Skipping cleanup of stale properties to prevent accidental removal.",
-			);
 		}
 
 		logger.step("Summary of Scraper Run:");
