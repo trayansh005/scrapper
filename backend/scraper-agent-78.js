@@ -70,8 +70,6 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	await sleep(1000);
-
 	const detailPage = await browserContext.newPage();
 
 	try {
@@ -146,6 +144,22 @@ async function handleListingPage({ page, request }) {
 	await page.waitForSelector(".grid-box-card", { timeout: 30000 }).catch(() => {});
 
 	const properties = await page.evaluate(() => {
+		const parseBedrooms = (...texts) => {
+			for (const rawText of texts) {
+				if (!rawText) continue;
+				const text = rawText.trim();
+				if (!text) continue;
+
+				const bedPatternMatch = text.match(/(\d+)\s*bed(?:room)?s?/i);
+				if (bedPatternMatch) return parseInt(bedPatternMatch[1], 10);
+
+				const numericMatch = text.match(/\b(\d{1,2})\b/);
+				if (numericMatch) return parseInt(numericMatch[1], 10);
+			}
+
+			return null;
+		};
+
 		try {
 			const items = Array.from(document.querySelectorAll(".grid-box-card"));
 			return items
@@ -166,8 +180,9 @@ async function handleListingPage({ page, request }) {
 						(li) => li.querySelector(".icon-bed") || li.innerText.toLowerCase().includes("bed"),
 					);
 					const bedText = bedEl ? bedEl.innerText.trim() : "";
-					const bedroomsMatch = bedText.match(/\d+/);
-					const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[0]) : null;
+					const descriptionText =
+						el.querySelector(".property-single-description")?.textContent?.trim() || "";
+					const bedrooms = parseBedrooms(bedText, descriptionText, title);
 
 					const statusText = el.innerText || "";
 
@@ -262,7 +277,7 @@ async function handleListingPage({ page, request }) {
 			);
 
 			if (propertyAction !== "UNCHANGED") {
-				await sleep(1000);
+				await sleep(400); // Small delay to avoid overwhelming the database
 			}
 		} catch (err) {
 			logger.error(

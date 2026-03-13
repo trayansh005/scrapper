@@ -14,6 +14,7 @@ const {
 const { formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+require("dotenv").config();
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
@@ -29,6 +30,7 @@ const stats = {
 };
 
 const processedUrls = new Set();
+let browserlessConnectedLogged = false;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -54,30 +56,25 @@ function parsePropertyCard($, element) {
 	try {
 		const $card = $(element);
 
-		// Get the link
-		const linkEl = $card.find("a.cards--property");
+		// Get the link from .property-grid__image
+		const linkEl = $card.find("a.property-grid__image");
 		let href = linkEl.attr("href");
 		if (!href) return null;
 
 		const link = href.startsWith("http") ? href : "https://www.marriottvernon.com" + href;
 
-		// Get title and price from h4 and h5
-		const h4Text = $card.find("h4").text().trim();
-		const h5Text = $card.find("h5").text().trim();
+		// Extract meta info
+		const $meta = $card.find(".property-grid__meta");
+		const title = $meta.find("h4").text().trim();
+		const infoText = $meta.find("h5").text().trim(); // e.g. "6 Bed Detached house For Sale"
 
-		// Extract bedrooms from h4 (e.g., "6 Beds House - Detached - For Sale")
-		const bedroomsMatch = h4Text.match(/(\d+)\s*Bed/i);
+		// Extract bedrooms
+		const bedroomsMatch = infoText.match(/(\d+)\s*Bed/i);
 		const bedrooms = bedroomsMatch ? bedroomsMatch[1] : null;
 
-		// Extract title from lines in h5
-		const lines = h5Text
-			.split("\n")
-			.map((l) => l.trim())
-			.filter((l) => l);
-		const title = lines[0] || null;
-
-		// Extract price from h5
-		const price = parsePrice(h5Text);
+		// Extract price from h6
+		const priceText = $meta.find("h6").text().trim();
+		const price = parsePrice(priceText);
 
 		if (link && price && title) {
 			return {
@@ -98,7 +95,7 @@ function parseListingPage(htmlContent) {
 	const $ = cheerio.load(htmlContent);
 	const properties = [];
 
-	$(".col-xl-6.mb-4.property").each((index, element) => {
+	$(".property-grid").each((index, element) => {
 		const property = parsePropertyCard($, element);
 		if (property) {
 			properties.push(property);
@@ -155,33 +152,64 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 // REQUEST HANDLER
 // ============================================================================
 
+// ===================================
+// REQUEST HANDLER
+// ===================================
+
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label, totalPages } = request.userData;
-	logger.page(pageNum, label, request.url, totalPages);
-
-	// Marriott Vernon uses lazy loading / scrolling
-	let previousHeightValue = 0;
-	let currentHeightValue = await page.evaluate(() => document.body.scrollHeight);
-	let scrollAttempts = 0;
-	const maxScrollAttempts = 10;
-
-	while (previousHeightValue !== currentHeightValue && scrollAttempts < maxScrollAttempts) {
-		previousHeightValue = currentHeightValue;
-		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-		await page.waitForTimeout(500);
-		currentHeightValue = await page.evaluate(() => document.body.scrollHeight);
-		scrollAttempts++;
-	}
+	const { pageNum, isRental, label } = request.userData;
+	logger.page(pageNum, label, request.url);
 
 	// Parse properties from listing page
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	// Process each property
 	for (const property of properties) {
-		if (processedUrls.has(property.link)) {
+		try {
+			if (processedUrls.has(property.link)) {
+				logger.property(
+					pageNum,
+					label,
+					property.title.substring(0, 40),
+					formatPriceDisplay(property.price, isRental),
+					property.link,
+					isRental,
+					undefined,
+					"SKIPPED: ALREADY PROCESSED",
+				);
+				continue;
+			}
+			processedUrls.add(property.link);
+
+			// Update price in database (or insert minimal record if new)
+			const result = await updatePriceByPropertyURLOptimized(
+				property.link,
+				property.price,
+				property.title,
+				property.bedrooms,
+				AGENT_ID,
+				isRental,
+			);
+
+			let action = "UNCHANGED";
+			let coords = { latitude: null, longitude: null };
+
+			if (result.updated) {
+				action = "UPDATED";
+				stats.totalSaved++;
+			}
+
+			// If new property, scrape full details immediately
+			if (!result.isExisting && !result.error) {
+				action = "CREATED";
+				coords = await scrapePropertyDetail(page.context(), property, isRental);
+			} else if (result.error) {
+				action = "ERROR";
+			}
+
 			logger.property(
 				pageNum,
 				label,
@@ -189,55 +217,48 @@ async function handleListingPage({ page, request, crawler }) {
 				formatPriceDisplay(property.price, isRental),
 				property.link,
 				isRental,
-				totalPages,
-				"SKIPPED: ALREADY PROCESSED",
+				undefined,
+				action,
+				coords.latitude,
+				coords.longitude,
 			);
-			continue;
+
+			if (action === "CREATED") {
+				await sleep(1000);
+			}
+		} catch (error) {
+			logger.error(`Error processing property ${property.link}: ${error.message}`);
 		}
-		processedUrls.add(property.link);
+	}
 
-		// Update price in database (or insert minimal record if new)
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-		);
+	// Dynamic pagination: enqueue next page if properties were found
+	if (properties.length > 0) {
+		const nextPageNum = pageNum + 1;
+		const nextUrl = getPageUrl(nextPageNum, isRental);
 
-		let action = "UNCHANGED";
-		let coords = { latitude: null, longitude: null };
+		await crawler.addRequests([
+			{
+				url: nextUrl,
+				userData: {
+					pageNum: nextPageNum,
+					isRental,
+					label,
+				},
+			},
+		]);
+	}
 
-		if (result.updated) {
-			action = "UPDATED";
-			stats.totalSaved++;
-		}
+}
 
-		// If new property, scrape full details immediately
-		if (!result.isExisting && !result.error) {
-			action = "CREATED";
-			coords = await scrapePropertyDetail(page.context(), property, isRental);
-		} else if (result.error) {
-			action = "ERROR";
-		}
+function getPageUrl(pageNum, isRental) {
+	const type = isRental ? "letting" : "sale";
+	const baseUrl = "https://www.marriottvernon.com/property-search/";
+	const query = `?orderby=price_desc&instruction_type=${type}&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off`;
 
-		logger.property(
-			pageNum,
-			label,
-			property.title.substring(0, 40),
-			formatPriceDisplay(property.price, isRental),
-			property.link,
-			isRental,
-			totalPages,
-			action,
-			coords.latitude,
-			coords.longitude,
-		);
-
-		if (action === "CREATED") {
-			await sleep(1000);
-		}
+	if (pageNum === 1) {
+		return baseUrl + query;
+	} else {
+		return `${baseUrl}page/${pageNum}/${query}`;
 	}
 }
 
@@ -247,20 +268,34 @@ async function handleListingPage({ page, request, crawler }) {
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
-		maxConcurrency: 1,
+		maxConcurrency: 5,
 		maxRequestRetries: 2,
 		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 600,
 		preNavigationHooks: [
 			async ({ page }) => {
 				await blockNonEssentialResources(page);
+				if (!browserlessConnectedLogged) {
+					const browser = page.context().browser();
+					const version = await browser.version();
+					const browserType = browser.browserType().name();
+					const isRemote = !!process.env.BROWSERLESS_WS_ENDPOINT;
+
+					// Definitive check: if we expect remote but didn't get one (or vice versa), log it clearly
+					if (isRemote) {
+						logger.step(`Browser info: ${browserType} v${version} (Remote expected)`);
+					} else {
+						logger.step(`Browser info: ${browserType} v${version} (Local expected)`);
+					}
+
+					browserlessConnectedLogged = true;
+				}
 			},
 		],
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
 			},
 		},
 		requestHandler: handleListingPage,
@@ -282,49 +317,42 @@ async function scrapeMarriottVernon() {
 
 	logger.step(`Starting Marriott Vernon scraper (Agent ${AGENT_ID})...`);
 
-	const totalPages = 2; // Fixed as per original config
-	const browserWSEndpoint =
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		"ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv";
-	const crawler = createCrawler(browserWSEndpoint);
+	const browserWSEndpoint = process.env.BROWSERLESS_WS_ENDPOINT;
 
-	const allRequests = [];
-
-	// Build Sales requests
-	for (let p = Math.max(1, startPage); p <= totalPages; p++) {
-		allRequests.push({
-			url: `https://www.marriottvernon.com/search/?showstc=off&instruction_type=Sale&address_keyword=&minprice=&maxprice=&property_type=${
-				p > 1 ? `&page=${p}` : ""
-			}`,
-			userData: {
-				pageNum: p,
-				totalPages: totalPages + 1, // +1 for Lettings if startPage is 1 or just approximate
-				isRental: false,
-				label: "SALES",
-			},
-		});
+	if (browserWSEndpoint) {
+		logger.step(`Connecting to remote browser at ${browserWSEndpoint}`);
+	} else {
+		logger.warn("No BROWSERLESS_WS_ENDPOINT found. Falling back to local browser.");
 	}
 
-	// Build Lettings requests (standard page 1 only if startPage is 1)
+	const crawler = createCrawler(browserWSEndpoint);
+
+	const initialRequests = [];
+
+	// Initial Sales request
+	initialRequests.push({
+		url: getPageUrl(startPage, false),
+		userData: {
+			pageNum: startPage,
+			isRental: false,
+			label: "SALES",
+		},
+	});
+
+	// If startPage is 1, also start Lettings
 	if (startPage === 1) {
-		allRequests.push({
-			url: "https://www.marriottvernon.com/search/?showstc=off&instruction_type=Letting&address_keyword=&minprice=&maxprice=&property_type=",
+		initialRequests.push({
+			url: getPageUrl(1, true),
 			userData: {
 				pageNum: 1,
-				totalPages: totalPages + 1,
 				isRental: true,
 				label: "LETTINGS",
 			},
 		});
 	}
 
-	if (allRequests.length === 0) {
-		logger.warn("No pages to scrape with current arguments.");
-		return;
-	}
-
-	logger.step(`Queueing ${allRequests.length} listing pages starting from page ${startPage}...`);
-	await crawler.run(allRequests);
+	logger.step(`Queueing initial pages starting from page ${startPage}...`);
+	await crawler.run(initialRequests);
 
 	logger.step(
 		`Completed Marriott Vernon - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,

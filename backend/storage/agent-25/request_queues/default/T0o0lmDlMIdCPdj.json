@@ -1,0 +1,9 @@
+{
+	"id": "T0o0lmDlMIdCPdj",
+	"json": "{\"id\":\"T0o0lmDlMIdCPdj\",\"url\":\"https://www.marriottvernon.com/property-search/?orderby=price_desc&instruction_type=sale&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off\",\"loadedUrl\":\"https://www.marriottvernon.com/property-search/?orderby=price_desc&instruction_type=sale&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off\",\"uniqueKey\":\"https://www.marriottvernon.com/property-search?address_keyword=&instruction_type=sale&maxprice=&min_bedrooms=&minprice=&orderby=price_desc&property_type=&showstc=off\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-12T08:45:55.115Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.marriottvernon.com/property-search?address_keyword=&instruction_type=sale&maxprice=&min_bedrooms=&minprice=&orderby=price_desc&property_type=&showstc=off",
+	"url": "https://www.marriottvernon.com/property-search/?orderby=price_desc&instruction_type=sale&address_keyword&min_bedrooms&minprice&maxprice&property_type&showstc=off"
+}

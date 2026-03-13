@@ -1,0 +1,9 @@
+{
+	"id": "JZ9ZfEdaQZwLoNt",
+	"json": "{\"id\":\"JZ9ZfEdaQZwLoNt\",\"url\":\"https://www.sequencehome.co.uk/properties/sales/\",\"loadedUrl\":\"https://www.sequencehome.co.uk/properties/sales/\",\"uniqueKey\":\"https://www.sequencehome.co.uk/properties/sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: requestHandler timed out after 3600 seconds.\\n    at Timeout._onTimeout (E:\\\\Scraper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:64:68)\\n    at listOnTimeout (node:internal/timers:605:17)\\n    at process.processTimers (node:internal/timers:541:7)\"],\"headers\":{},\"userData\":{\"channel\":\"sales\",\"pageNum\":1,\"label\":\"SALES\",\"isRental\":false,\"__crawlee\":{\"state\":5}}}",
+	"method": "GET",
+	"orderNo": 1773301800148,
+	"retryCount": 1,
+	"uniqueKey": "https://www.sequencehome.co.uk/properties/sales",
+	"url": "https://www.sequencehome.co.uk/properties/sales/"
+}
