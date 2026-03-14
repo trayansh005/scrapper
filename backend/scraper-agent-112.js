@@ -78,7 +78,7 @@ function stripTags(text) {
 
 async function scrapePropertyDetail(property, isRental) {
 	try {
-		logger.property(property.link, "DETAIL", "Scraping coordinates...");
+		logger.step(`[Detail] Scraping coordinates: ${property.link}`);
 		const response = await fetch(property.link, {
 			headers: {
 				referer: "https://emoov.co.uk/",
@@ -111,7 +111,7 @@ async function scrapePropertyDetail(property, isRental) {
 
 		const status = (detailData.statusText || property.statusText || "").toLowerCase();
 		if (isSoldProperty(status)) {
-			logger.property(property.link, "SKIP", `Status is: ${status}`);
+			logger.property(null, "DETAIL", property.title, property.price, property.link, isRental, null, "SKIPPED");
 			stats.totalSkipped++;
 			return;
 		}
@@ -128,13 +128,18 @@ async function scrapePropertyDetail(property, isRental) {
 			detailData.lng,
 		);
 
-		if (dbResult.isExisting && !dbResult.updated) {
-			logger.property(property.link, "UNCHANGED");
-		} else {
-			logger.property(property.link, dbResult.updated ? "UPDATED" : "CREATED");
-			stats.totalSaved++;
-			await sleep(100); // Politeness during write
-		}
+		logger.property(
+			null,
+			"DETAIL",
+			detailData.title,
+			formatPriceDisplay(property.price, isRental),
+			property.link,
+			isRental,
+			null,
+			dbResult.updated ? "UPDATED" : (dbResult.isExisting ? "UNCHANGED" : "CREATED"),
+			detailData.lat,
+			detailData.lng
+		);
 		stats.totalScraped++;
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
@@ -158,7 +163,7 @@ async function run() {
 		let totalPages = 1;
 
 		do {
-			logger.page(pageNumber, totalPages, `Fetching ${mode.label} API page`);
+			logger.page(pageNumber, mode.label, `Fetching API page`, totalPages);
 			try {
 				const { properties: pageItems, pagination } = await fetchEmoovPage(
 					mode.isRental,
@@ -196,20 +201,20 @@ async function run() {
 					stats.totalFound++;
 
 					if (isSoldProperty(statusText)) {
-						logger.property(link, "SKIP", `API status: ${statusText}`);
+						logger.property(pageNumber, mode.label, title, formatPriceDisplay(numericPrice, mode.isRental), link, mode.isRental, totalPages, "SKIPPED");
 						stats.totalSkipped++;
 						continue;
 					}
 
 					// Optimized price check
-					const priceCheck = await updatePriceByPropertyURLOptimized(link, numericPrice, AGENT_ID);
+					const priceCheck = await updatePriceByPropertyURLOptimized(link, numericPrice, title, null, AGENT_ID, mode.isRental);
 					if (priceCheck.isExisting) {
 						if (priceCheck.updated) {
-							logger.property(link, "UPDATED", `Price: ${formatPriceUk(numericPrice)}`);
+							logger.property(pageNumber, mode.label, title, formatPriceDisplay(numericPrice, mode.isRental), link, mode.isRental, totalPages, "UPDATED");
 							stats.totalSaved++;
 							await sleep(50);
 						} else {
-							logger.property(link, "UNCHANGED");
+							logger.property(pageNumber, mode.label, title, formatPriceDisplay(numericPrice, mode.isRental), link, mode.isRental, totalPages, "UNCHANGED");
 						}
 					} else {
 						// New property, scrape details
