@@ -4,10 +4,15 @@ require("dotenv").config();
 // Create a connection pool
 const pool = mysql.createPool({
 	host: process.env.DB_HOST,
-	port: process.env.PORT,
+	port: Number(process.env.PORT) || 3306,
 	user: process.env.USER,
 	password: process.env.PASSWORD,
 	database: process.env.DATABASE,
+	waitForConnections: true,
+	connectionLimit: 20,
+	queueLimit: 0,
+	enableKeepAlive: true,
+	keepAliveInitialDelay: 10000,
 });
 
 console.log("Database pool created and ready for connections");
