@@ -17,6 +17,7 @@ log.setLevel(log.LEVELS.ERROR);
 const AGENT_ID = 63;
 let totalScraped = 0;
 let totalSaved = 0;
+const scrapeStartTime = new Date(); // Record start time for remove status
 const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for sales and lettings
@@ -55,14 +56,19 @@ async function scrapeBHHSLondon() {
 		preNavigationHooks: [async ({ page }) => await blockNonEssentialResources(page)],
 
 		async requestHandler({ page, request }) {
-			const { isDetailPage, propertyData, pageNum, isRental, label } = request.userData;
+			const { isDetailPage, propertyData, pageNum, totalPages, isRental, label } = request.userData;
 
 			if (isDetailPage) {
 				try {
+					logger.step(`[Detail] Scraping coordinates for: ${propertyData.title}`);
 					await page.waitForLoadState("networkidle");
 					// ✅ STEP 4 — Extract coordinates using helper
 					const html = await page.content();
 					const coords = extractCoordinatesFromHTML(html);
+
+					if (coords?.latitude && coords?.longitude) {
+						logger.step(`[Detail] Found coordinates: ${coords.latitude}, ${coords.longitude}`);
+					}
 
 					await updatePriceByPropertyURL(
 						propertyData.link.trim(),
@@ -79,23 +85,28 @@ async function scrapeBHHSLondon() {
 					totalScraped++;
 
 					logger.property(
+						pageNum,
+						label,
 						propertyData.title,
-						`£${propertyData.price}`,
-						coords?.latitude && coords?.longitude
-							? `${coords.latitude}, ${coords.longitude}`
-							: "No coords",
+						propertyData.price,
+						propertyData.link,
+						isRental,
+						totalPages,
+						"CREATED",
+						coords?.latitude || null,
+						coords?.longitude || null,
 					);
 				} catch (error) {
-					logger.error(`Error saving property: ${error.message}`);
+					logger.error(`Error saving property: ${error.message}`, error, pageNum, label);
 				}
 			} else {
 				// Processing listing page
-				logger.page(pageNum, label, request.url);
+				logger.page(pageNum, label, `Processing: ${request.url}`, totalPages);
 
 				// Wait for properties to load
 				await page.waitForTimeout(2000);
 				await page.waitForSelector(".property-card", { timeout: 30000 }).catch(() => {
-					logger.step(`No properties found on page ${pageNum}`);
+					logger.page(pageNum, label, `No properties found on page ${pageNum}`, totalPages);
 				});
 
 				// Extract all properties from the page
@@ -179,12 +190,21 @@ async function scrapeBHHSLondon() {
 				});
 
 				logger.step(`Extraction debug: ${JSON.stringify(debug)}`);
-				logger.page(pageNum, label, `Found ${properties.length} properties`);
+				logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 				// Add detail page requests to the queue with delay
 				for (const property of properties) {
 					if (isSoldProperty(property.title)) {
-						logger.step(`Skipping sold property: ${property.title}`);
+						logger.property(
+							pageNum,
+							label,
+							property.title,
+							property.price,
+							property.link,
+							isRental,
+							totalPages,
+							"SKIPPED",
+						);
 						continue;
 					}
 
@@ -204,6 +224,27 @@ async function scrapeBHHSLondon() {
 						// If property exists → price updated only
 						if (result.updated) {
 							totalSaved++;
+							logger.property(
+								pageNum,
+								label,
+								property.title,
+								price,
+								property.link,
+								isRental,
+								totalPages,
+								"UPDATED",
+							);
+						} else if (result.isExisting) {
+							logger.property(
+								pageNum,
+								label,
+								property.title,
+								price,
+								property.link,
+								isRental,
+								totalPages,
+								"UNCHANGED",
+							);
 						}
 
 						// If property is NEW → then go to detail page
@@ -218,19 +259,23 @@ async function scrapeBHHSLondon() {
 											price,
 										},
 										isRental,
+										pageNum,
+										totalPages,
+										label,
 									},
 								},
 							]);
 						}
 					} catch (err) {
-						logger.error("Optimization error:", err?.message || err);
+						logger.error("Optimization error", err, pageNum, label);
 					}
 				}
 			}
 		},
 
 		failedRequestHandler({ request }) {
-			logger.error(`Failed: ${request.url}`);
+			const { pageNum, label } = request.userData;
+			logger.error(`Request failed: ${request.url}`, null, pageNum, label);
 		},
 	});
 
@@ -249,6 +294,7 @@ async function scrapeBHHSLondon() {
 				userData: {
 					isDetailPage: false,
 					pageNum: page,
+					totalPages: totalPages,
 					isRental: propertyType.isRental,
 					label: propertyType.label,
 				},
@@ -267,11 +313,11 @@ async function scrapeBHHSLondon() {
 (async () => {
 	try {
 		await scrapeBHHSLondon();
-		await updateRemoveStatus(AGENT_ID);
+		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		logger.error("Fatal error:", err?.message || err);
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();
