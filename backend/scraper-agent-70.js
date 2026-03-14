@@ -199,22 +199,34 @@ async function handleListingPage({ request, page }) {
 			if (isRental) counts.savedRentals++;
 			else counts.savedSales++;
 			action = "CREATED";
+			logger.property(
+				pageNum,
+				label,
+				prop.title.substring(0, 50),
+				formatPriceDisplay(formattedPrice, isRental),
+				prop.link,
+				isRental,
+				totalPages,
+				action,
+				coords.latitude,
+				coords.longitude
+			);
 		} else if (result.error) {
 			action = "ERROR";
 		}
 
-		logger.property(
-			pageNum,
-			label,
-			prop.title.substring(0, 50),
-			formatPriceDisplay(formattedPrice, isRental),
-			prop.link,
-			isRental,
-			totalPages,
-			action,
-			action === "CREATED" ? coords.latitude : null,
-			action === "CREATED" ? coords.longitude : null
-		);
+		if (action !== "CREATED") {
+			logger.property(
+				pageNum,
+				label,
+				prop.title.substring(0, 50),
+				formatPriceDisplay(formattedPrice, isRental),
+				prop.link,
+				isRental,
+				totalPages,
+				action
+			);
+		}
 
 		if (action !== "UNCHANGED") {
 			await sleep(500);
