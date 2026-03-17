@@ -1,0 +1,9 @@
+{
+	"id": "sIS3cO5YY9eFXu7",
+	"json": "{\"id\":\"sIS3cO5YY9eFXu7\",\"url\":\"https://www.strattoncreber.co.uk/properties/lettings/status-available/most-recent-first/page-3#/\",\"uniqueKey\":\"https://www.strattoncreber.co.uk/properties/lettings/status-available/most-recent-first/page-3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: Request blocked - received 429 status code.\\n    at PlaywrightCrawler._throwOnBlockedRequest (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\basic\\\\internals\\\\basic-crawler.js:913:19)\\n    at PlaywrightCrawler._responseHandler (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser\\\\internals\\\\browser-crawler.js:383:22)\\n    at PlaywrightCrawler._runRequestHandler (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser\\\\internals\\\\browser-crawler.js:262:24)\\n    at async PlaywrightCrawler._runRequestHandler (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\playwright\\\\internals\\\\playwright-crawler.js:114:9)\\n    at async wrap (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"pageNumber\":3,\"totalPages\":3,\"isRental\":true,\"label\":\"LETTINGS\",\"__crawlee\":{\"state\":5}}}",
+	"method": "GET",
+	"orderNo": 1773742284574,
+	"retryCount": 1,
+	"uniqueKey": "https://www.strattoncreber.co.uk/properties/lettings/status-available/most-recent-first/page-3",
+	"url": "https://www.strattoncreber.co.uk/properties/lettings/status-available/most-recent-first/page-3#/"
+}
