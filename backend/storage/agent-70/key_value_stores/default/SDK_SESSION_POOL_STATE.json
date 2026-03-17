@@ -1,0 +1,182 @@
+{
+  "usableSessionsCount": 5,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_CYAMd8nIRF",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-14T09:11:40.354Z",
+      "createdAt": "2026-03-14T08:21:40.354Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_0tvehiV8ZU",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-03-14T09:13:15.048Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/sales/property-for-sale",
+            "hostOnly": true,
+            "creation": "2026-03-14T08:22:07.393Z",
+            "lastAccessed": "2026-03-14T08:23:15.048Z"
+          },
+          {
+            "key": "CraftSessionId",
+            "value": "b9mkacmh5eaehvu3rin13fs49l",
+            "expires": "2026-03-14T09:12:07.389Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-14T08:22:07.394Z",
+            "lastAccessed": "2026-03-14T08:23:15.585Z"
+          },
+          {
+            "key": "CRAFT_CSRF_TOKEN",
+            "value": "8222f3ec1e89ba472b38324a85fb60c7197f1d70e63f619a8876c5aa72a572d5a%3A2%3A%7Bi%3A0%3Bs%3A16%3A%22CRAFT_CSRF_TOKEN%22%3Bi%3A1%3Bs%3A40%3A%22jq5g3oGIp6b0-SiodqiMAOTIdQl8SDUyA5hvqo0a%22%3B%7D",
+            "expires": "2026-03-14T09:12:07.389Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-14T08:22:07.394Z",
+            "lastAccessed": "2026-03-14T08:23:15.585Z"
+          },
+          {
+            "key": "DO-LB",
+            "value": "\"ChAxMC4xMzEuMjUxLjk1OjgwEKrJ+Bw=\"",
+            "expires": "2026-03-14T08:26:45.369Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-14T08:22:07.394Z",
+            "lastAccessed": "2026-03-14T08:23:15.585Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "/auto/en",
+            "expires": "2026-03-14T09:12:40.126Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-14T08:22:07.394Z",
+            "lastAccessed": "2026-03-14T08:23:15.585Z"
+          },
+          {
+            "key": "OptanonConsent",
+            "value": "isGpcEnabled=0&datestamp=Sat+Mar+14+2026+13%3A52%3A54+GMT%2B0530+(India+Standard+Time)&version=202403.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=b4767869-b87c-448f-851c-9b82e7c4772d&interactionCount=0&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0%2CC0003%3A0&AwaitingReconsent=false",
+            "expires": "2027-03-14T08:22:54.000Z",
+            "domain": "fineandcountry.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-14T08:22:07.394Z",
+            "lastAccessed": "2026-03-14T08:23:15.585Z"
+          },
+          {
+            "key": "googtrans",
+            "value": "%2Fauto%2Fen",
+            "expires": "2026-03-14T09:13:15.048Z",
+            "domain": "www.fineandcountry.co.uk",
+            "path": "/lettings/property-to-rent",
+            "hostOnly": true,
+            "creation": "2026-03-14T08:22:40.126Z",
+            "lastAccessed": "2026-03-14T08:23:15.048Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-14T09:11:40.359Z",
+      "createdAt": "2026-03-14T08:21:40.359Z",
+      "usageCount": 3,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_E5gfqCexvZ",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-14T09:12:15.004Z",
+      "createdAt": "2026-03-14T08:22:15.004Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_y8AsO8dyfQ",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-14T09:12:44.687Z",
+      "createdAt": "2026-03-14T08:22:44.687Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Hye9Kdd2Xf",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-14T09:13:15.517Z",
+      "createdAt": "2026-03-14T08:23:15.517Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}
