@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 8,
+  "usableSessionsCount": 2,
   "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_179noRKHJ1",
+      "id": "session_ZlXZDPNXMP",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:27:26.173Z",
-      "createdAt": "2026-03-11T10:37:26.173Z",
+      "expiresAt": "2026-03-17T11:29:27.899Z",
+      "createdAt": "2026-03-17T10:39:27.899Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_7BnOW5zdIB",
+      "id": "session_dIoqEW12Uc",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -33,156 +33,66 @@
         "prefixSecurity": "silent",
         "cookies": [
           {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-24T10:39:29.045Z",
+            "domain": "www.cherwellproperty.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-17T10:39:31.772Z",
+            "lastAccessed": "2026-03-17T10:39:31.772Z"
+          },
+          {
+            "key": "cookie_directive",
+            "value": "seen",
+            "expires": "2027-03-17T10:39:30.000Z",
+            "domain": "www.cherwellproperty.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-17T10:39:31.773Z",
+            "lastAccessed": "2026-03-17T10:39:31.773Z"
+          },
+          {
             "key": "_ctesius2_session",
-            "value": "VHR5WFVTRzkrWmtISzQxQVVqRHdSWnorRTBRc1VWTktnWmNTMFVsWXV5YmVzd0JDOFBHazNVTjVVZTU4eVlIdWJISkNXMEtCaFVSSzVzMXI5cVkvZTExcUpCY2lhbjUzOE5tMndSMFdJSW9yV2tKNTdxaFREamVNSm1JMEcrVUd0cVY2ckV1cDR4bGtQbGJlTWJIWXJBPT0tLUJ4eHFGS1F3L29NQ1djaUdjSXMvUVE9PQ%3D%3D--0e8c13258f688a61495454d455a3fdfb4cbf3ba9",
-            "expires": "2026-03-11T11:28:21.201Z",
-            "domain": "www.alandemaid.co.uk",
+            "value": "a3FmcCt4UmliaVJMOEtmdnp1WWhmMXB1bWI4eUlJcldyR3FZVlI1cm5hTk91UERKU0JpZmMzR1NYZjNOaExqODBTTkpBS2J1VDZmWUg5b0RKbnBqK2NYaXZPL0h6RSt5OEpzWU1qMXI3elo3TjMxamd1WXF6MVRnSmpmRk9RVktmaDhWSjZYT05NNGIrT3hJZEVISDFBPT0tLWZNSWZ3dmxvVGd5bDJxZlNsNTV5RUE9PQ%3D%3D--df979f523f1b454268fedcb58ff2f3ca6f127050",
+            "expires": "2026-03-17T11:29:31.770Z",
+            "domain": "www.cherwellproperty.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-03-11T10:37:32.362Z",
-            "lastAccessed": "2026-03-11T10:38:21.202Z"
+            "creation": "2026-03-17T10:39:31.773Z",
+            "lastAccessed": "2026-03-17T10:39:31.773Z"
           },
           {
-            "key": "CookieScriptConsent",
-            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
-            "expires": "2026-04-10T10:38:20.000Z",
-            "domain": "www.alandemaid.co.uk",
+            "key": "_ga_CW7LZ8CPGN",
+            "value": "GS2.1.s1773743971$o1$g0$t1773743971$j60$l0$h0",
+            "expires": "2027-04-21T10:39:31.263Z",
+            "domain": "cherwellproperty.co.uk",
             "path": "/",
-            "secure": true,
-            "hostOnly": true,
-            "creation": "2026-03-11T10:37:32.364Z",
-            "lastAccessed": "2026-03-11T10:38:21.202Z"
+            "hostOnly": false,
+            "creation": "2026-03-17T10:39:31.773Z",
+            "lastAccessed": "2026-03-17T10:39:31.773Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1641511616.1773743971",
+            "expires": "2027-04-21T10:39:31.264Z",
+            "domain": "cherwellproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-17T10:39:31.779Z",
+            "lastAccessed": "2026-03-17T10:39:31.779Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:27:26.178Z",
-      "createdAt": "2026-03-11T10:37:26.178Z",
-      "usageCount": 6,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_4adA1d6Sjw",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:27:37.437Z",
-      "createdAt": "2026-03-11T10:37:37.437Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_aKovxZSG06",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:27:45.868Z",
-      "createdAt": "2026-03-11T10:37:45.868Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_Z1KtiZaTkq",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:27:53.930Z",
-      "createdAt": "2026-03-11T10:37:53.930Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_LxLeBOGA4a",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:28:02.109Z",
-      "createdAt": "2026-03-11T10:38:02.109Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_KKPdmONgbB",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:28:09.903Z",
-      "createdAt": "2026-03-11T10:38:09.903Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_FcOmHG1ihA",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T11:28:18.455Z",
-      "createdAt": "2026-03-11T10:38:18.455Z",
-      "usageCount": 0,
+      "expiresAt": "2026-03-17T11:29:27.904Z",
+      "createdAt": "2026-03-17T10:39:27.904Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
       "errorScore": 0
     }

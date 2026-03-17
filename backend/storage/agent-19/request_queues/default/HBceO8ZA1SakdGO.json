@@ -1,10 +1,6 @@
 {
 	"id": "HBceO8ZA1SakdGO",
-<<<<<<< HEAD
-	"json": "{\"id\":\"HBceO8ZA1SakdGO\",\"url\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":12,\"totalPages\":14,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-12T10:42:13.402Z\"}",
-=======
-	"json": "{\"id\":\"HBceO8ZA1SakdGO\",\"url\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":12,\"totalPages\":14,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-11T12:36:36.661Z\"}",
->>>>>>> d00d3de95fe6c0cc5a5ce20429b51fa82588aa62
+	"json": "{\"id\":\"HBceO8ZA1SakdGO\",\"url\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/sales/status-available/page-12\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":12,\"totalPages\":14,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-16T05:27:07.610Z\"}",
 	"method": "GET",
 	"orderNo": null,
 	"retryCount": 0,

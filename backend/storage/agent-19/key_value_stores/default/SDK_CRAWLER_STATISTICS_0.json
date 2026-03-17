@@ -3,41 +3,23 @@
   "requestsFailed": 0,
   "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-<<<<<<< HEAD
   "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 9459,
-  "requestMaxDurationMillis": 34880,
+  "requestMinDurationMillis": 8732,
+  "requestMaxDurationMillis": 35258,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 796018,
-  "crawlerStartedAt": "2026-03-12T10:38:43.368Z",
-  "crawlerFinishedAt": "2026-03-12T10:52:04.897Z",
-  "statsPersistedAt": "2026-03-12T10:52:04.898Z",
-  "crawlerRuntimeMillis": 802234,
-  "crawlerLastStartTimestamp": 1773311922664,
-=======
-  "requestsFinishedPerMinute": 2,
-  "requestMinDurationMillis": 12425,
-  "requestMaxDurationMillis": 52479,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1309430,
-  "crawlerStartedAt": "2026-03-11T12:29:13.434Z",
-  "crawlerFinishedAt": "2026-03-11T12:51:06.343Z",
-  "statsPersistedAt": "2026-03-11T12:51:06.343Z",
-  "crawlerRuntimeMillis": 1313166,
-  "crawlerLastStartTimestamp": 1773232153177,
->>>>>>> d00d3de95fe6c0cc5a5ce20429b51fa82588aa62
+  "requestTotalFinishedDurationMillis": 774444,
+  "crawlerStartedAt": "2026-03-16T05:24:05.935Z",
+  "crawlerFinishedAt": "2026-03-16T05:37:03.318Z",
+  "statsPersistedAt": "2026-03-16T05:37:03.318Z",
+  "crawlerRuntimeMillis": 777644,
+  "crawlerLastStartTimestamp": 1773638645674,
   "requestRetryHistogram": [
     34
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-<<<<<<< HEAD
-  "requestAvgFinishedDurationMillis": 23412,
-  "requestTotalDurationMillis": 796018,
-=======
-  "requestAvgFinishedDurationMillis": 38513,
-  "requestTotalDurationMillis": 1309430,
->>>>>>> d00d3de95fe6c0cc5a5ce20429b51fa82588aa62
+  "requestAvgFinishedDurationMillis": 22778,
+  "requestTotalDurationMillis": 774444,
   "requestsTotal": 34,
   "requestsWithStatusCode": {
     "200": 20,

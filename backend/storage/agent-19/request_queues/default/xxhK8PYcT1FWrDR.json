@@ -1,10 +1,6 @@
 {
 	"id": "xxhK8PYcT1FWrDR",
-<<<<<<< HEAD
-	"json": "{\"id\":\"xxhK8PYcT1FWrDR\",\"url\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"totalPages\":20,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-12T10:43:14.207Z\"}",
-=======
-	"json": "{\"id\":\"xxhK8PYcT1FWrDR\",\"url\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"totalPages\":20,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-11T12:39:53.929Z\"}",
->>>>>>> d00d3de95fe6c0cc5a5ce20429b51fa82588aa62
+	"json": "{\"id\":\"xxhK8PYcT1FWrDR\",\"url\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"totalPages\":20,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-16T05:28:06.343Z\"}",
 	"method": "GET",
 	"orderNo": null,
 	"retryCount": 0,
