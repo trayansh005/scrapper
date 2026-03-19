@@ -1,4 +1,4 @@
-﻿// Belvoir scraper using Playwright with Crawlee
+// Belvoir scraper using Playwright with Crawlee
 // Agent ID: 107
 // Website: belvoir.co.uk
 // Usage:
@@ -17,13 +17,17 @@ const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 const AGENT_ID = 107;
 const logger = createAgentLogger(AGENT_ID);
 
-// Disable Crawlee's verbose logging
-log.setLevel(log.LEVELS.ERROR);
+// Set log level to INFO for better visibility
+log.setLevel(log.LEVELS.INFO);
 
 const stats = {
 	totalScraped: 0,
 	totalSaved: 0,
 };
+
+function sleep(ms) {
+	return new Promise((r) => setTimeout(r, ms));
+}
 
 // ============================================================================
 // BROWSERLESS SETUP
@@ -42,38 +46,77 @@ function getBrowserlessEndpoint() {
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
+	let coords = { latitude: null, longitude: null };
 
 	try {
+		logger.step(`[Detail] Extracting coordinates for ${property.link}...`);
 		await blockNonEssentialResources(detailPage);
 
+		// domcontentloaded is enough to get the JSON-LD script tag
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
 			timeout: 60000,
 		});
 
-		// Wait for the property content to load
-		await detailPage.waitForSelector(".property--card", { timeout: 30000 }).catch(() => {
-			// Detail page might have a different structure
+		// Extract coordinates from JSON-LD (tpj-schema-graph)
+		coords = await detailPage.evaluate(() => {
+			try {
+				const script = document.querySelector('script.tpj-schema-graph[type="application/ld+json"]');
+				if (script) {
+					const data = JSON.parse(script.innerText);
+					const graph = data["@graph"] || data;
+					// Find the entry that has contentLocation.geo
+					const entry = Array.isArray(graph)
+						? graph.find((item) => item.contentLocation && item.contentLocation.geo)
+						: graph;
+
+					if (entry && entry.contentLocation && entry.contentLocation.geo) {
+						return {
+							latitude: parseFloat(entry.contentLocation.geo.latitude),
+							longitude: parseFloat(entry.contentLocation.geo.longitude),
+						};
+					}
+				}
+			} catch (e) {
+				// Fallback internally
+			}
+			return { latitude: null, longitude: null };
 		});
 
-		const html = await detailPage.content();
+		// Fallback to HTML extraction if JSON-LD failed
+		if (!coords.latitude || !coords.longitude) {
+			const html = await detailPage.content();
+			coords = await processPropertyWithCoordinates(
+				property.link,
+				property.price,
+				property.title,
+				property.bedrooms || null,
+				AGENT_ID,
+				isRental,
+				html,
+			);
+		} else {
+			// Still call it to save to DB, but now with coordinates already found
+			await processPropertyWithCoordinates(
+				property.link,
+				property.price,
+				property.title,
+				property.bedrooms || null,
+				AGENT_ID,
+				isRental,
+				null,
+				coords.latitude,
+				coords.longitude,
+			);
+		}
 
-		// Save property to database
-		// Belvoir detail pages are simple, coordinates usually extracted from HTML by processPropertyWithCoordinates
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			html,
-		);
-
+		logger.step(`[Detail] Found: ${coords.latitude}, ${coords.longitude}`);
 		stats.totalScraped++;
 		stats.totalSaved++;
+		return coords;
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}`, error);
+		return coords;
 	} finally {
 		await detailPage.close();
 	}
@@ -88,10 +131,8 @@ async function handleListingPage({ page, request, crawler }) {
 	logger.page(pageNumber, label, `Processing ${request.url}`, totalPages || null);
 
 	try {
-		// Navigate and wait for content
-		await page.goto(request.url, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {
-			return page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
-		});
+		// Navigate and wait for DOM content only (faster than networkidle)
+		await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
 		// Wait for properties to load dynamically
 		try {
@@ -107,8 +148,6 @@ async function handleListingPage({ page, request, crawler }) {
 		} catch (e) {
 			logger.warn(`Timeout waiting for properties on page ${pageNumber}`, null, pageNumber, label);
 		}
-
-		await page.waitForTimeout(2000); // Additional wait for rendering
 
 		// Extract properties - try multiple selector patterns since site structure may vary
 		const properties = await page.evaluate(() => {
@@ -223,7 +262,7 @@ async function handleListingPage({ page, request, crawler }) {
 					property.link,
 					isRental,
 					totalPages || null,
-					"UNCHANGED",
+					"SKIPPED",
 				);
 				continue;
 			}
@@ -261,6 +300,8 @@ async function handleListingPage({ page, request, crawler }) {
 
 			if (!updateResult.isExisting && !updateResult.error) {
 				propertyAction = "CREATED";
+				const coords = await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
+				
 				logger.property(
 					pageNumber,
 					label,
@@ -270,12 +311,13 @@ async function handleListingPage({ page, request, crawler }) {
 					isRental,
 					totalPages || null,
 					propertyAction,
+					coords.latitude,
+					coords.longitude
 				);
-				await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
 				// Delay between detail requests
-				await new Promise((r) => setTimeout(r, 2000));
+				await sleep(1500);
 			} else {
-				// Log UNCHANGED for existing non-updated properties
+				// Log UNCHANGED/UPDATED for existing properties
 				logger.property(
 					pageNumber,
 					label,
@@ -287,9 +329,16 @@ async function handleListingPage({ page, request, crawler }) {
 					propertyAction,
 				);
 			}
+
+			// Polite throttle only if we actually did work
+			if (propertyAction !== "UNCHANGED") {
+				await sleep(500);
+			}
 		}
-		// Delay between listing pages
-		await new Promise((r) => setTimeout(r, 3000));
+		// Delay between listing pages - only if we found items
+		if (uniqueProperties.length > 0) {
+			await sleep(1000);
+		}
 	} catch (error) {
 		logger.error("Error in handleListingPage", error, pageNumber, label);
 	}
@@ -345,13 +394,13 @@ async function scrapeBelvoir() {
 			baseUrl: "https://www.belvoir.co.uk/properties/for-sale/in-united-kingdom/",
 			isRental: false,
 			label: "SALES",
-			totalPages: 37,
+			totalPages: 175,
 		},
 		{
 			baseUrl: "https://www.belvoir.co.uk/properties/to-rent/in-united-kingdom/",
 			isRental: true,
 			label: "RENTALS",
-			totalPages: 24,
+			totalPages: 155,
 		},
 	];
 
