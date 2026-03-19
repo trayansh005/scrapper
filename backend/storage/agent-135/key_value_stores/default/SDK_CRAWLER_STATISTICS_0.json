@@ -1,0 +1,51 @@
+{
+  "requestsFinished": 0,
+  "requestsFailed": 15,
+  "requestsRetries": 15,
+  "requestsFailedPerMinute": 7,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 33716,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-17T10:08:50.219Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-03-17T10:10:50.271Z",
+  "crawlerRuntimeMillis": 120644,
+  "crawlerLastStartTimestamp": 1773742129627,
+  "requestRetryHistogram": [
+    null,
+    null,
+    15
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": 2248,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 33716,
+  "requestsTotal": 15,
+  "requestsWithStatusCode": {
+    "429": 65
+  },
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 15
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 50
+          }
+        }
+      }
+    }
+  }
+}
