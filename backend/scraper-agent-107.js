@@ -407,7 +407,7 @@ async function scrapeBelvoir() {
 	const allRequests = [];
 	for (const type of PROPERTY_TYPES) {
 		for (let p = Math.max(1, startPage); p <= type.totalPages; p++) {
-			const url = p === 1 ? type.baseUrl : `${type.baseUrl}page/${p}/`;
+			const url = p === 1 ? type.baseUrl : `${type.baseUrl}page-${p}/`;
 			allRequests.push({
 				url,
 				userData: {
