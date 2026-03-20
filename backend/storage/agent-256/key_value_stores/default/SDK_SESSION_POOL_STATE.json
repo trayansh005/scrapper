@@ -1,0 +1,180 @@
+{
+  "usableSessionsCount": 6,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_6mPByYW6O5",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-20T09:09:30.252Z",
+      "createdAt": "2026-03-20T08:19:30.252Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_brZW9pc6on",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-03-27T08:19:32.645Z",
+            "domain": "www.cherwellproperty.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-03-20T08:19:35.045Z",
+            "lastAccessed": "2026-03-20T08:20:17.670Z"
+          },
+          {
+            "key": "cookie_directive",
+            "value": "seen",
+            "expires": "2027-03-20T08:19:34.000Z",
+            "domain": "www.cherwellproperty.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-20T08:19:35.046Z",
+            "lastAccessed": "2026-03-20T08:20:17.670Z"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "K3RHbno0MXVYSzJ4UFFvMVhjM0lDaGFrVHdsNlp3M1BvU0hhcFFqc09NYUpsejgxWVdKUWl0OWUyUHRvYzRqamFzRDh6b2FVNG91VGFXNTJsbUdENHlZeXhjenR3M0g2c3FVMmVRUDR6M1NWWGppbHJ1aG1IbEViZlpPMWxvWkxPNEtEOXlRa2dTUlJ3MDFqRFpQd3FRPT0tLUlFanE4THYwR2p5dmU5SDg0a01vckE9PQ%3D%3D--5edc2c0499dbee649ccec5d1b76efe02a1d51bcc",
+            "expires": "2026-03-20T09:10:17.669Z",
+            "domain": "www.cherwellproperty.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-03-20T08:19:35.046Z",
+            "lastAccessed": "2026-03-20T08:20:17.670Z"
+          },
+          {
+            "key": "_ga_CW7LZ8CPGN",
+            "value": "GS2.1.s1773994775$o1$g1$t1773994817$j18$l0$h0",
+            "expires": "2027-04-24T08:20:17.667Z",
+            "domain": "cherwellproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-20T08:19:35.046Z",
+            "lastAccessed": "2026-03-20T08:20:17.670Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1771696148.1773994775",
+            "expires": "2027-04-24T08:19:35.028Z",
+            "domain": "cherwellproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-20T08:19:35.050Z",
+            "lastAccessed": "2026-03-20T08:20:17.670Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-20T09:09:30.256Z",
+      "createdAt": "2026-03-20T08:19:30.256Z",
+      "usageCount": 5,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_7QyBvtUNpM",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-20T09:09:38.479Z",
+      "createdAt": "2026-03-20T08:19:38.479Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_E1ZabOGRph",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-20T09:09:44.957Z",
+      "createdAt": "2026-03-20T08:19:44.957Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_rfPBcL7ciO",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-20T09:10:06.894Z",
+      "createdAt": "2026-03-20T08:20:06.894Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_gAxeLe968X",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-20T09:10:15.835Z",
+      "createdAt": "2026-03-20T08:20:15.835Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

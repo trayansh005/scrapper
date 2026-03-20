@@ -9,11 +9,7 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const {
-	isSoldProperty,
-	parsePrice,
-	formatPriceDisplay,
-} = require("./lib/property-helpers.js");
+const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 log.setLevel(log.LEVELS.ERROR);
@@ -24,13 +20,11 @@ const logger = createAgentLogger(AGENT_ID);
 const PROPERTY_TYPES = [
 	{
 		baseUrl: "https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/",
-		totalPages: 20,
 		isRental: false,
 		label: "SALES",
 	},
 	{
 		baseUrl: "https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/",
-		totalPages: 15,
 		isRental: true,
 		label: "RENTALS",
 	},
@@ -56,7 +50,8 @@ function sleep(ms) {
 function blockNonEssentialResources(page) {
 	return page.route("**/*", (route) => {
 		const resourceType = route.request().resourceType();
-		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+		// Block only heavy resources, allow scripts and stylesheets that might load the iframe
+		if (["image", "font", "media"].includes(resourceType)) {
 			return route.abort();
 		}
 		return route.continue();
@@ -79,182 +74,318 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 // Map from property slug → { latitude, longitude }
-// Balgores listing pages call the Strapi API which returns lat/lng for every property.
-// We intercept that call and cache the coords here so we never need to visit detail pages.
 const strapiCoordsMap = new Map();
+// Per-page captured /properties payload from live network responses.
+const strapiListingsByPage = new WeakMap();
+const strapiListenerAttached = new WeakSet();
+
+function extractSlugFromPropertyUrl(url) {
+	if (!url) return null;
+	const cleanPath = url
+		.replace(/^https?:\/\/[^/]+/i, "")
+		.replace(/^\/property\/(residential|commercial)\//i, "")
+		.replace(/\/?$/, "")
+		.split("?")[0]
+		.trim();
+	return cleanPath || null;
+}
+
+function normalizeStrapiProperty(item) {
+	const link = item?.property_url || item?.url || null;
+	const slug = item?.slug || extractSlugFromPropertyUrl(link);
+	const latitude =
+		item?.latitude ||
+		item?.lat ||
+		item?.Latitude ||
+		item?.map?.lat ||
+		item?.geolocation?.lat ||
+		null;
+	const longitude =
+		item?.longitude ||
+		item?.lng ||
+		item?.Longitude ||
+		item?.map?.lng ||
+		item?.geolocation?.lng ||
+		null;
+
+	if (slug && latitude && longitude) {
+		strapiCoordsMap.set(slug, {
+			latitude: parseFloat(latitude),
+			longitude: parseFloat(longitude),
+		});
+	}
+
+	return {
+		link,
+		title: item?.display_address || item?.title || "Property",
+		price: item?.price ?? null,
+		bedrooms: item?.bedroom ?? item?.bedrooms ?? null,
+		status: item?.status || "",
+		slug,
+		latitude: latitude ? parseFloat(latitude) : null,
+		longitude: longitude ? parseFloat(longitude) : null,
+	};
+}
 
 function attachStrapiListener(page) {
+	if (strapiListenerAttached.has(page)) return;
+	strapiListenerAttached.add(page);
+
 	page.on("response", async (response) => {
 		try {
 			const url = response.url();
 			if (
 				url.includes("balgores-strapi.q.starberry.com") &&
-				url.includes("/properties") &&
+				url.includes("/properties?") &&
 				!url.includes("/count")
 			) {
 				const json = await response.json().catch(() => null);
 				if (!json || !Array.isArray(json)) return;
 
-				for (const item of json) {
-					const lat = item.latitude || item.lat || item.Latitude || item.map?.lat || item.geolocation?.lat || null;
-					const lng = item.longitude || item.lng || item.Longitude || item.map?.lng || item.geolocation?.lng || null;
-					if (lat && lng && item.slug) {
-						strapiCoordsMap.set(item.slug, {
-							latitude: parseFloat(lat),
-							longitude: parseFloat(lng),
-						});
-					}
+				const normalized = json.map(normalizeStrapiProperty).filter((item) => item.link);
+				if (normalized.length > 0) {
+					strapiListingsByPage.set(page, normalized);
 				}
 			}
 		} catch (_) {
-			// Silently ignore
+			// Silently ignore non-JSON or blocked responses
 		}
 	});
+}
+
+async function waitForStrapiListings(page, timeoutMs = 10000) {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < timeoutMs) {
+		const listings = strapiListingsByPage.get(page);
+		if (Array.isArray(listings) && listings.length > 0) {
+			return listings;
+		}
+		await sleep(250);
+	}
+	return [];
+}
+
+async function fetchDetailPageHtml(browserPage, propertyUrl) {
+	const detailPage = await browserPage.context().newPage();
+	try {
+		await blockNonEssentialResources(detailPage);
+		await detailPage.goto(propertyUrl, {
+			waitUntil: "networkidle",
+			timeout: 30000,
+		});
+
+		// Wait for locrating iframe to load
+		try {
+			await detailPage
+				.waitForFunction(() => document.documentElement.innerHTML.includes("locrating"), {
+					timeout: 5000,
+				})
+				.catch(() => null);
+		} catch (e) {
+			// iframe might not exist
+		}
+
+		// Extra wait
+		await new Promise((r) => setTimeout(r, 1000));
+
+		const html = await detailPage.content();
+
+		// Check if iframe is present
+		if (html && html.includes("locrating")) {
+			if (process.env.DEBUG_DETAIL_HTML === "1" || process.env.DEBUG_COORDS === "1") {
+				console.log(
+					`[DETAIL] ✅ Detail page fetched for ${propertyUrl.substring(0, 50)}, HTML size: ${html.length}, contains locrating: true`,
+				);
+			}
+		} else if (html) {
+			if (process.env.DEBUG_COORDS === "1") {
+				console.log(
+					`[DETAIL] ⚠️ Detail page fetched but NO locrating iframe found (size: ${html.length})`,
+				);
+			}
+		}
+
+		return html;
+	} catch (err) {
+		console.log(`[DETAIL] ❌ Error fetching ${propertyUrl}: ${err.message}`);
+		return null;
+	} finally {
+		await detailPage.close().catch(() => null);
+	}
 }
 
 // ============================================================================
 // REQUEST HANDLER - LISTING PAGE
 // ============================================================================
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label, totalPages } = request.userData;
-	logger.page(pageNum, label, request.url, totalPages);
-
-	// Attach Strapi response listener so we capture coords for all properties on this page
+async function handleListingPage({ page, request, crawler }) {
+	const { pageNum, isRental, label } = request.userData;
+	logger.page(pageNum, label, request.url);
 	attachStrapiListener(page);
 
-	try {
-		// Wait for property listings container
-		await page.waitForSelector("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']", {
-			timeout: 15000,
+	// Primary path: consume live Strapi payload emitted by page network requests.
+	let properties = await waitForStrapiListings(page, 20000);
+
+	if (properties.length === 0) {
+		logger.warn("No Strapi listings captured. Falling back to DOM extraction.", pageNum, label);
+		try {
+			await page.waitForSelector("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']", {
+				timeout: 15000,
+			});
+		} catch (e) {
+			logger.error("Listing container not found", e, pageNum, label);
+		}
+
+		properties = await page.evaluate(() => {
+			try {
+				const results = [];
+				const seenLinks = new Set();
+
+				// Find all property links - look for links containing property sale/rent pages
+				const propertyLinks = Array.from(
+					document.querySelectorAll(
+						"a[href*='/property-for-sale/'], a[href*='/property-to-rent/']",
+					),
+				).filter((link) => {
+					// Ensure it's a main property link (not a related or additional link)
+					const href = link.getAttribute("href");
+					return (
+						href &&
+						(href.includes("/property-for-sale/") || href.includes("/property-to-rent/")) &&
+						!href.includes("#")
+					);
+				});
+
+				// Deduplicate and extract property data
+				const propertySet = new Set();
+				for (const link of propertyLinks) {
+					const href = link.getAttribute("href");
+					if (href && !seenLinks.has(href)) {
+						seenLinks.add(href);
+						propertySet.add(href);
+					}
+				}
+
+				for (const link of propertySet) {
+					// Find the property card container for this link
+					const linkEl = document.querySelector(`a[href="${link}"]`);
+					if (!linkEl) continue;
+
+					// Traverse up to find the property card container
+					let container = linkEl;
+					for (let i = 0; i < 5; i++) {
+						container = container.parentElement;
+						if (!container) break;
+						// Get all text from the container
+						const fullText = container.textContent || "";
+						if (fullText.length > 100) break; // Found a reasonable container
+					}
+
+					if (!container) continue;
+
+					const fullLink = link.startsWith("http")
+						? link
+						: new URL(link, window.location.origin).href;
+
+					// Extract title - usually comes from h2 or h3 with property address
+					let title = "Property";
+					const titleEl = container.querySelector("h2, h3");
+					if (titleEl) {
+						title = titleEl.textContent.trim();
+					}
+
+					// Extract price - look for £ symbol
+					let priceRaw = "";
+					const textContent = container.textContent;
+					const priceMatch = textContent.match(/£[\d,]+(,\d{3})?/);
+					if (priceMatch) {
+						priceRaw = priceMatch[0];
+					}
+
+					// Extract bedrooms - look for "X bedroom" pattern in text
+					let bedText = "";
+					const bedMatch = textContent.match(/(\d+)\s+bedroom/i);
+					if (bedMatch) {
+						bedText = bedMatch[0];
+					}
+
+					// Extract status from likely badge elements only to avoid false positives.
+					const statusCandidates = Array.from(
+						container.querySelectorAll(
+							"[class*='status'], [class*='badge'], .status, .property-status, .label, .tag",
+						),
+					)
+						.map((el) => (el.textContent || "").trim())
+						.filter((text) => text.length > 0 && text.length < 80);
+					const statusText = statusCandidates.join(" ");
+
+					results.push({
+						link: fullLink,
+						title,
+						priceRaw,
+						bedText,
+						statusText,
+					});
+				}
+
+				// Remove duplicates
+				const uniqueResults = [];
+				const seenResultLinks = new Set();
+				for (const result of results) {
+					if (!seenResultLinks.has(result.link)) {
+						seenResultLinks.add(result.link);
+						uniqueResults.push(result);
+					}
+				}
+
+				return uniqueResults;
+			} catch (e) {
+				return [];
+			}
 		});
-	} catch (e) {
-		logger.error("Listing container not found", e, pageNum, label);
 	}
 
-	const properties = await page.evaluate(() => {
-		try {
-			const results = [];
-			const seenLinks = new Set();
-
-			// Find all property links - look for links containing property sale/rent pages
-			const propertyLinks = Array.from(
-				document.querySelectorAll("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']"),
-			).filter((link) => {
-				// Ensure it's a main property link (not a related or additional link)
-				const href = link.getAttribute("href");
-				return (
-					href &&
-					(href.includes("/property-for-sale/") || href.includes("/property-to-rent/")) &&
-					!href.includes("#")
-				);
-			});
-
-			// Deduplicate and extract property data
-			const propertySet = new Set();
-			for (const link of propertyLinks) {
-				const href = link.getAttribute("href");
-				if (href && !seenLinks.has(href)) {
-					seenLinks.add(href);
-					propertySet.add(href);
-				}
-			}
-
-			for (const link of propertySet) {
-				// Find the property card container for this link
-				const linkEl = document.querySelector(`a[href="${link}"]`);
-				if (!linkEl) continue;
-
-				// Traverse up to find the property card container
-				let container = linkEl;
-				for (let i = 0; i < 5; i++) {
-					container = container.parentElement;
-					if (!container) break;
-					// Get all text from the container
-					const fullText = container.textContent || "";
-					if (fullText.length > 100) break; // Found a reasonable container
-				}
-
-				if (!container) continue;
-
-				const fullLink = link.startsWith("http")
-					? link
-					: new URL(link, window.location.origin).href;
-
-				// Extract title - usually comes from h2 or h3 with property address
-				let title = "Property";
-				const titleEl = container.querySelector("h2, h3");
-				if (titleEl) {
-					title = titleEl.textContent.trim();
-				}
-
-				// Extract price - look for £ symbol
-				let priceRaw = "";
-				const textContent = container.textContent;
-				const priceMatch = textContent.match(/£[\d,]+(,\d{3})?/);
-				if (priceMatch) {
-					priceRaw = priceMatch[0];
-				}
-
-				// Extract bedrooms - look for "X bedroom" pattern in text
-				let bedText = "";
-				const bedMatch = textContent.match(/(\d+)\s+bedroom/i);
-				if (bedMatch) {
-					bedText = bedMatch[0];
-				}
-
-				// Extract status - look for status badges like "UNDER OFFER", "SOLD STC"
-				const statusText = container.textContent;
-
-				results.push({
-					link: fullLink,
-					title,
-					priceRaw,
-					bedText,
-					statusText,
-				});
-			}
-
-			// Remove duplicates
-			const uniqueResults = [];
-			const seenResultLinks = new Set();
-			for (const result of results) {
-				if (!seenResultLinks.has(result.link)) {
-					seenResultLinks.add(result.link);
-					uniqueResults.push(result);
-				}
-			}
-
-			return uniqueResults;
-		} catch (e) {
-			return [];
-		}
-	});
-
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	for (const property of properties) {
 		if (!property.link) continue;
 
+		const statusText = (property.status || property.statusText || "").trim();
+		const price =
+			typeof property.price === "number" ? property.price : parsePrice(property.priceRaw);
+		const bedrooms =
+			typeof property.bedrooms === "number"
+				? property.bedrooms
+				: (() => {
+						const bedMatch = (property.bedText || "").match(/\d+/);
+						return bedMatch ? parseInt(bedMatch[0], 10) : null;
+					})();
+
 		// Skip sold properties
-		if (isSoldProperty(property.statusText || "")) continue;
+		if (statusText && isSoldProperty(statusText)) {
+			logger.property(
+				pageNum,
+				label,
+				property.title.substring(0, 40),
+				price ? formatPriceDisplay(price, isRental) : "N/A",
+				property.link,
+				isRental,
+				"SKIPPED",
+			);
+			logger.page(
+				pageNum,
+				label,
+				`Skipped due to status: ${statusText.substring(0, 40)} - ${property.title.substring(0, 40)}`,
+			);
+			continue;
+		}
 
 		// Skip if already processed
 		if (processedUrls.has(property.link)) continue;
 		processedUrls.add(property.link);
 
-		const price = parsePrice(property.priceRaw);
-		let bedrooms = null;
-		const bedMatch = property.bedText.match(/\d+/);
-		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
-
 		if (!price) {
-			logger.page(
-				pageNum,
-				label,
-				`Skipped: No price found - ${property.title.substring(0, 40)}`,
-				totalPages,
-			);
+			logger.page(pageNum, label, `Skipped: No price found - ${property.title.substring(0, 40)}`);
 			continue;
 		}
 
@@ -274,29 +405,48 @@ async function handleListingPage({ page, request }) {
 			propertyAction = "UPDATED";
 		}
 
+		let coords =
+			property.latitude && property.longitude
+				? { latitude: property.latitude, longitude: property.longitude }
+				: null;
 		if (!result.isExisting && !result.error) {
 			// New property - look up coordinates from the Strapi API cache
-			// The listing page triggers a Strapi API call that returns lat/lng per property.
-			// We extract the slug from the property URL and look it up in the cache.
-			const slug = property.link
-				.replace(/^https?:\/\/[^/]+/, "") // strip origin
-				.replace(/\/(property-for-sale|property-to-rent)\//, "") // strip type segment
-				.replace(/\/?$/, "") // strip trailing slash
-				.split("?")[0]; // strip query string
+			const slug = property.slug || extractSlugFromPropertyUrl(property.link);
+			if (!coords && slug) {
+				coords = strapiCoordsMap.get(slug) || null;
+			}
 
-			const coords = strapiCoordsMap.get(slug) || null;
+			let detailHtml = null;
+			if (!coords) {
+				logger.page(
+					pageNum,
+					label,
+					`[Detail] Extracting coordinates from detail page for ${property.title.substring(0, 30)}`,
+				);
+				detailHtml = await fetchDetailPageHtml(page, property.link.trim());
+			}
 
-			await processPropertyWithCoordinates(
+			const extractedCoords = await processPropertyWithCoordinates(
 				property.link.trim(),
 				price,
 				property.title,
 				bedrooms,
 				AGENT_ID,
 				isRental,
-				null,
+				detailHtml,
 				coords?.latitude || null,
 				coords?.longitude || null,
 			);
+
+			// Use extracted coordinates if not already set
+			if (extractedCoords?.latitude && extractedCoords?.longitude) {
+				coords = extractedCoords;
+				logger.page(
+					pageNum,
+					label,
+					`✅ Coordinates extracted: ${coords.latitude}, ${coords.longitude}`,
+				);
+			}
 
 			counts.totalScraped++;
 			counts.totalSaved++;
@@ -316,12 +466,35 @@ async function handleListingPage({ page, request }) {
 			isRental,
 			totalPages,
 			propertyAction,
+			coords?.latitude || null,
+			coords?.longitude || null,
 		);
-
 		// Only sleep if we did real work (CREATE or UPDATE)
 		if (propertyAction !== "UNCHANGED") {
 			await sleep(500);
 		}
+	}
+
+	// Dynamic pagination: If we found properties, queue the next page
+	if (properties.length > 0) {
+		const nextPageNum = pageNum + 1;
+		const pageParam = nextPageNum > 1 ? `?page=${nextPageNum}` : "";
+		const nextPageUrl = `${request.userData.baseUrl}${pageParam}`;
+
+		await crawler.addRequests([
+			{
+				url: nextPageUrl,
+				userData: {
+					pageNum: nextPageNum,
+					isRental,
+					label,
+					baseUrl: request.userData.baseUrl,
+				},
+			},
+		]);
+		logger.page(pageNum, label, `Queued next page (${nextPageNum})`);
+	} else {
+		logger.page(pageNum, label, `No more properties found - stopping pagination for ${label}`);
 	}
 }
 
@@ -338,6 +511,7 @@ function createCrawler(browserWSEndpoint) {
 		preNavigationHooks: [
 			async ({ page }) => {
 				await blockNonEssentialResources(page);
+				attachStrapiListener(page);
 			},
 		],
 		launchContext: {
@@ -374,20 +548,17 @@ async function scrapeBalgoresProperty() {
 
 	const allRequests = [];
 	for (const type of PROPERTY_TYPES) {
-		logger.step(`Queueing ${type.label} (${type.totalPages} pages)`);
-		for (let pg = Math.max(1, startPage); pg <= type.totalPages; pg++) {
-			// Build page URL - Balgores uses query parameters for pagination
-			const pageParam = pg > 1 ? `?page=${pg}` : "";
-			allRequests.push({
-				url: `${type.baseUrl}${pageParam}`,
-				userData: {
-					pageNum: pg,
-					isRental: type.isRental,
-					label: type.label,
-					totalPages: type.totalPages,
-				},
-			});
-		}
+		// Only queue the first page - pagination will be dynamic
+		logger.step(`Queueing ${type.label} (page 1 - dynamic pagination)`);
+		allRequests.push({
+			url: type.baseUrl,
+			userData: {
+				pageNum: 1,
+				isRental: type.isRental,
+				label: type.label,
+				baseUrl: type.baseUrl,
+			},
+		});
 	}
 
 	if (allRequests.length > 0) {

@@ -30,7 +30,7 @@ function isSoldProperty(text) {
  */
 function parsePrice(priceText) {
 	if (priceText === null || priceText === undefined) return null;
-	
+
 	// Convert to string in case a number or other type was passed
 	const text = priceText.toString();
 
@@ -57,11 +57,41 @@ async function extractCoordinatesFromHTML(html) {
 	let longitude = null;
 
 	if (!html || typeof html !== "string") {
+		if (process.env.DEBUG_COORDS === "1") {
+			console.log("[COORDS] ❌ HTML is null or not a string");
+		}
 		return { latitude, longitude };
 	}
 
 	try {
-		// Try eapowmapoptions pattern (Map Estate Agents): var eapowmapoptions = { lat: "50.2063...", lon: "-5.4937...", ...}
+		// Try Google Maps LatLng pattern (Cherwell & others use this):
+		// center: new google.maps.LatLng(52.0752991364, -1.3569581617)
+		// or: LatLng(52.0752991364, -1.3569581617)
+		const googleMapsLatLngMatch = html.match(
+			/(?:google\.maps\.)?LatLng\s*\(\s*([0-9.-]+)\s*,\s*([0-9.-]+)\s*\)/,
+		);
+		if (googleMapsLatLngMatch) {
+			latitude = parseFloat(googleMapsLatLngMatch[1]);
+			longitude = parseFloat(googleMapsLatLngMatch[2]);
+			if (process.env.DEBUG_COORDS === "1") {
+				console.log(`[COORDS] ✅ Found via Google Maps LatLng: ${latitude}, ${longitude}`);
+			}
+			return { latitude, longitude };
+		}
+
+		// Try Locrating iframe pattern FIRST (Balgores uses this):
+		// iframe src="https://schools.locrating.com/html5/plugin/all_plugins.aspx?&lat=51.641841&lng=0.624194..."
+		const locratingIframeMatch = html.match(
+			/schools\.locrating\.com[^"]*[&?]lat=([0-9.-]+)[&?]lng=([0-9.-]+)/i,
+		);
+		if (locratingIframeMatch) {
+			latitude = parseFloat(locratingIframeMatch[1]);
+			longitude = parseFloat(locratingIframeMatch[2]);
+			if (process.env.DEBUG_COORDS === "1") {
+				console.log(`[COORDS] ✅ Found via Locrating iframe: ${latitude}, ${longitude}`);
+			}
+			return { latitude, longitude };
+		}
 		const eapowMatch = html.match(
 			/eapowmapoptions\s*=\s*\{[^}]*?lat:\s*['"]([0-9.-]+)['"][^}]*?lon:\s*['"]([0-9.-]+)['"]/,
 		);
@@ -101,7 +131,9 @@ async function extractCoordinatesFromHTML(html) {
 		}
 
 		// Try Snellers pattern first: data-lat and data-lng attributes
-		const snellersMatch = html.match(/data-lat=["']?([0-9.-]+)["']?[\s\S]*?data-lng=["']?([0-9.-]+)["']?/);
+		const snellersMatch = html.match(
+			/data-lat=["']?([0-9.-]+)["']?[\s\S]*?data-lng=["']?([0-9.-]+)["']?/,
+		);
 		if (snellersMatch) {
 			latitude = parseFloat(snellersMatch[1]);
 			longitude = parseFloat(snellersMatch[2]);
@@ -164,7 +196,7 @@ async function extractCoordinatesFromHTML(html) {
 				if (!isNaN(latitude) && !isNaN(longitude)) {
 					return { latitude, longitude };
 				}
-			} catch (e) { }
+			} catch (e) {}
 		}
 
 		if (googleMapsDirMatch) {
@@ -218,6 +250,14 @@ async function extractCoordinatesFromHTML(html) {
 		}
 	} catch (error) {
 		console.error("Error extracting coordinates:", error.message);
+	}
+
+	if (process.env.DEBUG_COORDS === "1") {
+		if (latitude && longitude) {
+			console.log(`[COORDS] ✅ Found: ${latitude}, ${longitude}`);
+		} else {
+			console.log(`[COORDS] ❌ No coordinates found in HTML`);
+		}
 	}
 
 	return { latitude, longitude };

@@ -100,9 +100,17 @@ async function processPropertyWithCoordinates(
 
 		// If no manual coords, extract from HTML
 		if (latitude === null || longitude === null) {
+			if (process.env.DEBUG_COORDS === "1") {
+				console.log(
+					`[DB] ℹ️ Extracting coordinates from HTML (manual lat=${manualLat}, lng=${manualLon})`,
+				);
+			}
 			const coords = await extractCoordinatesFromHTML(html);
 			latitude = coords.latitude;
 			longitude = coords.longitude;
+			if (process.env.DEBUG_COORDS === "1") {
+				console.log(`[DB] ℹ️ Extraction result: lat=${latitude}, lng=${longitude}`);
+			}
 		}
 
 		// If no bedrooms, try to extract from HTML
