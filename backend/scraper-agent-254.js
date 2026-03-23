@@ -1,46 +1,47 @@
 // Balgores Property scraper using Playwright with Crawlee
 // Agent ID: 254
-// Usage:
-// node backend/scraper-agent-254.js
+// Updated 2026-03: Improved address extraction + very detailed geocoding debug logs
+// Usage: node backend/scraper-agent-254.js [optional startPage]
 
 const { PlaywrightCrawler, log } = require("crawlee");
+const axios = require("axios");
 const { updateRemoveStatus } = require("./db.js");
 const {
-	updatePriceByPropertyURLOptimized,
-	processPropertyWithCoordinates,
+  updatePriceByPropertyURLOptimized,
+  processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
 const {
-	isSoldProperty,
-	parsePrice,
-	formatPriceDisplay,
+  isSoldProperty,
+  parsePrice,
+  formatPriceDisplay,
 } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-log.setLevel(log.LEVELS.ERROR);
+log.setLevel(log.LEVELS.INFO); // Keep INFO to see geocoding attempts
 
 const AGENT_ID = 254;
 const logger = createAgentLogger(AGENT_ID);
 
 const PROPERTY_TYPES = [
-	{
-		baseUrl: "https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/",
-		totalPages: 20,
-		isRental: false,
-		label: "SALES",
-	},
-	{
-		baseUrl: "https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/",
-		totalPages: 15,
-		isRental: true,
-		label: "RENTALS",
-	},
+  {
+    baseUrl: "https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/",
+    totalPages: 20,
+    isRental: false,
+    label: "SALES",
+  },
+  {
+    baseUrl: "https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/",
+    totalPages: 15,
+    isRental: true,
+    label: "RENTALS",
+  },
 ];
 
 const counts = {
-	totalScraped: 0,
-	totalSaved: 0,
-	savedSales: 0,
-	savedRentals: 0,
+  totalScraped: 0,
+  totalSaved: 0,
+  savedSales: 0,
+  savedRentals: 0,
 };
 
 const processedUrls = new Set();
@@ -50,17 +51,67 @@ const processedUrls = new Set();
 // ============================================================================
 
 function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function blockNonEssentialResources(page) {
-	return page.route("**/*", (route) => {
-		const resourceType = route.request().resourceType();
-		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-			return route.abort();
-		}
-		return route.continue();
-	});
+  return page.route("**/*", (route) => {
+    const resourceType = route.request().resourceType();
+    if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+}
+
+async function geocodeAddress(address, fallbackTitle = null) {
+  let attempts = [address.trim()];
+
+  if (fallbackTitle && fallbackTitle !== address && fallbackTitle.trim().length >= 8) {
+    attempts.push(fallbackTitle.trim());
+  }
+
+  for (let i = 0; i < attempts.length; i++) {
+    let addr = attempts[i].replace(/\s+/g, ' ').replace(/ ,/g, ',').trim();
+
+    if (addr.length < 8) {
+      logger.warn(`Geocode attempt ${i+1} skipped - too short: "${addr}"`);
+      continue;
+    }
+
+    logger.info(`Geocode attempt ${i+1}/${attempts.length} → "${addr}"`);
+
+    try {
+      const query = encodeURIComponent(`${addr}, UK`);
+      const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=gb`;
+
+      const response = await axios.get(url, {
+        headers: {
+          "User-Agent": "BalgoresScraper/1.0 (your.real.email@example.com)", // ← CHANGE THIS
+        },
+        timeout: 15000,
+      });
+
+      const data = response.data;
+
+      if (data?.length > 0 && data[0].lat && data[0].lon) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        logger.info(`GEOCODE SUCCESS → "${addr}"  →  ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+        return { latitude: lat, longitude: lon };
+      }
+
+      logger.warn(`No result from Nominatim for "${addr}"`);
+    } catch (err) {
+      logger.error(`Geocode failed for "${addr}": ${err.message}`);
+    }
+
+    // Small jitter to help with rate limiting
+    await sleep(1100 + Math.floor(Math.random() * 400));
+  }
+
+  logger.warn(`All geocoding attempts failed for property`);
+  return { latitude: null, longitude: null };
 }
 
 // ============================================================================
@@ -68,345 +119,282 @@ function blockNonEssentialResources(page) {
 // ============================================================================
 
 function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
+  return (
+    process.env.BROWSERLESS_WS_ENDPOINT ||
+    `ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
+  );
 }
 
 // ============================================================================
-// STRAPI COORDINATE MAP (populated on listing pages)
-// ============================================================================
-
-// Map from property slug → { latitude, longitude }
-// Balgores listing pages call the Strapi API which returns lat/lng for every property.
-// We intercept that call and cache the coords here so we never need to visit detail pages.
-const strapiCoordsMap = new Map();
-
-function attachStrapiListener(page) {
-	page.on("response", async (response) => {
-		try {
-			const url = response.url();
-			if (
-				url.includes("balgores-strapi.q.starberry.com") &&
-				url.includes("/properties") &&
-				!url.includes("/count")
-			) {
-				const json = await response.json().catch(() => null);
-				if (!json || !Array.isArray(json)) return;
-
-				for (const item of json) {
-					const lat = item.latitude || item.lat || item.Latitude || item.map?.lat || item.geolocation?.lat || null;
-					const lng = item.longitude || item.lng || item.Longitude || item.map?.lng || item.geolocation?.lng || null;
-					if (lat && lng && item.slug) {
-						strapiCoordsMap.set(item.slug, {
-							latitude: parseFloat(lat),
-							longitude: parseFloat(lng),
-						});
-					}
-				}
-			}
-		} catch (_) {
-			// Silently ignore
-		}
-	});
-}
-
-// ============================================================================
-// REQUEST HANDLER - LISTING PAGE
+// LISTING PAGE HANDLER – improved address collection
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
-	const { pageNum, isRental, label, totalPages } = request.userData;
-	logger.page(pageNum, label, request.url, totalPages);
+  const { pageNum, isRental, label, totalPages } = request.userData;
+  logger.page(pageNum, label, request.url, totalPages);
 
-	// Attach Strapi response listener so we capture coords for all properties on this page
-	attachStrapiListener(page);
+  try {
+    await page.waitForSelector(
+      "a[href*='/property-for-sale/'], a[href*='/property-to-rent/']",
+      { timeout: 15000 }
+    );
+  } catch (e) {
+    logger.error("Listing container not found", e, pageNum, label);
+  }
 
-	try {
-		// Wait for property listings container
-		await page.waitForSelector("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']", {
-			timeout: 15000,
-		});
-	} catch (e) {
-		logger.error("Listing container not found", e, pageNum, label);
-	}
+  const properties = await page.evaluate(() => {
+    try {
+      const results = [];
+      const seen = new Set();
 
-	const properties = await page.evaluate(() => {
-		try {
-			const results = [];
-			const seenLinks = new Set();
+      const links = Array.from(
+        document.querySelectorAll("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']")
+      ).filter((a) => {
+        const h = a.getAttribute("href");
+        return h && !h.includes("#") && !h.includes("/branch/");
+      });
 
-			// Find all property links - look for links containing property sale/rent pages
-			const propertyLinks = Array.from(
-				document.querySelectorAll("a[href*='/property-for-sale/'], a[href*='/property-to-rent/']"),
-			).filter((link) => {
-				// Ensure it's a main property link (not a related or additional link)
-				const href = link.getAttribute("href");
-				return (
-					href &&
-					(href.includes("/property-for-sale/") || href.includes("/property-to-rent/")) &&
-					!href.includes("#")
-				);
-			});
+      for (const a of links) {
+        const href = a.getAttribute("href");
+        if (seen.has(href)) continue;
+        seen.add(href);
 
-			// Deduplicate and extract property data
-			const propertySet = new Set();
-			for (const link of propertyLinks) {
-				const href = link.getAttribute("href");
-				if (href && !seenLinks.has(href)) {
-					seenLinks.add(href);
-					propertySet.add(href);
-				}
-			}
+        let container = a;
+        for (let i = 0; i < 8; i++) {
+          container = container?.parentElement;
+          if (!container || container.textContent.trim().length > 220) break;
+        }
+        if (!container) continue;
 
-			for (const link of propertySet) {
-				// Find the property card container for this link
-				const linkEl = document.querySelector(`a[href="${link}"]`);
-				if (!linkEl) continue;
+        const fullUrl = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
 
-				// Traverse up to find the property card container
-				let container = linkEl;
-				for (let i = 0; i < 5; i++) {
-					container = container.parentElement;
-					if (!container) break;
-					// Get all text from the container
-					const fullText = container.textContent || "";
-					if (fullText.length > 100) break; // Found a reasonable container
-				}
+        // Title
+        const titleEl = container.querySelector("h2, h3, .title, .property-title, .address");
+        const title = titleEl?.textContent?.trim() || "Unknown Property";
 
-				if (!container) continue;
+        // Collect all possible address fragments
+        const addressFragments = new Set();
 
-				const fullLink = link.startsWith("http")
-					? link
-					: new URL(link, window.location.origin).href;
+        const selectors = [
+          ".address", ".property-address", ".location", ".property-location",
+          ".address-line", ".postcode", ".town", ".county", "p", ".details p",
+          ".info", ".property-info", ".description", ".meta"
+        ];
 
-				// Extract title - usually comes from h2 or h3 with property address
-				let title = "Property";
-				const titleEl = container.querySelector("h2, h3");
-				if (titleEl) {
-					title = titleEl.textContent.trim();
-				}
+        selectors.forEach(sel => {
+          container.querySelectorAll(sel).forEach(el => {
+            const txt = el.textContent?.trim();
+            if (txt && txt.length > 4 && txt !== title) {
+              addressFragments.add(txt);
+            }
+          });
+        });
 
-				// Extract price - look for £ symbol
-				let priceRaw = "";
-				const textContent = container.textContent;
-				const priceMatch = textContent.match(/£[\d,]+(,\d{3})?/);
-				if (priceMatch) {
-					priceRaw = priceMatch[0];
-				}
+        // Also include title parts if they look like address
+        title.split(',').forEach(part => {
+          const t = part.trim();
+          if (t.length > 5) addressFragments.add(t);
+        });
 
-				// Extract bedrooms - look for "X bedroom" pattern in text
-				let bedText = "";
-				const bedMatch = textContent.match(/(\d+)\s+bedroom/i);
-				if (bedMatch) {
-					bedText = bedMatch[0];
-				}
+        let address = Array.from(addressFragments)
+          .join(", ")
+          .replace(/,\s*,/g, ',')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-				// Extract status - look for status badges like "UNDER OFFER", "SOLD STC"
-				const statusText = container.textContent;
+        if (!address || address.length < 12) {
+          address = title;
+        }
 
-				results.push({
-					link: fullLink,
-					title,
-					priceRaw,
-					bedText,
-					statusText,
-				});
-			}
+        let priceRaw = container.textContent.match(/£[\d,]+(?:[\.,]\d+)?/)?.[0] || "";
+        let bedText = container.textContent.match(/(\d+)\s*(?:bed|bedroom|beds)/i)?.[0] || "";
 
-			// Remove duplicates
-			const uniqueResults = [];
-			const seenResultLinks = new Set();
-			for (const result of results) {
-				if (!seenResultLinks.has(result.link)) {
-					seenResultLinks.add(result.link);
-					uniqueResults.push(result);
-				}
-			}
+        const statusText = container.textContent;
 
-			return uniqueResults;
-		} catch (e) {
-			return [];
-		}
-	});
+        results.push({
+          link: fullUrl,
+          title,
+          address,
+          priceRaw,
+          bedText,
+          statusText,
+        });
+      }
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+      return results;
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
 
-	for (const property of properties) {
-		if (!property.link) continue;
+  logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
-		// Skip sold properties
-		if (isSoldProperty(property.statusText || "")) continue;
+  for (const prop of properties) {
+    if (!prop.link) continue;
 
-		// Skip if already processed
-		if (processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
+    if (isSoldProperty(prop.statusText || "")) continue;
 
-		const price = parsePrice(property.priceRaw);
-		let bedrooms = null;
-		const bedMatch = property.bedText.match(/\d+/);
-		if (bedMatch) bedrooms = parseInt(bedMatch[0]);
+    if (processedUrls.has(prop.link)) continue;
+    processedUrls.add(prop.link);
 
-		if (!price) {
-			logger.page(
-				pageNum,
-				label,
-				`Skipped: No price found - ${property.title.substring(0, 40)}`,
-				totalPages,
-			);
-			continue;
-		}
+    const price = parsePrice(prop.priceRaw);
+    let bedrooms = null;
+    if (prop.bedText) {
+      const match = prop.bedText.match(/\d+/);
+      if (match) bedrooms = parseInt(match[0], 10);
+    }
 
-		const result = await updatePriceByPropertyURLOptimized(
-			property.link,
-			price,
-			property.title,
-			bedrooms,
-			AGENT_ID,
-			isRental,
-		);
+    if (!price) {
+      logger.page(pageNum, label, `Skipped: No price - ${prop.title.substring(0, 40)}`, totalPages);
+      continue;
+    }
 
-		let propertyAction = "UNCHANGED";
+    let coords = { latitude: null, longitude: null };
 
-		if (result.updated) {
-			counts.totalSaved++;
-			propertyAction = "UPDATED";
-		}
+    const result = await updatePriceByPropertyURLOptimized(
+      prop.link,
+      price,
+      prop.title,
+      bedrooms,
+      AGENT_ID,
+      isRental
+    );
 
-		if (!result.isExisting && !result.error) {
-			// New property - look up coordinates from the Strapi API cache
-			// The listing page triggers a Strapi API call that returns lat/lng per property.
-			// We extract the slug from the property URL and look it up in the cache.
-			const slug = property.link
-				.replace(/^https?:\/\/[^/]+/, "") // strip origin
-				.replace(/\/(property-for-sale|property-to-rent)\//, "") // strip type segment
-				.replace(/\/?$/, "") // strip trailing slash
-				.split("?")[0]; // strip query string
+    let propertyAction = "UNCHANGED";
 
-			const coords = strapiCoordsMap.get(slug) || null;
+    if (result.updated) {
+      counts.totalSaved++;
+      propertyAction = "UPDATED";
+    }
 
-			await processPropertyWithCoordinates(
-				property.link.trim(),
-				price,
-				property.title,
-				bedrooms,
-				AGENT_ID,
-				isRental,
-				null,
-				coords?.latitude || null,
-				coords?.longitude || null,
-			);
+    if (!result.isExisting && !result.error) {
+      coords = await geocodeAddress(prop.address, prop.title);
+      await sleep(1200 + Math.random() * 600); // 1.2–1.8s jitter
 
-			counts.totalScraped++;
-			counts.totalSaved++;
-			if (isRental) counts.savedRentals++;
-			else counts.savedSales++;
-			propertyAction = "CREATED";
-		} else if (result.error) {
-			propertyAction = "ERROR";
-		}
+      await processPropertyWithCoordinates(
+        prop.link.trim(),
+        price,
+        prop.title,
+        bedrooms,
+        AGENT_ID,
+        isRental,
+        null,
+        coords.latitude,
+        coords.longitude
+      );
 
-		logger.property(
-			pageNum,
-			label,
-			property.title.substring(0, 40),
-			formatPriceDisplay(price, isRental),
-			property.link,
-			isRental,
-			totalPages,
-			propertyAction,
-		);
+      counts.totalScraped++;
+      counts.totalSaved++;
+      if (isRental) counts.savedRentals++;
+      else counts.savedSales++;
+      propertyAction = "CREATED";
+    } else if (result.error) {
+      propertyAction = "ERROR";
+    }
 
-		// Only sleep if we did real work (CREATE or UPDATE)
-		if (propertyAction !== "UNCHANGED") {
-			await sleep(500);
-		}
-	}
+    logger.property(
+      pageNum,
+      label,
+      prop.title.substring(0, 40),
+      formatPriceDisplay(price, isRental),
+      prop.link,
+      isRental,
+      totalPages,
+      propertyAction,
+      coords.latitude && coords.longitude
+        ? `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
+        : "NO_COORDS"
+    );
+
+    if (propertyAction !== "UNCHANGED") {
+      await sleep(600);
+    } else {
+      await sleep(150);
+    }
+  }
 }
 
 // ============================================================================
-// CRAWLER SETUP
+// CRAWLER SETUP (unchanged)
 // ============================================================================
 
 function createCrawler(browserWSEndpoint) {
-	return new PlaywrightCrawler({
-		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		navigationTimeoutSecs: 90,
-		requestHandlerTimeoutSecs: 300,
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
-		launchContext: {
-			launcher: undefined,
-			launchOptions: {
-				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-				viewport: { width: 1920, height: 1080 },
-			},
-		},
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			logger.error(`Failed listing page: ${request.url}`);
-		},
-	});
+  return new PlaywrightCrawler({
+    maxConcurrency: 1,
+    maxRequestRetries: 2,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 180,
+    preNavigationHooks: [
+      async ({ page }) => {
+        await blockNonEssentialResources(page);
+      },
+    ],
+    launchContext: {
+      launchOptions: {
+        browserWSEndpoint,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        viewport: { width: 1920, height: 1080 },
+      },
+    },
+    requestHandler: handleListingPage,
+    failedRequestHandler({ request }) {
+      logger.error(`Failed listing page: ${request.url}`);
+    },
+  });
 }
 
 // ============================================================================
-// MAIN SCRAPER LOGIC
+// MAIN SCRAPER LOGIC (unchanged)
 // ============================================================================
 
 async function scrapeBalgoresProperty() {
-	logger.step("Starting Balgores Property scraper...");
+  logger.step("Starting Balgores Property scraper (improved geocoding 2026-03)...");
 
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) || 1 : 1;
-	const isPartialRun = startPage > 1;
-	const scrapeStartTime = new Date();
+  const args = process.argv.slice(2);
+  const startPage = args.length > 0 ? parseInt(args[0], 10) || 1 : 1;
+  const isPartialRun = startPage > 1;
+  const scrapeStartTime = new Date();
 
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	logger.step(`Connecting to browserless: ${browserWSEndpoint.split("?")[0]}`);
+  const browserWSEndpoint = getBrowserlessEndpoint();
+  logger.step(`Connecting to Browserless: ${browserWSEndpoint.split("?")[0]}`);
 
-	const crawler = createCrawler(browserWSEndpoint);
+  const crawler = createCrawler(browserWSEndpoint);
 
-	const allRequests = [];
-	for (const type of PROPERTY_TYPES) {
-		logger.step(`Queueing ${type.label} (${type.totalPages} pages)`);
-		for (let pg = Math.max(1, startPage); pg <= type.totalPages; pg++) {
-			// Build page URL - Balgores uses query parameters for pagination
-			const pageParam = pg > 1 ? `?page=${pg}` : "";
-			allRequests.push({
-				url: `${type.baseUrl}${pageParam}`,
-				userData: {
-					pageNum: pg,
-					isRental: type.isRental,
-					label: type.label,
-					totalPages: type.totalPages,
-				},
-			});
-		}
-	}
+  const allRequests = [];
+  for (const type of PROPERTY_TYPES) {
+    logger.step(`Queueing ${type.label} (${type.totalPages} pages)`);
+    for (let pg = Math.max(1, startPage); pg <= type.totalPages; pg++) {
+      const pageParam = pg > 1 ? `?page=${pg}` : "";
+      allRequests.push({
+        url: `${type.baseUrl}${pageParam}`,
+        userData: {
+          pageNum: pg,
+          isRental: type.isRental,
+          label: type.label,
+          totalPages: type.totalPages,
+        },
+      });
+    }
+  }
 
-	if (allRequests.length > 0) {
-		await crawler.run(allRequests);
-	} else {
-		logger.warn("No requests to process.");
-	}
+  if (allRequests.length > 0) {
+    await crawler.run(allRequests);
+  } else {
+    logger.warn("No requests to process.");
+  }
 
-	logger.step(
-		`Completed Balgores Property - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`,
-	);
-	logger.step(`Breakdown - SALES: ${counts.savedSales}, LETTINGS: ${counts.savedRentals}`);
+  logger.step(
+    `Completed - Scraped: ${counts.totalScraped}, Saved: ${counts.totalSaved} ` +
+      `(Sales: ${counts.savedSales}, Rentals: ${counts.savedRentals})`
+  );
 
-	if (!isPartialRun) {
-		logger.step("Updating remove status...");
-		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
-	} else {
-		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
-	}
+  if (!isPartialRun) {
+    logger.step("Updating remove status...");
+    await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+  } else {
+    logger.warn("Partial run — skipping updateRemoveStatus.");
+  }
 }
 
 // ============================================================================
@@ -414,12 +402,12 @@ async function scrapeBalgoresProperty() {
 // ============================================================================
 
 (async () => {
-	try {
-		await scrapeBalgoresProperty();
-		logger.step("All done!");
-		process.exit(0);
-	} catch (err) {
-		logger.error("Fatal error", err);
-		process.exit(1);
-	}
+  try {
+    await scrapeBalgoresProperty();
+    logger.step("All done!");
+    process.exit(0);
+  } catch (err) {
+    logger.error("Fatal error", err);
+    process.exit(1);
+  }
 })();
