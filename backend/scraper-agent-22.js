@@ -102,6 +102,11 @@ async function scrapeAllsop() {
 		);
 
 		for (const prop of properties) {
+			// Filter for residential properties only
+			if (prop.lot_type !== "residential" && !prop.is_residential) {
+				continue;
+			}
+
 			const link = generatePropertyURL(prop);
 
 			// If sold, use sale_price. Otherwise use sort_price (clean numeric) or guide_price
