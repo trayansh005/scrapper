@@ -1,50 +1,29 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 1,
-  "requestsRetries": 1,
-  "requestsFailedPerMinute": 8,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 2529,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-03-17T09:39:34.469Z",
-  "crawlerFinishedAt": "2026-03-17T09:39:41.203Z",
-  "statsPersistedAt": "2026-03-17T09:39:41.203Z",
-  "crawlerRuntimeMillis": 6840,
-  "crawlerLastStartTimestamp": 1773740374363,
+  "requestsFinished": 48,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 2,
+  "requestMinDurationMillis": 6355,
+  "requestMaxDurationMillis": 45013,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 1215999,
+  "crawlerStartedAt": "2026-03-23T08:09:04.615Z",
+  "crawlerFinishedAt": "2026-03-23T08:29:23.300Z",
+  "statsPersistedAt": "2026-03-23T08:29:23.300Z",
+  "crawlerRuntimeMillis": 1218720,
+  "crawlerLastStartTimestamp": 1774253344580,
   "requestRetryHistogram": [
-    null,
-    1
+    48
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 2529,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 2529,
-  "requestsTotal": 1,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 25333,
+  "requestTotalDurationMillis": 1215999,
+  "requestsTotal": 48,
   "requestsWithStatusCode": {
-    "429": 2
+    "200": 48
   },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
-      "missing error code": {
-        "Error": {
-          "Request blocked - received 429 status code.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
-      "missing error code": {
-        "Error": {
-          "Request blocked - received 429 status code.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }
