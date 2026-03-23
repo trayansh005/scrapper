@@ -132,7 +132,7 @@ async function scrapePropertyDetail(property, isRental) {
 			null,
 			"DETAIL",
 			detailData.title,
-			formatPriceDisplay(property.price, isRental),
+			formatPriceUk(property.price, isRental),
 			property.link,
 			isRental,
 			null,
@@ -201,7 +201,7 @@ async function run() {
 					stats.totalFound++;
 
 					if (isSoldProperty(statusText)) {
-						logger.property(pageNumber, mode.label, title, formatPriceDisplay(numericPrice, mode.isRental), link, mode.isRental, totalPages, "SKIPPED");
+						logger.property(pageNumber, mode.label, title, formatPriceUk(numericPrice, mode.isRental), link, mode.isRental, totalPages, "SKIPPED");
 						stats.totalSkipped++;
 						continue;
 					}
@@ -210,11 +210,11 @@ async function run() {
 					const priceCheck = await updatePriceByPropertyURLOptimized(link, numericPrice, title, null, AGENT_ID, mode.isRental);
 					if (priceCheck.isExisting) {
 						if (priceCheck.updated) {
-							logger.property(pageNumber, mode.label, title, formatPriceDisplay(numericPrice, mode.isRental), link, mode.isRental, totalPages, "UPDATED");
+							logger.property(pageNumber, mode.label, title, formatPriceUk(numericPrice, mode.isRental), link, mode.isRental, totalPages, "UPDATED");
 							stats.totalSaved++;
 							await sleep(50);
 						} else {
-							logger.property(pageNumber, mode.label, title, formatPriceDisplay(numericPrice, mode.isRental), link, mode.isRental, totalPages, "UNCHANGED");
+							logger.property(pageNumber, mode.label, title, formatPriceUk(numericPrice, mode.isRental), link, mode.isRental, totalPages, "UNCHANGED");
 						}
 					} else {
 						// New property, scrape details
