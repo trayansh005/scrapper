@@ -1,0 +1,9 @@
+{
+	"id": "aLNrhQx4gkEgM2X",
+	"json": "{\"id\":\"aLNrhQx4gkEgM2X\",\"url\":\"https://www.chestertons.co.uk/properties/sales/status-available?page=3\",\"loadedUrl\":\"https://www.chestertons.co.uk/properties/sales/status-available?page=3\",\"uniqueKey\":\"https://www.chestertons.co.uk/properties/sales/status-available?page=3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"totalPages\":35,\"isRental\":false,\"label\":\"SALES\",\"apiUrl\":\"https://www.chestertons.co.uk/api/properties?params=%7B%22search%22%3A%7B%22channel%22%3A%22sales%22%2C%22status%22%3A%22available%22%7D%2C%22page%22%3A3%2C%22pageSize%22%3A50%7D\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-23T08:35:38.325Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.chestertons.co.uk/properties/sales/status-available?page=3",
+	"url": "https://www.chestertons.co.uk/properties/sales/status-available?page=3"
+}
