@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 2,
-  "retiredSessionsCount": 0,
+  "usableSessionsCount": 7,
+  "retiredSessionsCount": 1,
   "sessions": [
     {
-      "id": "session_gg7UcH9Oqw",
+      "id": "session_bQuAPYXxrO",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,105 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-20T08:54:44.362Z",
-      "createdAt": "2026-03-20T08:04:44.362Z",
+      "expiresAt": "2026-03-25T10:40:36.816Z",
+      "createdAt": "2026-03-25T09:50:36.816Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_q1RSlswBz3",
+      "id": "session_vOQjnTRJQZ",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_fbp",
+            "value": "fb.2.1774432243736.47695417718996964",
+            "expires": "2026-06-23T09:50:43.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.397Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.3.856841102.1774432244",
+            "expires": "2027-04-29T09:50:44.706Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.403Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.1245905880.1774432245",
+            "expires": "2026-03-26T09:50:44.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.404Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          },
+          {
+            "key": "_gat_UA-29355620-1",
+            "value": "1",
+            "expires": "2026-03-25T09:51:44.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.404Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          },
+          {
+            "key": "_dc_gtm_UA-132351720-5",
+            "value": "1",
+            "expires": "2026-03-25T09:51:44.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.404Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          },
+          {
+            "key": "_ga_2Y57VQXKXZ",
+            "value": "GS2.1.s1774432243$o1$g1$t1774432264$j39$l0$h0",
+            "expires": "2027-04-29T09:51:04.126Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.404Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          },
+          {
+            "key": "_ga_J8SSD5WR2Q",
+            "value": "GS2.1.s1774432244$o1$g1$t1774432264$j40$l0$h0",
+            "expires": "2027-04-29T09:51:04.131Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:51:05.404Z",
+            "lastAccessed": "2026-03-25T09:51:27.240Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-25T10:40:36.820Z",
+      "createdAt": "2026-03-25T09:50:36.820Z",
+      "usageCount": 4,
+      "maxUsageCount": 50,
+      "errorScore": 6
+    },
+    {
+      "id": "session_kR2n0QSIrq",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -36,8 +127,179 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-20T08:54:44.367Z",
-      "createdAt": "2026-03-20T08:04:44.367Z",
+      "expiresAt": "2026-03-25T10:41:04.141Z",
+      "createdAt": "2026-03-25T09:51:04.141Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ebh40hYJD4",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-25T10:41:26.120Z",
+      "createdAt": "2026-03-25T09:51:26.120Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_bfXR0yaoQh",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-25T10:41:48.145Z",
+      "createdAt": "2026-03-25T09:51:48.145Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_wxYVaNSsVK",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_fbp",
+            "value": "fb.2.1774432311830.784815996439515681",
+            "expires": "2026-06-23T09:51:51.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.1521963800.1774432313",
+            "expires": "2026-03-26T09:51:52.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          },
+          {
+            "key": "_gat_UA-29355620-1",
+            "value": "1",
+            "expires": "2026-03-25T09:52:52.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          },
+          {
+            "key": "_dc_gtm_UA-132351720-5",
+            "value": "1",
+            "expires": "2026-03-25T09:52:52.000Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.28856713.1774432312",
+            "expires": "2027-04-29T09:51:53.333Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          },
+          {
+            "key": "_ga_J8SSD5WR2Q",
+            "value": "GS2.1.s1774432311$o1$g1$t1774432331$j40$l0$h0",
+            "expires": "2027-04-29T09:52:11.790Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          },
+          {
+            "key": "_ga_2Y57VQXKXZ",
+            "value": "GS2.1.s1774432313$o1$g1$t1774432331$j42$l0$h0",
+            "expires": "2027-04-29T09:52:11.796Z",
+            "domain": "balgoresproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-25T09:52:13.542Z",
+            "lastAccessed": "2026-03-25T09:52:35.362Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-25T10:41:48.147Z",
+      "createdAt": "2026-03-25T09:51:48.147Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 2
+    },
+    {
+      "id": "session_wmLBCHoMPs",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-25T10:42:11.807Z",
+      "createdAt": "2026-03-25T09:52:11.807Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_EnIxEMMkmj",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-25T10:42:34.437Z",
+      "createdAt": "2026-03-25T09:52:34.437Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

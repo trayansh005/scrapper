@@ -219,7 +219,7 @@ async function fetchDetailPageHtml(browserPage, propertyUrl) {
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label } = request.userData;
+	const { pageNum, isRental, label, baseUrl } = request.userData;
 	logger.page(pageNum, label, request.url);
 	attachStrapiListener(page);
 
@@ -464,7 +464,6 @@ async function handleListingPage({ page, request, crawler }) {
 			formatPriceDisplay(price, isRental),
 			property.link,
 			isRental,
-			totalPages,
 			propertyAction,
 			coords?.latitude || null,
 			coords?.longitude || null,
