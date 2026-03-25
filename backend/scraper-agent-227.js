@@ -1,4 +1,4 @@
-﻿// Abbey Sales and Lettings Group scraper using Playwright with Crawlee
+// Abbey Sales and Lettings Group scraper using Playwright with Crawlee
 // Agent ID: 227
 // Website: abbeysalesandlettingsgroup.co.uk
 // Usage:
@@ -34,7 +34,7 @@ function getBrowserlessEndpoint() {
 const PROPERTY_TYPES = [
     {
         urlBase: "https://abbeysalesandlettingsgroup.co.uk/search/page/",
-        totalPages: 14,
+        totalPages: 17,
         isRental: false,
         label: "SALES",
         suffix: "/?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&officeID&availability=2",
@@ -72,36 +72,117 @@ async function handleListingPage({ page, request }) {
 
     console.log(` [${label}] Page ${pageNum} - ${request.url}`);
 
+    // Wait for AJAX content to fully render
+    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => { });
+
     try {
-        await page.waitForTimeout(700);
-        await page.waitForSelector(".properties-block .grid-box", { timeout: 15000 }).catch(() => {
+        await page.waitForSelector("a.grid-box-card", { timeout: 20000 }).catch(() => {
             console.log(` Listing container not found on page ${pageNum}`);
         });
 
-        const properties = await page.evaluate(() => {
+                const properties = await page.evaluate(() => {
             try {
-                const items = Array.from(document.querySelectorAll(".properties-block .grid-box"));
-                const results = [];
-                for (const el of items) {
-                    const linkEl = el.querySelector("a[href*='/property/']");
-                    const link = linkEl ? linkEl.href : null;
-                    if (!link) continue;
-                    const title = el.querySelector("h4")?.innerText.trim() || "";
-                    const rawPrice = el.querySelector("h5.property-archive-price")?.innerText.trim() || "";
-                    const typeItems = Array.from(el.querySelectorAll("ul.property-types li"));
-                    let bedrooms = null;
-                    typeItems.forEach((li) => {
-                        const span = li.querySelector("span");
-                        const icon = li.querySelector("i");
-                        if (icon && icon.classList.contains("fa-bed")) {
-                            bedrooms = span ? span.innerText.trim() : null;
-                        }
-                    });
-                    const statusText = el.innerText || "";
-                    results.push({ link, title, rawPrice, bedrooms, statusText });
+                console.log("→ Starting property extraction on listing page");
+
+                // Give a tiny extra moment for any lazy-loaded content (helps on this site)
+                // Note: We already waited outside, but this helps in evaluate context
+
+                // === AGGRESSIVE PROPERTY CARD DETECTION ===
+                let cardElements = [];
+
+                // Strategy 1: Direct property links (most reliable)
+                cardElements = Array.from(document.querySelectorAll('a[href*="/property/"]'));
+
+                // Strategy 2: If no direct links, look inside common card containers
+                if (cardElements.length === 0) {
+                    const containers = document.querySelectorAll(
+                        'div[class*="card"], article[class*="property"], div[class*="listing"], ' +
+                        'div[class*="item"], section, .property-card, .grid-item'
+                    );
+                    cardElements = Array.from(containers).filter(container => 
+                        container.querySelector('a[href*="/property/"]')
+                    );
                 }
+
+                console.log(`→ Found ${cardElements.length} potential property elements`);
+
+                const results = [];
+
+                for (const el of cardElements) {
+                    // Get the actual link element
+                    const linkEl = el.tagName === 'A' ? el : el.querySelector('a[href*="/property/"]');
+                    if (!linkEl) continue;
+
+                    const link = linkEl.href.trim();
+                    if (!link || !link.includes("/property/")) continue;
+
+                    // Title
+                    let title = "";
+                    const titleSelectors = "h1, h2, h3, h4, h5, .title, [class*='title'], strong, .property-name";
+                    const titleEl = el.querySelector(titleSelectors);
+                    if (titleEl) {
+                        title = titleEl.innerText.trim();
+                    } else {
+                        // Fallback: first line of text that looks like an address
+                        title = (el.innerText || "").split('\n')[0].trim();
+                    }
+
+                    // Price
+                    let rawPrice = "";
+                    const priceEl = el.querySelector("[class*='price'], h5, h6, .amount, .cost");
+                    if (priceEl) {
+                        rawPrice = priceEl.innerText.trim();
+                    } else {
+                        // Fallback regex for £ symbol
+                        const priceMatch = (el.innerText || "").match(/£[0-9,]+(?:\.[0-9]+)?/);
+                        if (priceMatch) rawPrice = priceMatch[0];
+                    }
+
+                    // === BEDROOMS EXTRACTION (Improved) ===
+                    let bedrooms = null;
+                    const fullText = (el.innerText || el.textContent || "").toLowerCase();
+
+                    // Primary regex - most common on estate sites
+                    let match = fullText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+                    if (match) {
+                        bedrooms = match[1];
+                    }
+
+                    // Secondary fallback (for icons or separate spans)
+                    if (!bedrooms) {
+                        const bedElements = el.querySelectorAll('[class*="bed"], [class*="room"], .icon');
+                        for (const bedEl of bedElements) {
+                            const txt = (bedEl.innerText || "").trim();
+                            const numMatch = txt.match(/(\d+)/);
+                            if (numMatch) {
+                                bedrooms = numMatch[1];
+                                break;
+                            }
+                        }
+                    }
+
+                    // Final fallback - look for number followed by "bed" anywhere
+                    if (!bedrooms) {
+                        match = (el.innerText || "").match(/(\d+)\s*bed/i);
+                        if (match) bedrooms = match[1];
+                    }
+
+                    const statusText = el.innerText || "";
+
+                    results.push({
+                        link,
+                        title,
+                        rawPrice,
+                        bedrooms,
+                        statusText
+                    });
+                }
+
+                console.log(`→ Successfully extracted ${results.length} properties with details`);
                 return results;
+
             } catch (err) {
+                console.error("Evaluate error:", err.message);
                 return [];
             }
         });
@@ -247,7 +328,7 @@ async function scrapeAbbeySalesLettings() {
         console.log(`\n Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
         const crawler = createCrawler(browserWSEndpoint);
         const requests = [];
-        for (let pg = 38; pg <= propertyType.totalPages; pg++) {
+        for (let pg = 1; pg <= propertyType.totalPages; pg++) {
             requests.push({
                 url: `${propertyType.urlBase}${pg}${propertyType.suffix}`,
                 userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
@@ -255,7 +336,7 @@ async function scrapeAbbeySalesLettings() {
         }
         await crawler.addRequests(requests);
         await crawler.run();
-        
+
     }
 
     console.log(`\n Scraping complete!`);
