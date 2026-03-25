@@ -1,8 +1,8 @@
 {
 	"id": "JXOA5gceQWt7JD0",
-	"json": "{\"id\":\"JXOA5gceQWt7JD0\",\"url\":\"https://abbeysalesandlettingsgroup.co.uk/search/page/6/?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&officeID&availability=2\",\"uniqueKey\":\"https://abbeysalesandlettingsgroup.co.uk/search/page/6?address_keyword=&availability=2&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&officeID=&property_type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":6,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"JXOA5gceQWt7JD0\",\"url\":\"https://abbeysalesandlettingsgroup.co.uk/search/page/6/?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&officeID&availability=2\",\"loadedUrl\":\"https://abbeysalesandlettingsgroup.co.uk/search/page/6/?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&officeID&availability=2\",\"uniqueKey\":\"https://abbeysalesandlettingsgroup.co.uk/search/page/6?address_keyword=&availability=2&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&officeID=&property_type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":6,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-25T08:24:44.652Z\"}",
 	"method": "GET",
-	"orderNo": 1774426462059,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://abbeysalesandlettingsgroup.co.uk/search/page/6?address_keyword=&availability=2&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&officeID=&property_type=",
 	"url": "https://abbeysalesandlettingsgroup.co.uk/search/page/6/?address_keyword&department=residential-sales&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&officeID&availability=2"
