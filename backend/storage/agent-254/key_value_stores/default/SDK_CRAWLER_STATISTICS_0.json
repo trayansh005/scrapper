@@ -1,27 +1,51 @@
 {
   "requestsFinished": 0,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 0,
   "requestMinDurationMillis": null,
   "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 22609,
   "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-03-20T08:04:43.282Z",
+  "crawlerStartedAt": "2026-03-25T09:50:35.619Z",
   "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-03-20T08:05:43.269Z",
-  "crawlerRuntimeMillis": 60276,
-  "crawlerLastStartTimestamp": 1773993882993,
-  "requestRetryHistogram": [],
+  "statsPersistedAt": "2026-03-25T09:52:35.616Z",
+  "crawlerRuntimeMillis": 120174,
+  "crawlerLastStartTimestamp": 1774432235442,
+  "requestRetryHistogram": [
+    null,
+    null,
+    1
+  ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
+  "requestAvgFailedDurationMillis": 22609,
   "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 0,
-  "requestsTotal": 0,
+  "requestTotalDurationMillis": 22609,
+  "requestsTotal": 1,
   "requestsWithStatusCode": {
-    "200": 1
+    "200": 6
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\scraper-agent-254.js:467:4": {
+      "missing error code": {
+        "ReferenceError": {
+          "totalPages is not defined": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\scraper-agent-254.js:467:4": {
+      "missing error code": {
+        "ReferenceError": {
+          "totalPages is not defined": {
+            "count": 4
+          }
+        }
+      }
+    }
+  }
 }
