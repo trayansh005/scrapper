@@ -5,7 +5,7 @@ require("dotenv").config(); // Load environment variables from .env file
 const pool = mysql.createPool({
 	host: process.env.DB_HOST,
 	port: Number(process.env.PORT) || 3306,
-	user: process.env.USER,
+	user: process.env.DB_USER || process.env.USER,
 	password: process.env.PASSWORD,
 	database: process.env.DATABASE,
 	waitForConnections: true,
