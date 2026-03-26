@@ -1,8 +1,7 @@
 // Robsons Estate Agents scraper using Playwright with Crawlee
 // Agent ID: 252
 // Company: Robsons Estate Agents
-// Usage:
-// node backend/scraper-agent-252.js
+// Usage: node backend/scraper-agent-252.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
@@ -51,7 +50,6 @@ function sleep(ms) {
 function blockNonEssentialResources(page) {
 	return page.route("**/*", (route) => {
 		const resourceType = route.request().resourceType();
-		// Block only heavy resources, allow scripts and stylesheets that might load listings
 		if (["image", "font", "media"].includes(resourceType)) {
 			return route.abort();
 		}
@@ -71,210 +69,137 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// PROPERTY EXTRACTION FROM DOM
+// IMPROVED PROPERTY EXTRACTION FROM DOM
 // ============================================================================
 
 async function extractPropertiesFromDOM(page) {
 	try {
-		// Set debug flag on page if needed
 		if (process.env.DEBUG_DOM === "1") {
-			await page.evaluate(() => {
-				window.__DEBUG_DOM = "1";
-			});
+			await page.evaluate(() => { window.__DEBUG_DOM = "1"; });
 		}
 
-		// Wait for property listings to be visible
-		await page.waitForSelector("[data-property-id], .property-item, .property-listing, li[class*='property'], article, .result, [class*='listing'], a[href*='/property/']", {
-			timeout: 15000,
-		}).catch(() => null);
-
-		// Debug: Log actual page structure
-		if (process.env.DEBUG_DOM === "1") {
-			console.log("\n[DOM DEBUG] Analyzing page structure...");
-			const structure = await page.evaluate(() => {
-				const divs = Array.from(document.querySelectorAll("div[class*='property'], div[class*='result'], article, div[class*='listing']")).slice(0, 5);
-				return divs.map((el, i) => ({
-					index: i,
-					tagName: el.tagName,
-					classes: el.className,
-					text: el.textContent.substring(0, 100),
-					html: el.innerHTML.substring(0, 200)
-				}));
-			});
-			console.log("Top containers found:", JSON.stringify(structure, null, 2));
-		}
+		// Wait for listings
+		await page.waitForSelector('a[href*="/property/"]', { timeout: 15000 }).catch(() => null);
 
 		const properties = await page.evaluate(() => {
-			try {
-				const results = [];
-				const seenLinks = new Set();
+			const results = [];
+			const seenLinks = new Set();
 
-				// Robsons-specific: Look for actual property cards/containers
-				// They typically use specific class names or data attributes
-				const propertyElements = Array.from(
-					document.querySelectorAll(
-						"a[href*='/property/'], [data-property], [class*='property-card'], [class*='search-result'], .result-item, li[class*='result']"
-					)
-				).filter((el) => {
-					// Get the link - could be the element itself or within it
-					const link = el.tagName === 'A' ? el.getAttribute("href") : el.querySelector("a")?.getAttribute("href");
-					return link && /\/property\//.test(link);
-				});
+			// More targeted: Get all property links first
+			const linkElements = Array.from(
+				document.querySelectorAll('a[href*="/property/"]')
+			).filter(el => {
+				const href = el.getAttribute("href");
+				return href && /\/property\/[a-z0-9-]+\/?$/.test(href);
+			});
+
+			if (window.__DEBUG_DOM === "1") {
+				console.log(`[CLIENT] Found ${linkElements.length} potential property links`);
+			}
+
+			for (const linkEl of linkElements) {
+				let link = linkEl.getAttribute("href");
+				if (!link) continue;
+
+				if (!link.startsWith("http")) {
+					link = new URL(link, window.location.origin).href;
+				}
+
+				if (seenLinks.has(link)) continue;
+				seenLinks.add(link);
+
+				// Find the best container (property card)
+				let container = linkEl.closest('div[class*="card"], div[class*="property"], article, li, section') || 
+				                linkEl.parentElement;
+
+				// Walk up to find rich content container
+				for (let i = 0; i < 6; i++) {
+					if (!container) break;
+					const textLen = (container.textContent || "").length;
+					if (textLen > 180 && textLen < 4000) {
+						// Prefer container that has price or bedroom info
+						if (/£|\d+\s*bedroom|guide price|pcm/i.test(container.textContent)) {
+							break;
+						}
+					}
+					container = container.parentElement;
+				}
+
+				if (!container) container = linkEl;
+
+				const containerText = container.textContent || "";
+
+				// Skip noise (privacy banner, etc.)
+				if (/we value your privacy|cookie policy|consent/i.test(containerText)) {
+					continue;
+				}
+
+				// ===== TITLE EXTRACTION =====
+				let title = "Property";
+				const titleSelectors = ['h1', 'h2', 'h3', '[class*="title"]', '[class*="address"]', 'strong'];
+				
+				for (const sel of titleSelectors) {
+					const el = container.querySelector(sel);
+					if (el && el.textContent.trim().length > 5) {
+						title = el.textContent.trim();
+						break;
+					}
+				}
+
+				// Fallback from URL slug
+				if (title === "Property" || title.length < 8) {
+					const slug = link.split('/').filter(p => p.length > 3).pop() || "";
+					title = slug.replace(/-/g, ' ')
+					           .replace(/\b\w/g, c => c.toUpperCase());
+				}
+
+				// ===== PRICE EXTRACTION =====
+				let price = null;
+				let priceRaw = "";
+
+				const priceMatch = containerText.match(/£\s*([\d,]+)(?:\s*(?:guide price|pcm|per month|pw))?/i);
+				if (priceMatch) {
+					priceRaw = priceMatch[0];
+					const numStr = priceMatch[1].replace(/,/g, '');
+					price = parseInt(numStr, 10);
+				}
+
+				// ===== BEDROOMS EXTRACTION =====
+				let bedrooms = null;
+				const bedMatch = containerText.match(/(\d+)\s*(?:bed|bedroom|bedrooms)\b/i);
+				if (bedMatch) {
+					const num = parseInt(bedMatch[1], 10);
+					if (num >= 1 && num <= 15) bedrooms = num;
+				}
+
+				// ===== STATUS EXTRACTION =====
+				let statusText = "";
+				const statusMatch = containerText.match(/(sold|let agreed|under offer|sold stc|let|reserved)/i);
+				if (statusMatch) {
+					statusText = statusMatch[1].toLowerCase();
+				}
 
 				if (window.__DEBUG_DOM === "1") {
-					console.log(`[CLIENT] Found ${propertyElements.length} property elements`);
-					propertyElements.slice(0, 3).forEach((el, i) => {
-						const link = el.tagName === 'A' ? el.getAttribute("href") : el.querySelector("a")?.getAttribute("href");
-						console.log(`  [#${i+1}] Link: ${link}, Container text length: ${el.textContent.length}, Classes: ${el.className}`);
-					});
+					console.log(`  Property: ${title.substring(0, 40)} | Price: ${priceRaw || 'N/A'} | Beds: ${bedrooms || 'N/A'}`);
 				}
 
-				for (const element of propertyElements) {
-					// Get the link
-					let link = element.tagName === 'A' 
-						? element.getAttribute("href") 
-						: element.querySelector("a")?.getAttribute("href");
-					
-					if (!link) continue;
-
-					// Ensure absolute URL
-					if (!link.startsWith("http")) {
-						link = new URL(link, window.location.origin).href;
-					}
-
-					if (seenLinks.has(link)) continue;
-					seenLinks.add(link);
-
-					// Find the closest container that holds the property info
-					let container = element.tagName === 'A' ? element : element.querySelector("a");
-					if (!container) container = element;
-					
-					for (let i = 0; i < 6; i++) {
-						if (!container) break;
-						const textLen = (container.textContent || "").length;
-						// Containers should be 150-3000 chars (not too small like privacy notices)
-						if (textLen > 150 && textLen < 3000) break;
-						container = container.parentElement;
-					}
-
-					if (!container) continue;
-
-					const containerText = container.textContent || "";
-					
-					// Skip privacy notices and other non-property content
-					if (containerText.includes("We value your privacy") || containerText.includes("cookie policy")) {
-						continue;
-					}
-
-					// ===== TITLE EXTRACTION =====
-					// Try multiple strategies for title
-					let title = "Property";
-					
-					// Strategy 1: Look for h2, h3 with address-like content
-					let titleEl = container.querySelector("h2, h3, [class*='title'], [class*='address'], .property-title");
-					if (titleEl && titleEl.textContent.length > 3 && titleEl.textContent.length < 200) {
-						title = titleEl.textContent.trim();
-					} else {
-						// Strategy 2: Extract from link href or first significant text
-						const linkText = link.split('/').filter(p => p.length > 2).join(', ');
-						if (linkText) title = linkText.replace(/-/g, ' ');
-					}
-
-					// ===== PRICE EXTRACTION =====
-					let price = null;
-					const pricePatterns = [
-						/£\s*([\d,]+)(?:\s*(?:pcm|per month))?/i,  // £250,000 or £1,500 pcm
-						/(\d+(?:,\d{3})*)\s*(?:pcm|per month)\b/i,  // 1,500 pcm
-					];
-
-					let priceRaw = "";
-					// Search in entire container but prefer smaller price elements
-					const priceEls = Array.from(container.querySelectorAll("*")).filter(el => {
-						const text = el.textContent || "";
-						return /£|pcm|per month/.test(text) && text.length < 100;
-					});
-
-					for (const priceEl of priceEls) {
-						const text = priceEl.textContent;
-						for (const pattern of pricePatterns) {
-							const match = text.match(pattern);
-							if (match) {
-								priceRaw = match[0];
-								price = parseInt(match[1].replace(/,/g, ""), 10);
-								if (!isNaN(price) && price > 100) break;  // Minimum £100
-							}
-						}
-						if (price) break;
-					}
-
-					// ===== BEDROOM EXTRACTION =====
-					let bedrooms = null;
-					const bedroomEls = Array.from(container.querySelectorAll("*")).filter(el => {
-						const text = (el.textContent || "").toLowerCase();
-						return /\d+\s*(?:bed|bedroom)/.test(text) && text.length < 100;
-					});
-
-					for (const bedEl of bedroomEls) {
-						const text = bedEl.textContent;
-						const match = text.match(/(\d+)\s*(?:bed|bedroom|bedrooms)\b/i);
-						if (match) {
-							const num = parseInt(match[1], 10);
-							if (num >= 1 && num <= 15) {
-								bedrooms = num;
-								break;
-							}
-						}
-					}
-
-					// ===== STATUS EXTRACTION =====
-					let statusText = "";
-					const statusEl = container.querySelector("[class*='status'], [class*='badge'], .tag, .label");
-					if (statusEl) {
-						statusText = statusEl.textContent.trim().toLowerCase();
-					}
-
-					// If no status element, check text for keywords
-					if (!statusText && containerText) {
-						if (/sold|let agreed|under offer/i.test(containerText)) {
-							const match = containerText.match(/(sold|let agreed|under offer)/i);
-							if (match) statusText = match[1].toLowerCase();
-						}
-					}
-
-					if (window.__DEBUG_DOM === "1") {
-						console.log(`  Property: ${title.substring(0, 30)} | Price: ${priceRaw} | Beds: ${bedrooms}`);
-					}
-
-					results.push({
-						link,
-						title: title.replace(/\s+/g, " ").trim(),
-						priceRaw,
-						price,
-						bedrooms,
-						statusText,
-					});
-				}
-
-				// Remove duplicates
-				const uniqueResults = [];
-				const seen = new Set();
-				for (const result of results) {
-					if (!seen.has(result.link)) {
-						seen.add(result.link);
-						uniqueResults.push(result);
-					}
-				}
-
-				return uniqueResults;
-			} catch (e) {
-				console.error("DOM extraction error:", e);
-				return [];
+				results.push({
+					link,
+					title: title.replace(/\s+/g, " ").trim(),
+					priceRaw,
+					price,
+					bedrooms,
+					statusText,
+				});
 			}
+
+			// Remove any duplicates
+			return results.filter((v, i, a) => a.findIndex(t => t.link === v.link) === i);
 		});
 
 		return properties;
 	} catch (err) {
-		logger.error(`Failed to extract properties: ${err.message}`, "", "");
+		logger.error(`Failed to extract properties: ${err.message}`);
 		return [];
 	}
 }
@@ -287,22 +212,12 @@ async function fetchDetailPageHtml(browserPage, propertyUrl) {
 	const detailPage = await browserPage.context().newPage();
 	try {
 		await blockNonEssentialResources(detailPage);
-		await detailPage.goto(propertyUrl, {
-			waitUntil: "networkidle",
-			timeout: 30000,
-		});
+		await detailPage.goto(propertyUrl, { waitUntil: "networkidle", timeout: 30000 });
+		await new Promise(r => setTimeout(r, 1200));
 
-		// Wait for page to load
-		await new Promise((r) => setTimeout(r, 1500));
-
-		const html = await detailPage.content();
-		if (process.env.DEBUG_DETAIL === "1") {
-			logger.step(`[Detail] Fetched ${propertyUrl.substring(0, 50)}, size: ${html.length}`);
-		}
-
-		return html;
+		return await detailPage.content();
 	} catch (err) {
-		logger.error(`Error fetching detail page: ${err.message}`, "", "");
+		logger.error(`Error fetching detail page: ${err.message}`);
 		return null;
 	} finally {
 		await detailPage.close().catch(() => null);
@@ -317,63 +232,42 @@ async function handleListingPage({ page, request, crawler }) {
 	const { pageNum, isRental, label, baseUrl } = request.userData;
 	logger.page(pageNum, label, request.url);
 
-	// Extract properties from DOM
 	const properties = await extractPropertiesFromDOM(page);
 	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
 	let processedCount = 0;
 	let skippedCount = 0;
 
-	// Process each property
-	for (let propIdx = 0; propIdx < properties.length; propIdx++) {
-		const property = properties[propIdx];
-
+	for (const property of properties) {
 		if (!property.link) {
 			skippedCount++;
 			continue;
 		}
 
-		const statusText = (property.statusText || "").trim().toLowerCase();
+		const statusText = (property.statusText || "").toLowerCase();
 		const price = property.price || parsePrice(property.priceRaw);
 
-		// Skip sold / under offer / let agreed properties
+		// Skip sold/let agreed properties
 		if (statusText && isSoldProperty(statusText)) {
-			logger.property(
-				pageNum,
-				label,
-				property.title?.substring(0, 40) || "N/A",
-				price ? formatPriceDisplay(price, isRental) : "N/A",
-				property.link,
-				isRental,
-				"SKIPPED"
-			);
+			logger.property(pageNum, label, property.title?.substring(0, 40) || "N/A",
+				price ? formatPriceDisplay(price, isRental) : "N/A", property.link, isRental, "SKIPPED");
 			skippedCount++;
 			continue;
 		}
 
-		// Skip if already processed in this run
 		if (processedUrls.has(property.link)) {
 			skippedCount++;
 			continue;
 		}
 		processedUrls.add(property.link);
 
-		// Skip if no price found
-		if (!price || price <= 0) {
-			logger.property(
-				pageNum,
-				label,
-				property.title?.substring(0, 40) || "N/A",
-				"N/A",
-				property.link,
-				isRental,
-				"SKIPPED"
-			);
+		if (!price || price <= 100) {
+			logger.property(pageNum, label, property.title?.substring(0, 40) || "N/A", "N/A", property.link, isRental, "SKIPPED");
 			skippedCount++;
 			continue;
 		}
 
-		// ===== UPDATE OR CREATE IN DB =====
+		// Update or create in DB
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
 			price,
@@ -391,15 +285,10 @@ async function handleListingPage({ page, request, crawler }) {
 		}
 
 		if (!result.isExisting && !result.error) {
-			let detailHtml = null;
+			const detailHtml = await fetchDetailPageHtml(page, property.link);
 
-			// Fetch detail page to extract coordinates
-			logger.page(pageNum, label, `[Detail] Fetching coordinates for ${property.title?.substring(0, 30)}`);
-			detailHtml = await fetchDetailPageHtml(page, property.link.trim());
-
-			// Process with coordinates extraction
 			const extractedCoords = await processPropertyWithCoordinates(
-				property.link.trim(),
+				property.link,
 				price,
 				property.title,
 				property.bedrooms,
@@ -418,8 +307,7 @@ async function handleListingPage({ page, request, crawler }) {
 			propertyAction = "CREATED";
 
 			logger.property(
-				pageNum,
-				label,
+				pageNum, label,
 				property.title?.substring(0, 40) || "N/A",
 				formatPriceDisplay(price, isRental),
 				property.link,
@@ -429,50 +317,40 @@ async function handleListingPage({ page, request, crawler }) {
 				extractedCoords?.longitude || null
 			);
 
-			if (propertyAction !== "UNCHANGED") {
-				await sleep(500);
-			}
-
 			processedCount++;
+			await sleep(600);
 		} else if (result.error) {
 			propertyAction = "ERROR";
-			logger.property(
-				pageNum,
-				label,
-				property.title?.substring(0, 40) || "N/A",
-				formatPriceDisplay(price, isRental),
-				property.link,
-				isRental,
-				propertyAction
-			);
+			logger.property(pageNum, label, property.title?.substring(0, 40) || "N/A",
+				formatPriceDisplay(price, isRental), property.link, isRental, "ERROR");
 		} else {
-			logger.property(
-				pageNum,
-				label,
-				property.title?.substring(0, 40) || "N/A",
-				formatPriceDisplay(price, isRental),
-				property.link,
-				isRental,
-				propertyAction
-			);
+			logger.property(pageNum, label, property.title?.substring(0, 40) || "N/A",
+				formatPriceDisplay(price, isRental), property.link, isRental, propertyAction);
 		}
 	}
 
-	if (process.env.DEBUG_EXTRACT === "1") {
-		console.log(`[P${pageNum} SUMMARY] processed=${processedCount}, skipped=${skippedCount}, total=${properties.length}`);
-	}
-
-	// ===== DYNAMIC PAGINATION =====
+	// ==================== DYNAMIC PAGINATION (Fixed) ====================
 	if (properties.length > 0) {
 		const nextPageNum = pageNum + 1;
-		const separator = baseUrl.includes("?") ? "&" : "?";
-		const nextPageUrl = `${baseUrl}${separator}page=${nextPageNum}`;
+
+		// Robsons uses clean path pagination: /search-results/page/2/
+		let nextPageUrl;
+		const urlObj = new URL(baseUrl);
+		const department = urlObj.searchParams.get('department');
+
+		if (baseUrl.includes('/search-results/')) {
+			const basePath = baseUrl.replace(/\/page\/\d+\//, '/').replace(/\/$/, '');
+			nextPageUrl = `${basePath}/page/${nextPageNum}/?department=${department}`;
+		} else {
+			nextPageUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${nextPageNum}`;
+		}
 
 		await crawler.addRequests([{
 			url: nextPageUrl,
 			userData: { pageNum: nextPageNum, isRental, label, baseUrl }
 		}]);
-		logger.page(pageNum, label, `Queued next page (${nextPageNum})`);
+
+		logger.page(pageNum, label, `Queued next page → ${nextPageNum}`);
 	}
 }
 
@@ -483,16 +361,11 @@ async function handleListingPage({ page, request, crawler }) {
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
-		maxRequestRetries: 2,
+		maxRequestRetries: 3,
 		navigationTimeoutSecs: 90,
 		requestHandlerTimeoutSecs: 300,
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
+		preNavigationHooks: [async ({ page }) => { await blockNonEssentialResources(page); }],
 		launchContext: {
-			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -501,7 +374,7 @@ function createCrawler(browserWSEndpoint) {
 		},
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
-			logger.error(`Failed listing page: ${request.url}`, "", "");
+			logger.error(`Failed listing page: ${request.url}`);
 		},
 	});
 }
@@ -525,12 +398,16 @@ async function scrapeRobsonsEstateAgents() {
 
 	const allRequests = [];
 	for (const type of PROPERTY_TYPES) {
-		logger.step(`Queueing ${type.label} (starting page ${startPage} - dynamic pagination)`);
-		const separator = type.baseUrl.includes("?") ? "&" : "?";
-		const pageUrl = startPage > 1 ? `${type.baseUrl}${separator}page=${startPage}` : type.baseUrl;
+		logger.step(`Queueing ${type.label} (starting page ${startPage})`);
+
+		let startUrl = type.baseUrl;
+		if (startPage > 1) {
+			const dept = new URL(type.baseUrl).searchParams.get('department');
+			startUrl = `https://robsonsweb.com/search-results/page/${startPage}/?department=${dept}`;
+		}
 
 		allRequests.push({
-			url: pageUrl,
+			url: startUrl,
 			userData: {
 				pageNum: startPage,
 				isRental: type.isRental,
@@ -542,20 +419,14 @@ async function scrapeRobsonsEstateAgents() {
 
 	if (allRequests.length > 0) {
 		await crawler.run(allRequests);
-	} else {
-		logger.warn("No requests to process.", "", "");
 	}
 
-	logger.step(
-		`Completed Robsons Estate Agents - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`
-	);
-	logger.step(`Breakdown - SALES: ${counts.savedSales}, LETTINGS: ${counts.savedRentals}`);
+	logger.step(`Completed Robsons Estate Agents - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`);
+	logger.step(`Breakdown → SALES: ${counts.savedSales} | LETTINGS: ${counts.savedRentals}`);
 
 	if (!isPartialRun) {
 		logger.step("Updating remove status...");
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
-	} else {
-		logger.warn("Partial run detected. Skipping updateRemoveStatus.", "", "");
 	}
 }
 
@@ -569,7 +440,7 @@ async function scrapeRobsonsEstateAgents() {
 		logger.step("All done!");
 		process.exit(0);
 	} catch (err) {
-		logger.error("Fatal error", err, "");
+		logger.error("Fatal error", err);
 		process.exit(1);
 	}
 })();
