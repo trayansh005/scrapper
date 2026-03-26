@@ -76,28 +76,65 @@ function getBrowserlessEndpoint() {
 
 async function extractPropertiesFromDOM(page) {
 	try {
+		// Set debug flag on page if needed
+		if (process.env.DEBUG_DOM === "1") {
+			await page.evaluate(() => {
+				window.__DEBUG_DOM = "1";
+			});
+		}
+
 		// Wait for property listings to be visible
-		await page.waitForSelector("[data-property-id], .property-item, .property-listing, li[class*='property']", {
+		await page.waitForSelector("[data-property-id], .property-item, .property-listing, li[class*='property'], article, .result, [class*='listing'], a[href*='/property/']", {
 			timeout: 15000,
 		}).catch(() => null);
+
+		// Debug: Log actual page structure
+		if (process.env.DEBUG_DOM === "1") {
+			console.log("\n[DOM DEBUG] Analyzing page structure...");
+			const structure = await page.evaluate(() => {
+				const divs = Array.from(document.querySelectorAll("div[class*='property'], div[class*='result'], article, div[class*='listing']")).slice(0, 5);
+				return divs.map((el, i) => ({
+					index: i,
+					tagName: el.tagName,
+					classes: el.className,
+					text: el.textContent.substring(0, 100),
+					html: el.innerHTML.substring(0, 200)
+				}));
+			});
+			console.log("Top containers found:", JSON.stringify(structure, null, 2));
+		}
 
 		const properties = await page.evaluate(() => {
 			try {
 				const results = [];
 				const seenLinks = new Set();
 
-				// Strategy 1: Look for data-property-id or class-based selectors
+				// Robsons-specific: Look for actual property cards/containers
+				// They typically use specific class names or data attributes
 				const propertyElements = Array.from(
 					document.querySelectorAll(
-						"[data-property-id], .property-item, .property-listing, li[class*='property'], a[href*='/property/'], a[href*='/properties/']"
+						"a[href*='/property/'], [data-property], [class*='property-card'], [class*='search-result'], .result-item, li[class*='result']"
 					)
 				).filter((el) => {
-					const link = el.getAttribute("href") || el.querySelector("a")?.getAttribute("href");
-					return link && (link.includes("/property/") || link.includes("/properties/"));
+					// Get the link - could be the element itself or within it
+					const link = el.tagName === 'A' ? el.getAttribute("href") : el.querySelector("a")?.getAttribute("href");
+					return link && /\/property\//.test(link);
 				});
 
+				if (window.__DEBUG_DOM === "1") {
+					console.log(`[CLIENT] Found ${propertyElements.length} property elements`);
+					propertyElements.slice(0, 3).forEach((el, i) => {
+						const link = el.tagName === 'A' ? el.getAttribute("href") : el.querySelector("a")?.getAttribute("href");
+						console.log(`  [#${i+1}] Link: ${link}, Container text length: ${el.textContent.length}, Classes: ${el.className}`);
+					});
+				}
+
 				for (const element of propertyElements) {
-					let link = element.getAttribute("href") || element.querySelector("a")?.getAttribute("href");
+					// Get the link
+					let link = element.tagName === 'A' 
+						? element.getAttribute("href") 
+						: element.querySelector("a")?.getAttribute("href");
+					
 					if (!link) continue;
 
 					// Ensure absolute URL
@@ -109,53 +146,77 @@ async function extractPropertiesFromDOM(page) {
 					seenLinks.add(link);
 
 					// Find the closest container that holds the property info
-					let container = element;
-					for (let i = 0; i < 8; i++) {
+					let container = element.tagName === 'A' ? element : element.querySelector("a");
+					if (!container) container = element;
+					
+					for (let i = 0; i < 6; i++) {
 						if (!container) break;
 						const textLen = (container.textContent || "").length;
-						if (textLen > 200 && textLen < 2000) break;
+						// Containers should be 150-3000 chars (not too small like privacy notices)
+						if (textLen > 150 && textLen < 3000) break;
 						container = container.parentElement;
 					}
 
 					if (!container) continue;
 
 					const containerText = container.textContent || "";
+					
+					// Skip privacy notices and other non-property content
+					if (containerText.includes("We value your privacy") || containerText.includes("cookie policy")) {
+						continue;
+					}
 
 					// ===== TITLE EXTRACTION =====
+					// Try multiple strategies for title
 					let title = "Property";
-					const titleEl = container.querySelector("h1, h2, h3, .property-title, .address, [class*='title']");
-					if (titleEl) {
+					
+					// Strategy 1: Look for h2, h3 with address-like content
+					let titleEl = container.querySelector("h2, h3, [class*='title'], [class*='address'], .property-title");
+					if (titleEl && titleEl.textContent.length > 3 && titleEl.textContent.length < 200) {
 						title = titleEl.textContent.trim();
+					} else {
+						// Strategy 2: Extract from link href or first significant text
+						const linkText = link.split('/').filter(p => p.length > 2).join(', ');
+						if (linkText) title = linkText.replace(/-/g, ' ');
 					}
 
 					// ===== PRICE EXTRACTION =====
 					let price = null;
 					const pricePatterns = [
-						/£([\d,]+)/,  // Format: £250,000
-						/(\d+(?:,\d{3})*)\s*(?:pcm|per month)/i,  // Format: 1,500 pcm
-						/£\s*([\d,]+)\s*(?:pcm|per month)?/i,  // Format: £1,500 or £1,500 pcm
+						/£\s*([\d,]+)(?:\s*(?:pcm|per month))?/i,  // £250,000 or £1,500 pcm
+						/(\d+(?:,\d{3})*)\s*(?:pcm|per month)\b/i,  // 1,500 pcm
 					];
 
 					let priceRaw = "";
-					for (const pattern of pricePatterns) {
-						const match = containerText.match(pattern);
-						if (match) {
-							priceRaw = match[0];
-							price = parseInt(match[1].replace(/,/g, ""), 10);
-							if (!isNaN(price) && price > 0) break;
+					// Search in entire container but prefer smaller price elements
+					const priceEls = Array.from(container.querySelectorAll("*")).filter(el => {
+						const text = el.textContent || "";
+						return /£|pcm|per month/.test(text) && text.length < 100;
+					});
+
+					for (const priceEl of priceEls) {
+						const text = priceEl.textContent;
+						for (const pattern of pricePatterns) {
+							const match = text.match(pattern);
+							if (match) {
+								priceRaw = match[0];
+								price = parseInt(match[1].replace(/,/g, ""), 10);
+								if (!isNaN(price) && price > 100) break;  // Minimum £100
+							}
 						}
+						if (price) break;
 					}
 
 					// ===== BEDROOM EXTRACTION =====
 					let bedrooms = null;
-					const bedroomPatterns = [
-						/(\d+)\s*(?:bed|bedroom|bedrooms)\b/i,
-						/(\d+)\s*bed\b/i,
-						/bed[^0-9]*(\d+)/i,
-					];
+					const bedroomEls = Array.from(container.querySelectorAll("*")).filter(el => {
+						const text = (el.textContent || "").toLowerCase();
+						return /\d+\s*(?:bed|bedroom)/.test(text) && text.length < 100;
+					});
 
-					for (const pattern of bedroomPatterns) {
-						const match = containerText.match(pattern);
+					for (const bedEl of bedroomEls) {
+						const text = bedEl.textContent;
+						const match = text.match(/(\d+)\s*(?:bed|bedroom|bedrooms)\b/i);
 						if (match) {
 							const num = parseInt(match[1], 10);
 							if (num >= 1 && num <= 15) {
@@ -174,9 +235,14 @@ async function extractPropertiesFromDOM(page) {
 
 					// If no status element, check text for keywords
 					if (!statusText && containerText) {
-						if (containerText.toLowerCase().includes("sold")) statusText = "sold";
-						else if (containerText.toLowerCase().includes("under offer")) statusText = "under offer";
-						else if (containerText.toLowerCase().includes("let agreed")) statusText = "let agreed";
+						if (/sold|let agreed|under offer/i.test(containerText)) {
+							const match = containerText.match(/(sold|let agreed|under offer)/i);
+							if (match) statusText = match[1].toLowerCase();
+						}
+					}
+
+					if (window.__DEBUG_DOM === "1") {
+						console.log(`  Property: ${title.substring(0, 30)} | Price: ${priceRaw} | Beds: ${bedrooms}`);
 					}
 
 					results.push({
