@@ -366,15 +366,27 @@ async function handleListingPage({ page, request, crawler }) {
 	}
 
 	logger.page(pageNum, label, `Found ${properties.length} properties`);
+	
+	let processedCount = 0;
+	let skippedCount = 0;
 
 	// Process each property
-	for (const property of properties) {
-		if (!property.link) continue;
+	for (let propIdx = 0; propIdx < properties.length; propIdx++) {
+		const property = properties[propIdx];
+		if (!property.link) {
+			if (process.env.DEBUG_AGENT === "1") logger.warn("Property missing link", pageNum, label);
+			skippedCount++;
+			continue;
+		}
 
 		const statusText = (property.status || property.statusText || "").trim().toLowerCase();
 		const price = typeof property.price === "number"
 			? property.price
 			: parsePrice(property.priceRaw);
+
+		if (process.env.DEBUG_EXTRACT === "1" || pageNum >= 2) {
+			console.log(`[P${pageNum}#${propIdx+1}] title="${property.title?.slice(0,20)}" priceRaw="${property.priceRaw}" price=${price} statusText="${statusText}"`);
+		}
 
 		// Final validation for bedrooms
 		let bedrooms = property.bedrooms;
@@ -391,16 +403,27 @@ async function handleListingPage({ page, request, crawler }) {
 			logger.property(pageNum, label, property.title?.substring(0, 40),
 				price ? formatPriceDisplay(price, isRental) : "N/A",
 				property.link, isRental, "SKIPPED");
+			skippedCount++;
 			continue;
 		}
 
-		if (processedUrls.has(property.link)) continue;
+		if (processedUrls.has(property.link)) {
+			if (process.env.DEBUG_EXTRACT === "1") console.log(`  → SKIP: already processed`);
+			skippedCount++;
+			continue;
+		}
 		processedUrls.add(property.link);
 
 		if (!price) {
-			logger.page(pageNum, label, `Skipped: No price found - ${property.title?.substring(0, 40)}`);
+			logger.property(pageNum, label, property.title?.substring(0, 40),
+				price ? formatPriceDisplay(price, isRental) : "N/A",
+				property.link, isRental, "SKIPPED");
+			if (process.env.DEBUG_EXTRACT === "1") console.log(`  → SKIP: no price (priceRaw was "${property.priceRaw}")`);
+			skippedCount++;
 			continue;
 		}
+		
+		processedCount++;
 
 		// === Update or Create in DB ===
 		const result = await updatePriceByPropertyURLOptimized(
@@ -475,6 +498,11 @@ async function handleListingPage({ page, request, crawler }) {
 		if (propertyAction !== "UNCHANGED") {
 			await sleep(500);
 		}
+	}
+
+	// Page summary
+	if (process.env.DEBUG_EXTRACT === "1" || pageNum >= 2) {
+		console.log(`[P${pageNum} SUMMARY] processed=${processedCount}, skipped=${skippedCount}, total=${properties.length}`);
 	}
 
 	// Dynamic pagination
