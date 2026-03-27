@@ -1,0 +1,9 @@
+{
+	"id": "9s4duCfNJ7c9GUq",
+	"json": "{\"id\":\"9s4duCfNJ7c9GUq\",\"url\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"loadedUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"uniqueKey\":\"https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: requestHandler timed out after 180 seconds.\\n    at Timeout._onTimeout (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:64:68)\\n    at listOnTimeout (node:internal/timers:573:17)\\n    at process.processTimers (node:internal/timers:514:7)\"],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":true,\"label\":\"RENTALS\",\"baseUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"totalPages\":20,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-27T12:11:48.848Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 1,
+	"uniqueKey": "https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&type=",
+	"url": "https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true"
+}

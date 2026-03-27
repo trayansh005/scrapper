@@ -1,0 +1,9 @@
+{
+	"id": "itNEp35orkftgBi",
+	"json": "{\"id\":\"itNEp35orkftgBi\",\"url\":\"https://hendricksestateagents.co.uk/listings?viewType=gallery&saleOrRental=Sale&rental_period=week&status=available&page=3\",\"loadedUrl\":\"https://hendricksestateagents.co.uk/listings?viewType=gallery&saleOrRental=Sale&rental_period=week&status=available&page=3\",\"uniqueKey\":\"https://hendricksestateagents.co.uk/listings?page=3&rental_period=week&saleOrRental=Sale&status=available&viewType=gallery\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":10,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-27T10:48:28.424Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://hendricksestateagents.co.uk/listings?page=3&rental_period=week&saleOrRental=Sale&status=available&viewType=gallery",
+	"url": "https://hendricksestateagents.co.uk/listings?viewType=gallery&saleOrRental=Sale&rental_period=week&status=available&page=3"
+}

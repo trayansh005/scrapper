@@ -1,0 +1,40 @@
+{
+  "requestsFinished": 40,
+  "requestsFailed": 0,
+  "requestsRetries": 2,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 8303,
+  "requestMaxDurationMillis": 71869,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 560587,
+  "crawlerStartedAt": "2026-03-27T11:59:32.590Z",
+  "crawlerFinishedAt": "2026-03-27T12:15:09.240Z",
+  "statsPersistedAt": "2026-03-27T12:15:09.241Z",
+  "crawlerRuntimeMillis": 937070,
+  "crawlerLastStartTimestamp": 1774612772171,
+  "requestRetryHistogram": [
+    38,
+    2
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 14015,
+  "requestTotalDurationMillis": 560587,
+  "requestsTotal": 40,
+  "requestsWithStatusCode": {
+    "200": 42
+  },
+  "errors": {},
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 180 seconds.": {
+            "count": 2
+          }
+        }
+      }
+    }
+  }
+}
