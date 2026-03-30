@@ -1,0 +1,9 @@
+{
+	"id": "OxefJbC41s1W26z",
+	"json": "{\"id\":\"OxefJbC41s1W26z\",\"url\":\"https://marriotts.net/property-search/page/5/?address_keyword=&minimum_price=&maximum_price=&minimum_bedrooms=&availability=&minimum_rent=&maximum_rent=&department=residential-lettings\",\"loadedUrl\":\"https://marriotts.net/property-search/page/5/?address_keyword=&minimum_price=&maximum_price=&minimum_bedrooms=&availability=&minimum_rent=&maximum_rent=&department=residential-lettings\",\"uniqueKey\":\"https://marriotts.net/property-search/page/5?address_keyword=&availability=&department=residential-lettings&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":5,\"totalPages\":5,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-30T11:36:14.671Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://marriotts.net/property-search/page/5?address_keyword=&availability=&department=residential-lettings&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=",
+	"url": "https://marriotts.net/property-search/page/5/?address_keyword=&minimum_price=&maximum_price=&minimum_bedrooms=&availability=&minimum_rent=&maximum_rent=&department=residential-lettings"
+}

@@ -1,29 +1,52 @@
 {
-  "requestsFinished": 13,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
-  "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 4084,
-  "requestMaxDurationMillis": 23205,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 234954,
-  "crawlerStartedAt": "2026-03-27T08:10:05.727Z",
-  "crawlerFinishedAt": "2026-03-27T08:14:02.614Z",
-  "statsPersistedAt": "2026-03-27T08:14:02.614Z",
-  "crawlerRuntimeMillis": 237243,
-  "crawlerLastStartTimestamp": 1774599005371,
+  "requestsFinished": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 1,
+  "requestsFailedPerMinute": 4,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 2574,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-30T10:13:39.270Z",
+  "crawlerFinishedAt": "2026-03-30T10:13:53.373Z",
+  "statsPersistedAt": "2026-03-30T10:13:53.373Z",
+  "crawlerRuntimeMillis": 14733,
+  "crawlerLastStartTimestamp": 1774865618640,
   "requestRetryHistogram": [
-    13
+    null,
+    null,
+    null,
+    1
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 18073,
-  "requestTotalDurationMillis": 234954,
-  "requestsTotal": 13,
+  "requestAvgFailedDurationMillis": 2574,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 2574,
+  "requestsTotal": 1,
   "requestsWithStatusCode": {
-    "200": 13
+    "429": 4
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 3
+          }
+        }
+      }
+    }
+  }
 }

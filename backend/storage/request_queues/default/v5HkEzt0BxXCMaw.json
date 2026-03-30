@@ -1,0 +1,9 @@
+{
+	"id": "v5HkEzt0BxXCMaw",
+	"json": "{\"id\":\"v5HkEzt0BxXCMaw\",\"url\":\"https://freeagent247.com/rent-property/?department=residential-lettings&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&availability=4&property_type=&page=1\",\"loadedUrl\":\"https://freeagent247.com/rent-property/?department=residential-lettings&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&availability=4&property_type=&page=1\",\"uniqueKey\":\"https://freeagent247.com/rent-property?availability=4&department=residential-lettings&maximum_price=&maximum_rent=&minimum_price=&minimum_rent=&page=1&property_type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":8,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-30T10:04:23.456Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://freeagent247.com/rent-property?availability=4&department=residential-lettings&maximum_price=&maximum_rent=&minimum_price=&minimum_rent=&page=1&property_type=",
+	"url": "https://freeagent247.com/rent-property/?department=residential-lettings&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&availability=4&property_type=&page=1"
+}

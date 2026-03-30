@@ -1,29 +1,51 @@
 {
-  "requestsFinished": 19,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
-  "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 32,
-  "requestMinDurationMillis": 759,
-  "requestMaxDurationMillis": 13130,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 155617,
-  "crawlerStartedAt": "2026-03-11T09:00:23.269Z",
-  "crawlerFinishedAt": "2026-03-11T09:00:58.378Z",
-  "statsPersistedAt": "2026-03-11T09:00:58.378Z",
-  "crawlerRuntimeMillis": 35249,
-  "crawlerLastStartTimestamp": 1773219623129,
+  "requestsFinished": 0,
+  "requestsFailed": 19,
+  "requestsRetries": 19,
+  "requestsFailedPerMinute": 260,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 2178,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-30T09:07:19.988Z",
+  "crawlerFinishedAt": "2026-03-30T09:07:24.200Z",
+  "statsPersistedAt": "2026-03-30T09:07:24.200Z",
+  "crawlerRuntimeMillis": 4376,
+  "crawlerLastStartTimestamp": 1774861639824,
   "requestRetryHistogram": [
+    null,
+    null,
     19
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 8190,
-  "requestTotalDurationMillis": 155617,
+  "requestAvgFailedDurationMillis": 115,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 2178,
   "requestsTotal": 19,
   "requestsWithStatusCode": {
-    "404": 1
+    "429": 57
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 19
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 38
+          }
+        }
+      }
+    }
+  }
 }
