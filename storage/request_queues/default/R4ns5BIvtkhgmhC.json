@@ -1,0 +1,9 @@
+{
+	"id": "R4ns5BIvtkhgmhC",
+	"json": "{\"id\":\"R4ns5BIvtkhgmhC\",\"url\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true&page=18\",\"uniqueKey\":\"https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&page=18&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":18,\"isRental\":true,\"label\":\"RENTALS\",\"baseUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"totalPages\":20}}",
+	"method": "GET",
+	"orderNo": 1774612722683,
+	"retryCount": 0,
+	"uniqueKey": "https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&page=18&type=",
+	"url": "https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true&page=18"
+}

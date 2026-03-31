@@ -1,30 +1,41 @@
 {
   "requestsFinished": 34,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 8732,
-  "requestMaxDurationMillis": 35258,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 10577,
+  "requestMaxDurationMillis": 45345,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 774444,
-  "crawlerStartedAt": "2026-03-16T05:24:05.935Z",
-  "crawlerFinishedAt": "2026-03-16T05:37:03.318Z",
-  "statsPersistedAt": "2026-03-16T05:37:03.318Z",
-  "crawlerRuntimeMillis": 777644,
-  "crawlerLastStartTimestamp": 1773638645674,
+  "requestTotalFinishedDurationMillis": 821409,
+  "crawlerStartedAt": "2026-03-31T07:56:47.590Z",
+  "crawlerFinishedAt": "2026-03-31T08:34:00.103Z",
+  "statsPersistedAt": "2026-03-31T08:34:00.103Z",
+  "crawlerRuntimeMillis": 2232871,
+  "crawlerLastStartTimestamp": 1774943807232,
   "requestRetryHistogram": [
-    34
+    33,
+    1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 22778,
-  "requestTotalDurationMillis": 774444,
+  "requestAvgFinishedDurationMillis": 24159,
+  "requestTotalDurationMillis": 821409,
   "requestsTotal": 34,
   "requestsWithStatusCode": {
     "200": 20,
-    "404": 14
+    "404": 15
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }

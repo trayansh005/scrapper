@@ -1,0 +1,9 @@
+{
+	"id": "jVEkMX66UXEMX8V",
+	"json": "{\"id\":\"jVEkMX66UXEMX8V\",\"url\":\"https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true&page=20\",\"loadedUrl\":\"https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true&page=20\",\"uniqueKey\":\"https://redacstrattons.com/property-for-sale?exclude_sold=true&location=&max_price=&min_beds=&min_price=&office=&page=20&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":20,\"isRental\":false,\"label\":\"SALES\",\"baseUrl\":\"https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true\",\"totalPages\":20,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-27T12:06:37.610Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://redacstrattons.com/property-for-sale?exclude_sold=true&location=&max_price=&min_beds=&min_price=&office=&page=20&type=",
+	"url": "https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true&page=20"
+}

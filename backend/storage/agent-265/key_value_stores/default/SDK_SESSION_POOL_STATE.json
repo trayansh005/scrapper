@@ -1,0 +1,268 @@
+{
+  "usableSessionsCount": 8,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_kkExpvDDLA",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:13:15.956Z",
+      "createdAt": "2026-03-31T06:23:15.956Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_aDQy8E55dw",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:15:24.337Z",
+      "createdAt": "2026-03-31T06:25:24.337Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_mtyw6SDI2X",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:17:55.994Z",
+      "createdAt": "2026-03-31T06:27:55.994Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Qk32F2XQn7",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:20:49.293Z",
+      "createdAt": "2026-03-31T06:30:49.293Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_gcCZ7CGNb2",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "PHPSESSID",
+            "value": "1bsibuqbs1e4feg5ofkjioimf0",
+            "expires": "2026-03-31T07:21:02.815Z",
+            "domain": "www.hi-residential.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-31T06:31:02.816Z",
+            "lastAccessed": "2026-03-31T06:31:02.816Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.2134284500.1774938657",
+            "expires": "2026-06-29T06:30:57.000Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:31:02.816Z",
+            "lastAccessed": "2026-03-31T06:31:02.816Z"
+          },
+          {
+            "key": "_ga_5WDY2Z2VB1",
+            "value": "GS2.1.s1774938657$o1$g0$t1774938657$j60$l0$h0",
+            "expires": "2027-05-05T06:30:57.841Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:31:02.816Z",
+            "lastAccessed": "2026-03-31T06:31:02.816Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.321270727.1774938658",
+            "expires": "2027-05-05T06:30:57.842Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:31:02.816Z",
+            "lastAccessed": "2026-03-31T06:31:02.816Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1774938658183.22170137554758609",
+            "expires": "2026-06-29T06:30:58.000Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:31:02.817Z",
+            "lastAccessed": "2026-03-31T06:31:02.817Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:20:49.310Z",
+      "createdAt": "2026-03-31T06:30:49.310Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 1
+    },
+    {
+      "id": "session_KxTGyT0I4f",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:23:04.047Z",
+      "createdAt": "2026-03-31T06:33:04.047Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_xFlvLDnGzW",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "PHPSESSID",
+            "value": "es69nrom959f126drtfbq7sl9d",
+            "expires": "2026-03-31T07:23:10.120Z",
+            "domain": "www.hi-residential.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-03-31T06:33:10.120Z",
+            "lastAccessed": "2026-03-31T06:34:36.234Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1774938788443.288973814868141302",
+            "expires": "2026-06-29T06:34:34.000Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:33:10.120Z",
+            "lastAccessed": "2026-03-31T06:34:36.234Z"
+          },
+          {
+            "key": "_ga_5WDY2Z2VB1",
+            "value": "GS2.1.s1774938788$o1$g1$t1774938874$j60$l0$h0",
+            "expires": "2027-05-05T06:34:34.434Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:33:10.120Z",
+            "lastAccessed": "2026-03-31T06:34:36.234Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.444542739.1774938789",
+            "expires": "2027-05-05T06:34:34.434Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:33:10.120Z",
+            "lastAccessed": "2026-03-31T06:34:36.234Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.1844119747.1774938789",
+            "expires": "2026-06-29T06:33:09.000Z",
+            "domain": "hi-residential.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-03-31T06:33:10.120Z",
+            "lastAccessed": "2026-03-31T06:34:36.234Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:23:04.049Z",
+      "createdAt": "2026-03-31T06:33:04.049Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_7na2fxf9jO",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-03-31T07:24:29.879Z",
+      "createdAt": "2026-03-31T06:34:29.879Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}
