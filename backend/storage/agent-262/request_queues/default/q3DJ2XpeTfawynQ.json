@@ -1,0 +1,9 @@
+{
+	"id": "q3DJ2XpeTfawynQ",
+	"json": "{\"id\":\"q3DJ2XpeTfawynQ\",\"url\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true&page=17\",\"loadedUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true&page=17\",\"uniqueKey\":\"https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&page=17&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":17,\"isRental\":true,\"label\":\"RENTALS\",\"baseUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"totalPages\":20,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-27T12:14:37.432Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&page=17&type=",
+	"url": "https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true&page=17"
+}

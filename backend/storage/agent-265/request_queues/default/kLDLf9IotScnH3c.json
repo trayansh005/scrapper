@@ -1,0 +1,9 @@
+{
+	"id": "kLDLf9IotScnH3c",
+	"json": "{\"id\":\"kLDLf9IotScnH3c\",\"url\":\"https://www.hi-residential.com/properties/?department=residential-lettings&officeID=5\",\"loadedUrl\":\"https://www.hi-residential.com/properties/?department=residential-lettings&officeID=5\",\"uniqueKey\":\"https://www.hi-residential.com/properties?department=residential-lettings&officeID=5\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":true,\"label\":\"RENTALS\",\"totalPages\":50,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-31T06:34:29.841Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.hi-residential.com/properties?department=residential-lettings&officeID=5",
+	"url": "https://www.hi-residential.com/properties/?department=residential-lettings&officeID=5"
+}

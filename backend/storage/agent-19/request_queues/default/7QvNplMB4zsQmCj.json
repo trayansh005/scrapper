@@ -1,9 +1,9 @@
 {
 	"id": "7QvNplMB4zsQmCj",
-	"json": "{\"id\":\"7QvNplMB4zsQmCj\",\"url\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-10\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-10\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-10\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":10,\"totalPages\":20,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-16T05:31:15.607Z\"}",
+	"json": "{\"id\":\"7QvNplMB4zsQmCj\",\"url\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-10\",\"loadedUrl\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-10\",\"uniqueKey\":\"https://www.snellers.co.uk/properties/lettings/status-available/page-10\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: requestHandler timed out after 300 seconds.\\n    at Timeout._onTimeout (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:64:68)\\n    at listOnTimeout (node:internal/timers:573:17)\\n    at process.processTimers (node:internal/timers:514:7)\"],\"headers\":{},\"userData\":{\"pageNum\":10,\"totalPages\":20,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-31T08:28:53.429Z\"}",
 	"method": "GET",
 	"orderNo": null,
-	"retryCount": 0,
+	"retryCount": 1,
 	"uniqueKey": "https://www.snellers.co.uk/properties/lettings/status-available/page-10",
 	"url": "https://www.snellers.co.uk/properties/lettings/status-available/page-10"
 }

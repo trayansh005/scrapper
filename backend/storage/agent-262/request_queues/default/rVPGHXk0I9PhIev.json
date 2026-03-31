@@ -1,0 +1,9 @@
+{
+	"id": "rVPGHXk0I9PhIev",
+	"json": "{\"id\":\"rVPGHXk0I9PhIev\",\"url\":\"https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true\",\"loadedUrl\":\"https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true\",\"uniqueKey\":\"https://redacstrattons.com/property-for-sale?exclude_sold=true&location=&max_price=&min_beds=&min_price=&office=&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: requestHandler timed out after 180 seconds.\\n    at Timeout._onTimeout (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:64:68)\\n    at listOnTimeout (node:internal/timers:573:17)\\n    at process.processTimers (node:internal/timers:514:7)\"],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"baseUrl\":\"https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true\",\"totalPages\":20,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-03-27T12:11:40.274Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 1,
+	"uniqueKey": "https://redacstrattons.com/property-for-sale?exclude_sold=true&location=&max_price=&min_beds=&min_price=&office=&type=",
+	"url": "https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true"
+}
