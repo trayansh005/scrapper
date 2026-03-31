@@ -1,0 +1,52 @@
+{
+  "requestsFinished": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 1,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 133532,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-31T06:23:15.162Z",
+  "crawlerFinishedAt": "2026-03-31T06:33:03.103Z",
+  "statsPersistedAt": "2026-03-31T06:33:03.103Z",
+  "crawlerRuntimeMillis": 588138,
+  "crawlerLastStartTimestamp": 1774938194965,
+  "requestRetryHistogram": [
+    null,
+    null,
+    null,
+    1
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": 133532,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 133532,
+  "requestsTotal": 1,
+  "requestsWithStatusCode": {
+    "200": 4
+  },
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 120 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 120 seconds.": {
+            "count": 3
+          }
+        }
+      }
+    }
+  }
+}

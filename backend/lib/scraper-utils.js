@@ -15,9 +15,23 @@ function logMemoryUsage(label) {
  * Block non-essential resources (images, fonts, stylesheets, media) on a page
  * @param {import('playwright').Page} page
  */
-function blockNonEssentialResources(page) {
+// function blockNonEssentialResources(page) {
+// 	return page.route("**/*", (route) => {
+// 		const resourceType = route.request().resourceType();
+// 		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+// 			return route.abort();
+// 		}
+// 		return route.continue();
+// 	});
+// }
+
+function blockNonEssentialResources({ page }) {
+	// 🔴 Safety guard (VERY important)
+	if (!page || typeof page.route !== "function") return;
+
 	return page.route("**/*", (route) => {
 		const resourceType = route.request().resourceType();
+
 		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
 			return route.abort();
 		}
