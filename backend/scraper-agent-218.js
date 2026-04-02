@@ -81,139 +81,249 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
-	const detailPage = await browserContext.newPage();
+    const detailPage = await browserContext.newPage();
 
-	try {
-		await blockNonEssentialResources(detailPage);
+    try {
+        await blockNonEssentialResources(detailPage);
+        await detailPage.goto(property.link, {
+            waitUntil: "domcontentloaded",
+            timeout: 90000,
+        });
+        await detailPage.waitForTimeout(1500);
 
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 90000,
-		});
+        const detailData = await detailPage.evaluate(() => {
+            try {
+                const descriptionEl = document.querySelector(
+                    "#_ctl7_lblPropertyDescription, .propertyDescription"
+                );
+                const description = descriptionEl ? descriptionEl.innerText.trim() : "";
 
-		await detailPage.waitForTimeout(1000);
+                const features = Array.from(
+                    document.querySelectorAll(".bulletPoints li, .propertyBulletPoints li")
+                ).map(li => li.innerText.trim()).filter(t => t);
 
-		const detailData = await detailPage.evaluate(() => {
-			try {
-				const descriptionEl = document.querySelector(
-					"#_ctl7_lblPropertyDescription, .propertyDescription",
-				);
-				const description = descriptionEl ? descriptionEl.innerText.trim() : "";
+                // ✅ FIX 1: Expert Agent stores coords directly in script tags as JS variables
+                // Pattern: var lat = 51.3912; var lng = -0.2841;
+                let latitude = null;
+                let longitude = null;
 
-				const images = Array.from(document.querySelectorAll('a[href*="agencies/"] img'))
-					.map((img) => {
-						const parent = img.parentElement;
-						return parent && parent.href ? parent.href : img.src;
-					})
-					.filter((src) => src && (src.includes("/main/") || src.endsWith(".jpg")));
+                const allScripts = Array.from(document.querySelectorAll('script'));
+                for (const script of allScripts) {
+                    const content = script.textContent || '';
 
-				const floorplans = Array.from(document.querySelectorAll('a[href*="showFloorPlan"]'))
-					.map((a) => {
-						const match = a.getAttribute("href").match(/'([^']+)'\s*,\s*'([^']+)'/);
-						if (match) {
-							return `http://powering2.expertagent.co.uk/Candidate/showFloorPlan.aspx?aid=${match[1]}&pid=${match[2]}`;
-						}
-						return null;
-					})
-					.filter(Boolean);
+                    // Pattern 1: var lat = 51.xxx; var lng = -0.xxx;
+                    const latVarMatch = content.match(/var\s+lat\s*=\s*([-\d.]+)/i);
+                    const lngVarMatch = content.match(/var\s+l(?:ng|on)\s*=\s*([-\d.]+)/i);
+                    if (latVarMatch && lngVarMatch) {
+                        latitude = parseFloat(latVarMatch[1]);
+                        longitude = parseFloat(lngVarMatch[1]);
+                        break;
+                    }
 
-				const features = Array.from(
-					document.querySelectorAll(".bulletPoints li, .propertyBulletPoints li"),
-				)
-					.map((li) => li.innerText.trim())
-					.filter((t) => t);
+                    // Pattern 2: google.maps.LatLng(51.xxx, -0.xxx)
+                    const latlngMatch = content.match(
+                        /google\.maps\.LatLng\s*\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/
+                    );
+                    if (latlngMatch) {
+                        latitude = parseFloat(latlngMatch[1]);
+                        longitude = parseFloat(latlngMatch[2]);
+                        break;
+                    }
 
-				const mapLinkEl = document.querySelector("a[href*='maps.google']");
-				const mapHref = mapLinkEl ? mapLinkEl.getAttribute("href") : "";
-				const mapUrlMatch = mapHref.match(/window\.open\('([^']+)'/);
-				const mapUrl = mapUrlMatch ? mapUrlMatch[1] : mapHref;
+                    // Pattern 3: center: {lat: 51.xxx, lng: -0.xxx}
+                    const centerMatch = content.match(
+                        /center\s*:\s*\{\s*lat\s*:\s*([-\d.]+)\s*,\s*l(?:ng|on)\s*:\s*([-\d.]+)/i
+                    );
+                    if (centerMatch) {
+                        latitude = parseFloat(centerMatch[1]);
+                        longitude = parseFloat(centerMatch[2]);
+                        break;
+                    }
 
-				const latitudeEl = document.querySelector("#hdnLatitude");
-				const longitudeEl = document.querySelector("#hdnLongitude");
-				const latitude = latitudeEl ? parseFloat(latitudeEl.value) : null;
-				const longitude = longitudeEl ? parseFloat(longitudeEl.value) : null;
+                    // Pattern 4: "latitude":51.xxx or latitude: 51.xxx
+                    const jsonLatMatch = content.match(/"?latitude"?\s*:\s*([-\d.]+)/i);
+                    const jsonLngMatch = content.match(/"?longitude"?\s*:\s*([-\d.]+)/i);
+                    if (jsonLatMatch && jsonLngMatch) {
+                        latitude = parseFloat(jsonLatMatch[1]);
+                        longitude = parseFloat(jsonLngMatch[1]);
+                        break;
+                    }
+                }
 
-				return {
-					description,
-					images,
-					floorplans,
-					features,
-					mapUrl,
-					latitude,
-					longitude,
-					html: document.documentElement.innerHTML,
-				};
-			} catch (e) {
-				return { error: e.message };
-			}
-		});
+                // ✅ FIX 2: Also check hidden inputs with broader selectors
+                if (!latitude) {
+                    const hdnLat = document.querySelector(
+                        '#hdnLatitude, input[id*="Latitude"], input[name*="Latitude"], input[id*="lat"], input[name*="lat"]'
+                    );
+                    const hdnLng = document.querySelector(
+                        '#hdnLongitude, input[id*="Longitude"], input[name*="Longitude"], input[id*="lng"], input[name*="lng"]'
+                    );
+                    if (hdnLat && hdnLat.value && parseFloat(hdnLat.value) !== 0) {
+                        latitude = parseFloat(hdnLat.value);
+                        longitude = hdnLng ? parseFloat(hdnLng.value) : null;
+                    }
+                }
 
-		if (detailData.error) {
-			logger.warn(`Error on detail page: ${detailData.error}`);
-			return;
-		}
+                // ✅ FIX 3: Extract map link more reliably
+                // Expert Agent map links look like: propertyMap.aspx?propGuid=xxx
+                // or: showMap.aspx?pid=xxx&aid=xxx
+                let mapPageUrl = null;
+                const mapLinks = Array.from(document.querySelectorAll('a[href*="propertyMap"], a[href*="showMap"], a[href*="maps.google"]'));
+                for (const a of mapLinks) {
+                    const href = a.getAttribute('href') || '';
+                    if (href.includes('propertyMap') || href.includes('showMap')) {
+                        // Relative URL - make absolute
+                        mapPageUrl = href.startsWith('http')
+                            ? href
+                            : new URL(href, window.location.href).href;
+                        break;
+                    }
+                }
 
-		let latitude = detailData.latitude;
-		let longitude = detailData.longitude;
+                // Fallback: extract from onclick/href with window.open pattern
+                if (!mapPageUrl) {
+                    const mapLinkEl = document.querySelector("a[href*='maps.google'], a[onclick*='maps.google'], a[href*='map']");
+                    if (mapLinkEl) {
+                        const href = mapLinkEl.getAttribute('href') || '';
+                        const onclick = mapLinkEl.getAttribute('onclick') || '';
+                        const combined = href + onclick;
+                        const urlMatch = combined.match(/window\.open\s*\(\s*['"]([^'"]+)['"]/);
+                        mapPageUrl = urlMatch ? urlMatch[1] : (href !== '#' ? href : null);
+                    }
+                }
 
-		if (latitude === null || longitude === null) {
-			const coords = await extractCoordinatesFromHTML(detailData.html);
-			latitude = coords.latitude;
-			longitude = coords.longitude;
-		}
+                return {
+                    description,
+                    features,
+                    latitude,
+                    longitude,
+                    mapPageUrl,
+                    pageUrl: window.location.href,
+                    html: document.documentElement.innerHTML,
+                };
+            } catch (e) {
+                return { error: e.message };
+            }
+        });
 
-		if ((latitude === null || longitude === null) && detailData.mapUrl) {
-			let mapPage;
-			try {
-				mapPage = await browserContext.newPage();
-				await blockNonEssentialResources(mapPage);
+        if (detailData.error) {
+            logger.error(`Detail page eval error: ${detailData.error}`);
+            return;
+        }
 
-				await mapPage.goto(detailData.mapUrl, {
-					waitUntil: "domcontentloaded",
-					timeout: 45000,
-				});
+        let latitude = detailData.latitude;
+        let longitude = detailData.longitude;
 
-				try {
-					await mapPage.waitForURL(/(@-?\d+\.\d+,-?\d+\.\d+|!3d-?\d+\.\d+!4d-?\d+\.\d+)/, {
-						timeout: 10000,
-					});
-				} catch (e) {
-					// Ignore and fall back to whatever URL we have
-				}
+        // ✅ FIX 4: Try propertyMap.aspx page - Expert Agent embeds coords here
+        if ((!latitude || !longitude) && detailData.mapPageUrl) {
+            let mapPage;
+            try {
+                mapPage = await browserContext.newPage();
+                await blockNonEssentialResources(mapPage);
 
-				const finalUrl = mapPage.url();
-				const coords = extractLatLngFromGoogleUrl(finalUrl);
-				if (coords.latitude !== null && coords.longitude !== null) {
-					latitude = coords.latitude;
-					longitude = coords.longitude;
-				}
-			} catch (err) {
-				logger.warn(`Map lookup failed: ${err?.message || err}`);
-			} finally {
-				if (mapPage) await mapPage.close();
-			}
-		}
+                logger.step(`Fetching map page: ${detailData.mapPageUrl}`);
+                await mapPage.goto(detailData.mapPageUrl, {
+                    waitUntil: "domcontentloaded",
+                    timeout: 30000,
+                });
+                await mapPage.waitForTimeout(2000);
 
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms,
-			AGENT_ID,
-			isRental,
-			detailData.html,
-			latitude,
-			longitude,
-		);
+                // ✅ Extract from the map page itself (Expert Agent map pages have coords in JS)
+                const mapCoords = await mapPage.evaluate(() => {
+                    const allScripts = Array.from(document.querySelectorAll('script'));
+                    for (const script of allScripts) {
+                        const content = script.textContent || '';
 
-		counts.totalSaved++;
-		if (isRental) counts.savedRentals++;
-		else counts.savedSales++;
-	} catch (error) {
-		logger.error(`Error scraping detail page ${property.link}`, error);
-	} finally {
-		await detailPage.close();
-	}
+                        const latVarMatch = content.match(/var\s+lat\s*=\s*([-\d.]+)/i);
+                        const lngVarMatch = content.match(/var\s+l(?:ng|on)\s*=\s*([-\d.]+)/i);
+                        if (latVarMatch && lngVarMatch) {
+                            return { lat: parseFloat(latVarMatch[1]), lng: parseFloat(lngVarMatch[1]) };
+                        }
+
+                        const latlngMatch = content.match(
+                            /google\.maps\.LatLng\s*\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/
+                        );
+                        if (latlngMatch) {
+                            return { lat: parseFloat(latlngMatch[1]), lng: parseFloat(latlngMatch[2]) };
+                        }
+                    }
+
+                    // Also check current URL after any redirects
+                    const url = window.location.href;
+                    const atMatch = url.match(/@([-\d.]+),([-\d.]+)/);
+                    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+
+                    return null;
+                });
+
+                if (mapCoords && mapCoords.lat && mapCoords.lat !== 0) {
+                    latitude = mapCoords.lat;
+                    longitude = mapCoords.lng;
+                    logger.step(`✅ Map page coords: ${latitude}, ${longitude}`);
+                } else {
+                    // ✅ FIX 5: Wait for Google Maps redirect and extract from final URL
+                    try {
+                        await mapPage.waitForURL(
+                            /(@[-\d.]+,[-\d.]+|!3d[-\d.]+!4d[-\d.]+)/,
+                            { timeout: 8000 }
+                        );
+                        const finalUrl = mapPage.url();
+                        const coords = extractLatLngFromGoogleUrl(finalUrl);
+                        if (coords.latitude) {
+                            latitude = coords.latitude;
+                            longitude = coords.longitude;
+                            logger.step(`✅ Google Maps URL coords: ${latitude}, ${longitude}`);
+                        }
+                    } catch (_) {}
+                }
+            } catch (err) {
+                logger.error(`Map page failed: ${err.message}`);
+            } finally {
+                if (mapPage) await mapPage.close().catch(() => {});
+            }
+        }
+
+        // ✅ FIX 6: Last resort - geocode from property title (address)
+        if (!latitude || !longitude) {
+            logger.step(`No coords found for ${property.title} — trying HTML extraction`);
+            const coords = await extractCoordinatesFromHTML(detailData.html);
+            latitude = coords?.latitude || null;
+            longitude = coords?.longitude || null;
+        }
+
+        // Validate UK coords
+        if (latitude && (latitude < 49 || latitude > 61)) {
+            logger.error(`Invalid lat ${latitude} for ${property.title} — discarding`);
+            latitude = null;
+            longitude = null;
+        }
+
+        const coordStatus = latitude
+            ? `Lat: ${latitude.toFixed(5)}, Lng: ${longitude?.toFixed(5)}`
+            : '⚠️ No coords';
+        logger.step(`📍 ${property.title.substring(0, 45)} → ${coordStatus}`);
+
+        await processPropertyWithCoordinates(
+            property.link,
+            property.price,
+            property.title,
+            property.bedrooms,
+            AGENT_ID,
+            isRental,
+            detailData.html,
+            latitude,
+            longitude,
+        );
+
+        counts.totalSaved++;
+        if (isRental) counts.savedRentals++;
+        else counts.savedSales++;
+
+    } catch (error) {
+        logger.error(`Error scraping detail page ${property.link}`, error);
+    } finally {
+        await detailPage.close().catch(() => {});
+    }
 }
 
 // ============================================================================

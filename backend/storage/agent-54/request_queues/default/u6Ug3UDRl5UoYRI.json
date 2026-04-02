@@ -1,8 +1,8 @@
 {
 	"id": "u6Ug3UDRl5UoYRI",
-	"json": "{\"id\":\"u6Ug3UDRl5UoYRI\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-20/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-20\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":20,\"isRental\":true,\"label\":\"RENTALS\"}}",
+	"json": "{\"id\":\"u6Ug3UDRl5UoYRI\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-20/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-20/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-20\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":20,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-01T10:41:54.582Z\"}",
 	"method": "GET",
-	"orderNo": 1774264199487,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.leaders.co.uk/properties/to-rent/page-20",
 	"url": "https://www.leaders.co.uk/properties/to-rent/page-20/"
