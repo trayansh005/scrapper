@@ -53,9 +53,9 @@ async function updatePriceByPropertyURL(
 				// UPDATE existing property for THIS agent
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
-                    SET price = ?, latitude = ?, longitude = ?, remove_status = 0, updated_at = NOW()
+                    SET price = ?, latitude = ?, longitude = ?, bedrooms = ?, remove_status = 0, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
-					[price, latitude, longitude, linkTrimmed, agent_id],
+					[price, latitude, longitude, bedrooms, linkTrimmed, agent_id],
 				);
 
 				if (result.affectedRows > 0) {

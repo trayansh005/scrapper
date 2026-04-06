@@ -20,12 +20,12 @@ const logger = createAgentLogger(AGENT_ID);
 
 const PROPERTY_TYPES = [
 	{
-		baseUrl: "https://robsonsweb.com/search-results/?department=residential-sales",
+		baseUrl: "https://robsonsweb.com/search-results/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=8",
 		isRental: false,
 		label: "SALES",
 	},
 	{
-		baseUrl: "https://robsonsweb.com/search-results/?department=residential-lettings",
+		baseUrl: "https://robsonsweb.com/search-results/?department=residential-lettings&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=14",
 		isRental: true,
 		label: "RENTALS",
 	},
@@ -160,9 +160,9 @@ async function extractPropertiesFromDOM(page) {
 					}
 
 					// ===== STATUS EXTRACTION =====
-					// .property-status contains "For Sale", "Sold STC", "Let Agreed", etc.
+					// .flag contains "For Sale", "Sold STC", "Let Agreed", etc.
 					let statusText = "";
-					const statusEl = card.querySelector(".property-status");
+					const statusEl = card.querySelector(".property-status, .flag, .sticker, .status");
 					if (statusEl) {
 						statusText = statusEl.textContent.trim().toLowerCase();
 					}
@@ -204,7 +204,7 @@ async function fetchDetailPageHtml(browserPage, propertyUrl) {
 	try {
 		await blockNonEssentialResources(detailPage);
 		await detailPage.goto(propertyUrl, {
-			waitUntil: "networkidle",
+			waitUntil: "domcontentloaded",
 			timeout: 30000,
 		});
 
@@ -239,6 +239,7 @@ async function handleListingPage({ page, request, crawler }) {
 
 	let processedCount = 0;
 	let skippedCount = 0;
+	let newPropertiesFound = 0;
 
 	// Process each property
 	for (let propIdx = 0; propIdx < properties.length; propIdx++) {
@@ -248,6 +249,15 @@ async function handleListingPage({ page, request, crawler }) {
 			skippedCount++;
 			continue;
 		}
+
+		// Check for duplicates FIRST to detect infinite pagination loops
+		// where WP returns page 1 results for out-of-bounds page numbers
+		if (processedUrls.has(property.link)) {
+			skippedCount++;
+			continue;
+		}
+		processedUrls.add(property.link);
+		newPropertiesFound++;
 
 		const statusText = (property.statusText || "").trim().toLowerCase();
 		const price = property.price || parsePrice(property.priceRaw);
@@ -266,13 +276,6 @@ async function handleListingPage({ page, request, crawler }) {
 			skippedCount++;
 			continue;
 		}
-
-		// Skip if already processed in this run
-		if (processedUrls.has(property.link)) {
-			skippedCount++;
-			continue;
-		}
-		processedUrls.add(property.link);
 
 		// Skip if no price found
 		if (!price || price <= 0) {
@@ -306,7 +309,7 @@ async function handleListingPage({ page, request, crawler }) {
 			propertyAction = "UPDATED";
 		}
 
-		if (!result.isExisting && !result.error) {
+		if ((!result.isExisting || result.missingData) && !result.error) {
 			let detailHtml = null;
 
 			// Fetch detail page to extract coordinates
@@ -382,7 +385,7 @@ async function handleListingPage({ page, request, crawler }) {
 	// Robsons uses WordPress-style pagination: /page/N/ before the query string
 	// e.g. https://robsonsweb.com/search-results/?department=residential-sales
 	//   -> https://robsonsweb.com/search-results/page/2/?department=residential-sales
-	if (properties.length > 0) {
+	if (properties.length > 0 && newPropertiesFound > 0) {
 		const nextPageNum = pageNum + 1;
 		const urlObj = new URL(baseUrl);
 		const pathBase = urlObj.pathname.replace(/\/$/, ""); // strip trailing slash
