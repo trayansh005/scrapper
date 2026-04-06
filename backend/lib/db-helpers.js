@@ -31,14 +31,17 @@ async function updatePriceByPropertyURLOptimized(
 			const linkTrimmed = link.trim();
 			const formattedPrice = formatPriceUk(price);
 
-			// Check if property exists for THIS agent and get current price
+			// Check if property exists for THIS agent and get current data
 			const [propertiesUrlRows] = await promisePool.query(
-				`SELECT price FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
+				`SELECT price, latitude, longitude, bedrooms FROM ${tableName} WHERE property_url = ? AND agent_id = ?`,
 				[linkTrimmed, agent_id],
 			);
 
 			if (propertiesUrlRows.length > 0) {
-				const currentPrice = propertiesUrlRows[0].price;
+				const row = propertiesUrlRows[0];
+				const currentPrice = row.price;
+				const hasCoords = row.latitude !== null && row.longitude !== null;
+				const hasBedrooms = row.bedrooms !== null && row.bedrooms !== 0;
 
 				// UPDATE existing property - always update updated_at, but only log if price changed
 				const [result] = await promisePool.query(
@@ -53,10 +56,14 @@ async function updatePriceByPropertyURLOptimized(
 						`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Old: £${currentPrice} -> New: £${formattedPrice}`,
 					);
 				}
-				return { isExisting: true, updated: currentPrice !== formattedPrice };
+				return { 
+					isExisting: true, 
+					updated: currentPrice !== formattedPrice,
+					missingData: !hasCoords || !hasBedrooms
+				};
 			} else {
 				// For new properties, we'll need coordinates
-				return { isExisting: false, updated: false };
+				return { isExisting: false, updated: false, missingData: true };
 			}
 		}
 		return { isExisting: false, updated: false };
@@ -115,7 +122,8 @@ async function processPropertyWithCoordinates(
 
 		// If no bedrooms, try to extract from HTML
 		if (finalBedrooms === null || finalBedrooms === undefined || finalBedrooms === "") {
-			finalBedrooms = extractBedroomsFromHTML(html);
+			const textForBedrooms = typeof html === 'string' ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ') : '';
+			finalBedrooms = extractBedroomsFromHTML(textForBedrooms);
 		}
 
 		const formattedPrice = formatPriceUk(price);

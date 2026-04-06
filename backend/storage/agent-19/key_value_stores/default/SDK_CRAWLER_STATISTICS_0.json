@@ -1,38 +1,38 @@
 {
   "requestsFinished": 34,
   "requestsFailed": 0,
-  "requestsRetries": 1,
+  "requestsRetries": 3,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 10577,
-  "requestMaxDurationMillis": 45345,
+  "requestsFinishedPerMinute": 2,
+  "requestMinDurationMillis": 9789,
+  "requestMaxDurationMillis": 38459,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 821409,
-  "crawlerStartedAt": "2026-03-31T07:56:47.590Z",
-  "crawlerFinishedAt": "2026-03-31T08:34:00.103Z",
-  "statsPersistedAt": "2026-03-31T08:34:00.103Z",
-  "crawlerRuntimeMillis": 2232871,
-  "crawlerLastStartTimestamp": 1774943807232,
+  "requestTotalFinishedDurationMillis": 799030,
+  "crawlerStartedAt": "2026-04-03T11:43:31.767Z",
+  "crawlerFinishedAt": "2026-04-03T11:58:00.689Z",
+  "statsPersistedAt": "2026-04-03T11:58:00.689Z",
+  "crawlerRuntimeMillis": 869183,
+  "crawlerLastStartTimestamp": 1775216611506,
   "requestRetryHistogram": [
-    33,
-    1
+    31,
+    3
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 24159,
-  "requestTotalDurationMillis": 821409,
+  "requestAvgFinishedDurationMillis": 23501,
+  "requestTotalDurationMillis": 799030,
   "requestsTotal": 34,
   "requestsWithStatusCode": {
     "200": 20,
-    "404": 15
+    "404": 14
   },
   "errors": {},
   "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
       "missing error code": {
         "Error": {
-          "requestHandler timed out after 300 seconds.": {
-            "count": 1
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 3
           }
         }
       }
