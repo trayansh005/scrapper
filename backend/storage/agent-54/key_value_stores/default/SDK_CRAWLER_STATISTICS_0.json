@@ -1,36 +1,36 @@
 {
-  "requestsFinished": 555,
+  "requestsFinished": 491,
   "requestsFailed": 0,
   "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 5,
-  "requestMinDurationMillis": 4974,
-  "requestMaxDurationMillis": 35980,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 6606,
+  "requestMaxDurationMillis": 104453,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 6851679,
-  "crawlerStartedAt": "2026-04-01T09:48:46.325Z",
-  "crawlerFinishedAt": "2026-04-01T11:44:44.928Z",
-  "statsPersistedAt": "2026-04-01T11:44:44.929Z",
-  "crawlerRuntimeMillis": 6959676,
-  "crawlerLastStartTimestamp": 1775036925253,
+  "requestTotalFinishedDurationMillis": 10045473,
+  "crawlerStartedAt": "2026-04-06T10:38:52.169Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-04-06T13:28:16.517Z",
+  "crawlerRuntimeMillis": 10166094,
+  "crawlerLastStartTimestamp": 1775471930423,
   "requestRetryHistogram": [
-    554,
+    490,
     1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 12345,
-  "requestTotalDurationMillis": 6851679,
-  "requestsTotal": 555,
+  "requestAvgFinishedDurationMillis": 20459,
+  "requestTotalDurationMillis": 10045473,
+  "requestsTotal": 491,
   "requestsWithStatusCode": {
-    "200": 555
+    "200": 493
   },
   "errors": {},
   "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
-      "missing error code": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\db.js:47:50": {
+      "ENETUNREACH": {
         "Error": {
-          "browserController.newPage() failed: O9JQmmdOFJAUbQEw_9apl": {
+          "connect ENETUNREACH 57.129.139.233:3307": {
             "count": 1
           }
         }

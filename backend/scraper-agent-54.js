@@ -20,7 +20,6 @@ const processedUrls = new Set();
 const logger = createAgentLogger(AGENT_ID);
 
 // Configuration for Leaders
-// 211 pages sales, 344 pages rent, total ~1686 sales + 2750 rent properties
 const PROPERTY_TYPES = [
 	{
 		// Sales
@@ -115,6 +114,7 @@ async function scrapeLeaders() {
 			const properties = await page.evaluate(() => {
 				try {
 					const items = Array.from(document.querySelectorAll(".property-card-wrapper"));
+
 					return items
 						.map((el) => {
 							const linkEl = el.querySelector("a[href]");
@@ -130,32 +130,57 @@ async function scrapeLeaders() {
 							const title = el.querySelector(".property-title h2")?.textContent?.trim() || "";
 							const price = el.querySelector(".property-price")?.textContent?.trim() || "";
 
+							// ==================== IMPROVED BEDROOMS EXTRACTION ====================
 							let bedrooms = null;
 
-							const bedEl = el.querySelector("li.list-inline-item");
-							if (bedEl) {
-								const match = bedEl.textContent.match(/\d+/);
-								if (match) bedrooms = parseInt(match[0]);
+							// Strategy 1: Look for elements containing "bed" or "bedroom"
+							const featureItems = el.querySelectorAll('li.list-inline-item, .feature, .spec, span, div');
+
+							for (const item of featureItems) {
+								const text = item.textContent.trim();
+								if (/bed/i.test(text)) {
+									const match = text.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+									if (match) {
+										bedrooms = parseInt(match[1]);
+										break;
+									}
+								}
+							}
+
+							// Strategy 2: Fallback - search entire card text
+							if (!bedrooms) {
+								const fullText = el.textContent || "";
+								const match = fullText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+								if (match) {
+									bedrooms = parseInt(match[1]);
+								}
+							}
+
+							// Strategy 3: Look specifically for number near bed icon (common pattern)
+							if (!bedrooms) {
+								const bedIconParent = el.querySelector('li:has(svg), li:has(i[class*="bed"])');
+								if (bedIconParent) {
+									const match = bedIconParent.textContent.match(/(\d+)/);
+									if (match) bedrooms = parseInt(match[1]);
+								}
 							}
 
 							const statusText = el.innerText || "";
 
-							return { link, price, title, bedrooms, statusText };
+							return { 
+								link, 
+								price, 
+								title, 
+								bedrooms, 
+								statusText 
+							};
 						})
 						.filter((p) => p.link);
 				} catch (e) {
+					console.error("Error in page.evaluate:", e);
 					return [];
 				}
 			});
-
-			// Fix links for rentals - no need to replace, as it's correct
-			// if (isRental) {
-			// 	properties.forEach((p) => {
-			// 		if (p.link) {
-			// 			p.link = p.link.replace("properties-to-rent", "properties-for-rent");
-			// 		}
-			// 	});
-			// }
 
 			logger.page(pageNum, label, `Found ${properties.length} properties`);
 
@@ -169,96 +194,13 @@ async function scrapeLeaders() {
 
 						if (processedUrls.has(property.link)) return;
 						processedUrls.add(property.link);
+
 						if (isSoldProperty(property.statusText || "")) return;
-
-						// let coords = { latitude: property.lat || null, longitude: property.lng || null };
-
-						// if (!coords.latitude || !coords.longitude) {
-						// 	const detailPage = await page.context().newPage();
-						// 	try {
-						// 		await detailPage.goto(property.link, {
-						// 			waitUntil: "domcontentloaded",
-						// 			timeout: 30000,
-						// 		});
-						// 		await detailPage.waitForTimeout(400);
-
-						// 		const detailCoords = await detailPage.evaluate(() => {
-						// 			try {
-						// 				// Get all script tags and search for latitude/longitude
-						// 				const scripts = Array.from(document.querySelectorAll("script:not([src])"));
-
-						// 				for (const script of scripts) {
-						// 					const text = script.textContent;
-
-						// 					// Try multiple patterns for latitude/longitude
-						// 					const patterns = [
-						// 						{
-						// 							lat: /"latitude"\s*:\s*([0-9.+-]+)/,
-						// 							lng: /"longitude"\s*:\s*([0-9.+-]+)/,
-						// 						},
-						// 						{
-						// 							lat: /"latitude"\s*:\s*"([0-9.+-]+)"/,
-						// 							lng: /"longitude"\s*:\s*"([0-9.+-]+)"/,
-						// 						},
-						// 						{
-						// 							lat: /\\"latitude\\"\s*:\s*([0-9.+-]+)/,
-						// 							lng: /\\"longitude\\"\s*:\s*([0-9.+-]+)/,
-						// 						},
-						// 						{
-						// 							lat: /\\"latitude\\"\s*:\s*\\"([0-9.+-]+)\\"/,
-						// 							lng: /\\"longitude\\"\s*:\s*\\"([0-9.+-]+)\\"/,
-						// 						},
-						// 					];
-
-						// 					for (const pattern of patterns) {
-						// 						const latMatch = text.match(pattern.lat);
-						// 						const lngMatch = text.match(pattern.lng);
-
-						// 						if (latMatch && lngMatch) {
-						// 							const lat = parseFloat(latMatch[1]);
-						// 							const lng = parseFloat(lngMatch[1]);
-						// 							if (!isNaN(lat) && !isNaN(lng)) {
-						// 								return { lat, lng };
-						// 							}
-						// 						}
-						// 					}
-						// 				}
-
-						// 				return null;
-						// 			} catch (e) {
-						// 				return null;
-						// 			}
-						// 		});
-
-						// 		console.log(`Coords for ${property.link}: ${JSON.stringify(detailCoords)}`);
-
-						// 		if (detailCoords) {
-						// 			let lat = detailCoords.lat;
-						// 			let lng = detailCoords.lng;
-						// 			// Heuristic for inverted coordinates (UK region)
-						// 			if (
-						// 				Math.abs(lat) <= 10 &&
-						// 				lng >= 49 &&
-						// 				lng <= 61 &&
-						// 				!(lat >= 49 && lat <= 61 && Math.abs(lng) <= 10)
-						// 			) {
-						// 				const t = lat;
-						// 				lat = lng;
-						// 				lng = t;
-						// 			}
-						// 			coords.latitude = lat;
-						// 			coords.longitude = lng;
-						// 		}
-						// 	} catch (err) {
-						// 		// ignore detail page errors
-						// 	} finally {
-						// 		await detailPage.close();
-						// 	}
-						// }
 
 						const price = formatPriceUk(property.price);
 						if (!price) return;
 
+						// Clean bedrooms
 						if (property.bedrooms && isNaN(property.bedrooms)) {
 							property.bedrooms = null;
 						}
@@ -307,21 +249,26 @@ async function scrapeLeaders() {
 		},
 	});
 
-	// Enqueue pages
+	// Enqueue all pages
 	const allRequests = [];
 	for (const propertyType of PROPERTY_TYPES) {
 		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url = pg === 1 ? `${propertyType.urlBase}/` : `${propertyType.urlBase}/page-${pg}/`;
+			const url = pg === 1 
+				? `${propertyType.urlBase}/` 
+				: `${propertyType.urlBase}/page-${pg}/`;
+			
 			allRequests.push({
 				url,
-				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
+				userData: { 
+					pageNum: pg, 
+					isRental: propertyType.isRental, 
+					label: propertyType.label 
+				},
 			});
 		}
 	}
-
-	// Mark all properties removed and run crawler with initial requests
 
 	if (allRequests.length > 0) {
 		await crawler.run(allRequests);
