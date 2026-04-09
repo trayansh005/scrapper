@@ -1,0 +1,9 @@
+{
+	"id": "4yzqdXrAbbCO804",
+	"json": "{\"id\":\"4yzqdXrAbbCO804\",\"url\":\"https://www.rodgersestates.com/search/?showstc=on&showsold=on&instruction_type=Letting&address_keyword=&minprice=&maxprice=&property_type=\",\"loadedUrl\":\"https://www.rodgersestates.com/search/?showstc=on&showsold=on&instruction_type=Letting&address_keyword=&minprice=&maxprice=&property_type=\",\"uniqueKey\":\"https://www.rodgersestates.com/search?address_keyword=&instruction_type=Letting&maxprice=&minprice=&property_type=&showsold=on&showstc=on\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":999,\"isRental\":true,\"label\":\"FOR RENT\",\"typeIndex\":1,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-08T11:57:03.107Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.rodgersestates.com/search?address_keyword=&instruction_type=Letting&maxprice=&minprice=&property_type=&showsold=on&showstc=on",
+	"url": "https://www.rodgersestates.com/search/?showstc=on&showsold=on&instruction_type=Letting&address_keyword=&minprice=&maxprice=&property_type="
+}

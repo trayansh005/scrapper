@@ -1,27 +1,53 @@
 {
-  "requestsFinished": 0,
+  "requestsFinished": 62,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 5,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 10953,
+  "requestMaxDurationMillis": 42242,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-02-28T06:54:13.839Z",
-  "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-02-28T06:55:13.815Z",
-  "crawlerRuntimeMillis": 60547,
-  "crawlerLastStartTimestamp": 1772261653268,
-  "requestRetryHistogram": [],
+  "requestTotalFinishedDurationMillis": 1294326,
+  "crawlerStartedAt": "2026-04-08T08:40:40.958Z",
+  "crawlerFinishedAt": "2026-04-08T09:04:27.033Z",
+  "statsPersistedAt": "2026-04-08T09:04:27.033Z",
+  "crawlerRuntimeMillis": 1426301,
+  "crawlerLastStartTimestamp": 1775637640732,
+  "requestRetryHistogram": [
+    57,
+    3,
+    2
+  ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 0,
-  "requestsTotal": 0,
+  "requestAvgFinishedDurationMillis": 20876,
+  "requestTotalDurationMillis": 1294326,
+  "requestsTotal": 62,
   "requestsWithStatusCode": {
-    "200": 1
+    "200": 62
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 60 seconds.": {
+            "count": 2
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 3
+          },
+          "page.goto: net::ERR_NETWORK_CHANGED at _": {
+            "count": 2
+          }
+        }
+      }
+    }
+  }
 }

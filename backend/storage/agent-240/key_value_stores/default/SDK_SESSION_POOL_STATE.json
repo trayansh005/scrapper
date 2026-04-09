@@ -1,0 +1,110 @@
+{
+  "usableSessionsCount": 3,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_VpbPIRo88C",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T12:51:46.190Z",
+      "createdAt": "2026-04-08T12:01:46.190Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_RG7JD48Wfn",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "journey-sticky-sessions",
+            "value": "787963d15fc57582",
+            "expires": "2026-04-08T12:51:51.597Z",
+            "domain": "www.ashtons.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-08T12:01:51.598Z",
+            "lastAccessed": "2026-04-08T12:02:22.498Z"
+          },
+          {
+            "key": "CookieScriptConsent",
+            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_personalization\":\"targeting\",\"ad_user_data\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
+            "expires": "2026-05-08T12:02:21.000Z",
+            "domain": "www.ashtons.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-08T12:01:51.599Z",
+            "lastAccessed": "2026-04-08T12:02:22.498Z"
+          },
+          {
+            "key": "XSRF-TOKEN",
+            "value": "eyJpdiI6IjBoWHpjWnlFRGNqbmEySXdIZGhxeVE9PSIsInZhbHVlIjoiemJvSnltd3VMUmpjZTZKaGlEY29wMTVTZExXSFZtTTZOaXdkWmw5alZLL3E4RkxWU1ViaVdLeSthSmJvUzYreUFlcFhvWkJJZm5mNUVWVVNuSWZYaE51UmtFT2h2RjlJMk01YmEvbEZYVm5Vdko1YzdDMER1OXJVand4RXBobVoiLCJtYWMiOiIxZDA3NjlhODUzZTYxZjE1MmIyMGRkNzEzYzRhMDI1NjQ5NzgzNDUyNGE3M2M1OTk2ZWRhMzkxYjZkYWU2ZTA1IiwidGFnIjoiIn0%3D",
+            "expires": "2026-04-08T14:02:21.746Z",
+            "domain": "www.ashtons.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-08T12:01:51.599Z",
+            "lastAccessed": "2026-04-08T12:02:22.499Z"
+          },
+          {
+            "key": "ashtons_session",
+            "value": "eyJpdiI6Ik5IUnZkaWI2ZjJkNldqVld6UUlqa2c9PSIsInZhbHVlIjoicHJzQ3pRRlJQWEp1NE96aTdTSEJ6R1BvZmY2WlVIR2VhdGI1dGg0RGpFaThucHJYdElrNDUrVUpJOGpqT1VYVUtuREwwazZieloyV05ObDliZXpZNzdzRHVYb094Nyt0K3B3cm82VGhQZGtuS05Qd3VadHl6SVA0RWZkTzVKWloiLCJtYWMiOiI5NmEyYzUwMmU2OTc0MDU2ZGQ4M2FhNTA5MWFiMWUyMDAwZTY4NWQ2MzI2NWViNzM5M2E5MGFlYTYyYmI1YjAxIiwidGFnIjoiIn0%3D",
+            "expires": "2026-04-08T14:02:21.747Z",
+            "domain": "www.ashtons.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-08T12:01:51.599Z",
+            "lastAccessed": "2026-04-08T12:02:22.499Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T12:51:46.192Z",
+      "createdAt": "2026-04-08T12:01:46.192Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_PjdksJmKAy",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T12:52:21.472Z",
+      "createdAt": "2026-04-08T12:02:21.472Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

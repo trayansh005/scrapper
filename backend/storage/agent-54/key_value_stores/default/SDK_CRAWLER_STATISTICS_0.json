@@ -1,40 +1,29 @@
 {
-  "requestsFinished": 491,
+  "requestsFinished": 535,
   "requestsFailed": 0,
-  "requestsRetries": 1,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 6606,
-  "requestMaxDurationMillis": 104453,
+  "requestsFinishedPerMinute": 4,
+  "requestMinDurationMillis": 3817,
+  "requestMaxDurationMillis": 116832,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 10045473,
-  "crawlerStartedAt": "2026-04-06T10:38:52.169Z",
+  "requestTotalFinishedDurationMillis": 7243641,
+  "crawlerStartedAt": "2026-04-07T13:05:17.450Z",
   "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-04-06T13:28:16.517Z",
-  "crawlerRuntimeMillis": 10166094,
-  "crawlerLastStartTimestamp": 1775471930423,
+  "statsPersistedAt": "2026-04-07T15:06:19.404Z",
+  "crawlerRuntimeMillis": 7262536,
+  "crawlerLastStartTimestamp": 1775567116868,
   "requestRetryHistogram": [
-    490,
-    1
+    535
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 20459,
-  "requestTotalDurationMillis": 10045473,
-  "requestsTotal": 491,
+  "requestAvgFinishedDurationMillis": 13540,
+  "requestTotalDurationMillis": 7243641,
+  "requestsTotal": 535,
   "requestsWithStatusCode": {
-    "200": 493
+    "200": 535
   },
   "errors": {},
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\db.js:47:50": {
-      "ENETUNREACH": {
-        "Error": {
-          "connect ENETUNREACH 57.129.139.233:3307": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "retryErrors": {}
 }

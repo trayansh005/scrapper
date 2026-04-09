@@ -1,0 +1,41 @@
+{
+  "requestsFinished": 74,
+  "requestsFailed": 0,
+  "requestsRetries": 73,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 4,
+  "requestMinDurationMillis": 7187,
+  "requestMaxDurationMillis": 35323,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 914098,
+  "crawlerStartedAt": "2026-04-08T07:41:18.182Z",
+  "crawlerFinishedAt": "2026-04-08T07:57:52.703Z",
+  "statsPersistedAt": "2026-04-08T07:57:52.703Z",
+  "crawlerRuntimeMillis": 994814,
+  "crawlerLastStartTimestamp": 1775634077889,
+  "requestRetryHistogram": [
+    1,
+    73
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 12353,
+  "requestTotalDurationMillis": 914098,
+  "requestsTotal": 74,
+  "requestsWithStatusCode": {
+    "200": 74,
+    "403": 73
+  },
+  "errors": {},
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 403 status code.": {
+            "count": 73
+          }
+        }
+      }
+    }
+  }
+}

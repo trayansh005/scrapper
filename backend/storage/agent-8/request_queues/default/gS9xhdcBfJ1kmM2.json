@@ -1,0 +1,9 @@
+{
+	"id": "gS9xhdcBfJ1kmM2",
+	"json": "{\"id\":\"gS9xhdcBfJ1kmM2\",\"url\":\"https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=8\",\"loadedUrl\":\"https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=8\",\"uniqueKey\":\"https://www.jackiequinn.co.uk/search?category=1&listingtype=5&obc=Price&obd=Descending&page=8&statusids=1%2C10%2C4%2C16%2C3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNumber\":8,\"totalPages\":21,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-07T09:30:08.347Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.jackiequinn.co.uk/search?category=1&listingtype=5&obc=Price&obd=Descending&page=8&statusids=1%2C10%2C4%2C16%2C3",
+	"url": "https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=8"
+}

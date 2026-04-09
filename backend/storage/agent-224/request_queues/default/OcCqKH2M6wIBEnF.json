@@ -1,0 +1,9 @@
+{
+	"id": "OcCqKH2M6wIBEnF",
+	"json": "{\"id\":\"OcCqKH2M6wIBEnF\",\"url\":\"https://mistoriaestateagents.co.uk/property-search/page/10/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms\",\"loadedUrl\":\"https://mistoriaestateagents.co.uk/property-search/page/10/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms\",\"uniqueKey\":\"https://mistoriaestateagents.co.uk/property-search/page/10?address_keyword=&availability=&department=residential-sales&maximum_bedrooms=&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&property_type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":10,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":10,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-08T07:12:40.959Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://mistoriaestateagents.co.uk/property-search/page/10?address_keyword=&availability=&department=residential-sales&maximum_bedrooms=&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&property_type=",
+	"url": "https://mistoriaestateagents.co.uk/property-search/page/10/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms"
+}
