@@ -1,0 +1,178 @@
+{
+  "usableSessionsCount": 6,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_KLD1cQCEyG",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T11:15:48.908Z",
+      "createdAt": "2026-04-08T10:25:48.908Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_yOR9N0ufZ9",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ga_4HZ2P2GJL2",
+            "value": "GS2.1.s1775643958$o1$g1$t1775644025$j60$l0$h0",
+            "expires": "2027-05-13T10:27:05.355Z",
+            "domain": "milesbyron.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-08T10:26:09.600Z",
+            "lastAccessed": "2026-04-08T10:27:06.251Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1863083689.1775643958",
+            "expires": "2027-05-13T10:27:05.350Z",
+            "domain": "milesbyron.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-08T10:26:09.603Z",
+            "lastAccessed": "2026-04-08T10:27:06.250Z"
+          },
+          {
+            "key": "propertyhive_recently_viewed",
+            "value": "676103%7C676089",
+            "expires": "2026-04-08T11:16:45.627Z",
+            "domain": "www.milesbyron.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-08T10:26:45.627Z",
+            "lastAccessed": "2026-04-08T10:27:06.251Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T11:15:48.914Z",
+      "createdAt": "2026-04-08T10:25:48.914Z",
+      "usageCount": 3,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_qKcYCChMEj",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T11:16:38.318Z",
+      "createdAt": "2026-04-08T10:26:38.318Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_SoOQaMqokE",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T11:17:02.400Z",
+      "createdAt": "2026-04-08T10:27:02.400Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_yHgyzaSNsN",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T11:17:11.964Z",
+      "createdAt": "2026-04-08T10:27:11.964Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_UBchWpiVHT",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ga_4HZ2P2GJL2",
+            "value": "GS2.1.s1775644041$o1$g0$t1775644041$j60$l0$h0",
+            "expires": "2027-05-13T10:27:21.343Z",
+            "domain": "milesbyron.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-08T10:27:22.268Z",
+            "lastAccessed": "2026-04-08T10:27:22.268Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1547959123.1775644041",
+            "expires": "2027-05-13T10:27:21.343Z",
+            "domain": "milesbyron.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-08T10:27:22.269Z",
+            "lastAccessed": "2026-04-08T10:27:22.269Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-08T11:17:11.967Z",
+      "createdAt": "2026-04-08T10:27:11.967Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

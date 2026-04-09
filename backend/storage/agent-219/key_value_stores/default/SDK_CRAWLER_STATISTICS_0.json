@@ -1,0 +1,57 @@
+{
+  "requestsFinished": 150,
+  "requestsFailed": 0,
+  "requestsRetries": 5,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 2,
+  "requestMinDurationMillis": 22007,
+  "requestMaxDurationMillis": 114992,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 4569369,
+  "crawlerStartedAt": "2026-04-07T10:59:29.613Z",
+  "crawlerFinishedAt": "2026-04-07T12:17:58.891Z",
+  "statsPersistedAt": "2026-04-07T12:17:58.891Z",
+  "crawlerRuntimeMillis": 4709715,
+  "crawlerLastStartTimestamp": 1775559569176,
+  "requestRetryHistogram": [
+    145,
+    3,
+    2
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 30462,
+  "requestTotalDurationMillis": 4569369,
+  "requestsTotal": 150,
+  "requestsWithStatusCode": {
+    "200": 146,
+    "404": 4
+  },
+  "errors": {},
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: _ at https://www.entwistlegreen.co.uk/properties/lettings/status-available/most-recent-first/page-7/#/": {
+            "count": 2
+          },
+          "page.goto: net::ERR_CONNECTION_CLOSED at https://www.entwistlegreen.co.uk/properties/lettings/status-available/most-recent-first/page-16/#/": {
+            "count": 1
+          },
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 3
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 90 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
+}

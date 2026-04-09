@@ -1,0 +1,9 @@
+{
+	"id": "PEfRFJAFfJ37FEM",
+	"json": "{\"id\":\"PEfRFJAFfJ37FEM\",\"url\":\"https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available&page=2\",\"loadedUrl\":\"https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available&page=2\",\"uniqueKey\":\"https://howards.co.uk/listings?page=2&rental_period=week&saleOrRental=Sale&sortby=dateListed-desc&status=available&viewType=gallery\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":2,\"totalPages\":1,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-08T09:28:53.813Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://howards.co.uk/listings?page=2&rental_period=week&saleOrRental=Sale&sortby=dateListed-desc&status=available&viewType=gallery",
+	"url": "https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available&page=2"
+}

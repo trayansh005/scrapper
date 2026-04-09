@@ -1,0 +1,9 @@
+{
+	"id": "odwQB9bMe5JonoT",
+	"json": "{\"id\":\"odwQB9bMe5JonoT\",\"url\":\"https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Rental&rental_period=month&status=available\",\"loadedUrl\":\"https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Rental&rental_period=month&status=available\",\"uniqueKey\":\"https://howards.co.uk/listings?rental_period=month&saleOrRental=Rental&sortby=dateListed-desc&status=available&viewType=gallery\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"RENTALS\",\"pageNum\":1,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-08T10:03:54.408Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://howards.co.uk/listings?rental_period=month&saleOrRental=Rental&sortby=dateListed-desc&status=available&viewType=gallery",
+	"url": "https://howards.co.uk/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Rental&rental_period=month&status=available"
+}

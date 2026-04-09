@@ -1,8 +1,8 @@
 {
 	"id": "1OGbvKyvzmCrlu5",
-	"json": "{\"id\":\"1OGbvKyvzmCrlu5\",\"url\":\"https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48/\",\"uniqueKey\":\"https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNumber\":48,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":94}}",
+	"json": "{\"id\":\"1OGbvKyvzmCrlu5\",\"url\":\"https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48/\",\"loadedUrl\":\"https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48/\",\"uniqueKey\":\"https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNumber\":48,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":94,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-07T10:06:02.854Z\"}",
 	"method": "GET",
-	"orderNo": 1772524846576,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48",
 	"url": "https://www.kfh.co.uk/property/for-sale/in-london/exclude-sale-agreed/page-48/"

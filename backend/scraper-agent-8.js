@@ -56,24 +56,83 @@ function getBrowserlessEndpoint() {
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
-
 	try {
 		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
+			waitUntil: "networkidle",   // better than domcontentloaded
 			timeout: 60000,
 		});
 
-		// Trigger map click if needed, or wait for content
-		await detailPage
-			.evaluate(() => {
-				const mapLink = document.querySelector('a[href*="mapcontainer"]');
-				if (mapLink) mapLink.click();
-			})
-			.catch(() => {});
+		// Wait for map container to appear
+		await detailPage.waitForSelector('#map, .map, [id*="map"], iframe[src*="google.com/maps"], .property-map',
+			{ timeout: 15000 }).catch(() => { });
 
-		await detailPage.waitForTimeout(2000); // Wait for potential map load/transition
+		// Click any "View Map" / "Map" link/tab if present
+		await detailPage.evaluate(() => {
+			const mapTriggers = [
+				'a[href*="map"]',
+				'button:contains("Map")',
+				'.map-tab',
+				'[data-tab*="map"]',
+				'a:contains("map")'
+			];
+			for (const sel of mapTriggers) {
+				const el = document.querySelector(sel);
+				if (el) {
+					el.click();
+					return;
+				}
+			}
+		}).catch(() => { });
+
+		await detailPage.waitForTimeout(3000); // Give map JS time to run
+
+		// Extract coordinates using multiple strategies
+		const coords = await detailPage.evaluate(() => {
+			// Strategy 1: Look for common patterns in window / global variables
+			if (window.mapData || window.propertyData || window.__PRELOADED_STATE__) {
+				const data = window.mapData || window.propertyData || window.__PRELOADED_STATE__;
+				if (data.latitude && data.longitude) {
+					return { lat: data.latitude, lng: data.longitude };
+				}
+			}
+
+			// Strategy 2: Google Maps iframe src (common)
+			const iframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.googleapis"]');
+			if (iframe) {
+				const src = iframe.src;
+				const match = src.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+					src.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+				if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+			}
+
+			// Strategy 3: data attributes on map div
+			const mapDiv = document.querySelector('#map, .map-container, [class*="map"]');
+			if (mapDiv) {
+				const lat = mapDiv.dataset.lat || mapDiv.dataset.latitude;
+				const lng = mapDiv.dataset.lng || mapDiv.dataset.longitude;
+				if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
+			}
+
+			// Strategy 4: Search in all script tags for JSON containing lat/lng
+			const scripts = Array.from(document.querySelectorAll('script'));
+			for (const script of scripts) {
+				const text = script.textContent || '';
+				const latMatch = text.match(/"latitude":\s*(-?\d+\.\d+)/i) ||
+					text.match(/"lat":\s*(-?\d+\.\d+)/i);
+				const lngMatch = text.match(/"longitude":\s*(-?\d+\.\d+)/i) ||
+					text.match(/"lng":\s*(-?\d+\.\d+)/i);
+				if (latMatch && lngMatch) {
+					return {
+						lat: parseFloat(latMatch[1]),
+						lng: parseFloat(lngMatch[1])
+					};
+				}
+			}
+
+			return null;
+		});
 
 		const htmlContent = await detailPage.content();
 
@@ -85,14 +144,14 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			AGENT_ID,
 			isRental,
 			htmlContent,
+			coords ? coords.lat : null,     // Pass extracted coords
+			coords ? coords.lng : null
 		);
 
-		stats.totalScraped++;
-		stats.totalSaved++;
-		if (isRental) stats.savedLettings++;
-		else stats.savedSales++;
+		// ... rest of your stats
 
-		return dbResult || { latitude: null, longitude: null };
+		return coords || { latitude: null, longitude: null };
+
 	} catch (error) {
 		logger.error(`Error scraping detail page ${property.link}: ${error.message}`);
 		return { latitude: null, longitude: null };
@@ -145,8 +204,8 @@ async function handleListingPage({ page, request }) {
 	const { pageNumber, totalPages, isRental, label } = request.userData;
 	logger.page(pageNumber, label, request.url, totalPages);
 
-	await page.waitForSelector(".propertyBox", { timeout: 15000 }).catch(() => {});
-	await page.waitForSelector(".propertyBox", { timeout: 30000 }).catch(() => {});
+	await page.waitForSelector(".propertyBox", { timeout: 15000 }).catch(() => { });
+	await page.waitForSelector(".propertyBox", { timeout: 30000 }).catch(() => { });
 
 	const htmlContent = await page.content();
 	const properties = parseListingPage(htmlContent);
@@ -159,6 +218,7 @@ async function handleListingPage({ page, request }) {
 	);
 
 	for (const property of properties) {
+		stats.totalScraped++;
 		if (!property.link) continue;
 		if (processedUrls.has(property.link)) {
 			logger.property(
@@ -192,6 +252,12 @@ async function handleListingPage({ page, request }) {
 		if (!result.isExisting && !result.error) {
 			propertyAction = "CREATED";
 			coords = await scrapePropertyDetail(page.context(), property, isRental);
+		}
+		if (propertyAction === "CREATED") {
+			stats.totalSaved++;
+
+			if (isRental) stats.savedLettings++;
+			else stats.savedSales++;
 		}
 
 		logger.property(
@@ -257,7 +323,7 @@ async function scrapeJackieQuinn() {
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const totalPages = 11;
+	const totalPages = 21;
 	const requests = [];
 	for (let pageNum = Math.max(1, startPage); pageNum <= totalPages; pageNum++) {
 		requests.push({
