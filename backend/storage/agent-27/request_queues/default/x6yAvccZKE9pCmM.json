@@ -1,8 +1,8 @@
 {
 	"id": "x6yAvccZKE9pCmM",
-	"json": "{\"id\":\"x6yAvccZKE9pCmM\",\"url\":\"https://livinestateagents.co.uk/property-search/page/2/\",\"uniqueKey\":\"https://livinestateagents.co.uk/property-search/page/2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"label\":\"LISTING\",\"__crawlee\":{\"crawlDepth\":1,\"enqueueStrategy\":\"same-hostname\"}}}",
+	"json": "{\"id\":\"x6yAvccZKE9pCmM\",\"url\":\"https://livinestateagents.co.uk/property-search/page/2/\",\"loadedUrl\":\"https://livinestateagents.co.uk/property-search/page/2/\",\"uniqueKey\":\"https://livinestateagents.co.uk/property-search/page/2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"totalPages\":10,\"label\":\"LISTING\",\"__crawlee\":{\"crawlDepth\":1,\"enqueueStrategy\":\"same-hostname\",\"state\":4}},\"handledAt\":\"2026-04-09T10:12:38.888Z\"}",
 	"method": "GET",
-	"orderNo": 1772780754577,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://livinestateagents.co.uk/property-search/page/2",
 	"url": "https://livinestateagents.co.uk/property-search/page/2/"

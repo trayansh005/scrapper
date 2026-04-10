@@ -1,51 +1,30 @@
 {
   "requestsFinished": 80,
   "requestsFailed": 0,
-  "requestsRetries": 37,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 13658,
-  "requestMaxDurationMillis": 72110,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 14857,
+  "requestMaxDurationMillis": 31919,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1911401,
-  "crawlerStartedAt": "2026-04-02T07:56:28.294Z",
-  "crawlerFinishedAt": "2026-04-02T09:20:54.752Z",
-  "statsPersistedAt": "2026-04-02T09:20:54.753Z",
-  "crawlerRuntimeMillis": 5066667,
-  "crawlerLastStartTimestamp": 1775116588086,
+  "requestTotalFinishedDurationMillis": 1530630,
+  "crawlerStartedAt": "2026-04-09T11:00:04.895Z",
+  "crawlerFinishedAt": "2026-04-09T11:25:38.271Z",
+  "statsPersistedAt": "2026-04-09T11:25:38.271Z",
+  "crawlerRuntimeMillis": 1533821,
+  "crawlerLastStartTimestamp": 1775732404450,
   "requestRetryHistogram": [
-    43,
-    22,
-    15
+    80
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 23893,
-  "requestTotalDurationMillis": 1911401,
+  "requestAvgFinishedDurationMillis": 19133,
+  "requestTotalDurationMillis": 1530630,
   "requestsTotal": 80,
   "requestsWithStatusCode": {
-    "200": 38,
-    "500": 42
+    "200": 39,
+    "500": 41
   },
   "errors": {},
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 51
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
-      "missing error code": {
-        "Error": {
-          "browserController.newPage() failed: TxNPWoOqFyxRyVvstMLMb": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "retryErrors": {}
 }

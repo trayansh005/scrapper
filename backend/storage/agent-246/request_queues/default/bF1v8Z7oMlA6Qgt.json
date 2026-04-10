@@ -1,8 +1,8 @@
 {
 	"id": "bF1v8Z7oMlA6Qgt",
-	"json": "{\"id\":\"bF1v8Z7oMlA6Qgt\",\"url\":\"https://www.simonblyth.co.uk/properties/?radius=1&pagen=1&sort=-created_at&type=buy\",\"uniqueKey\":\"https://www.simonblyth.co.uk/properties?pagen=1&radius=1&sort=-created_at&type=buy\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":22}}",
+	"json": "{\"id\":\"bF1v8Z7oMlA6Qgt\",\"url\":\"https://www.simonblyth.co.uk/properties/?radius=1&pagen=1&sort=-created_at&type=buy\",\"loadedUrl\":\"https://www.simonblyth.co.uk/properties/?radius=1&pagen=1&sort=-created_at&type=buy\",\"uniqueKey\":\"https://www.simonblyth.co.uk/properties?pagen=1&radius=1&sort=-created_at&type=buy\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":22,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T08:29:13.483Z\"}",
 	"method": "GET",
-	"orderNo": 1772261463407,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.simonblyth.co.uk/properties?pagen=1&radius=1&sort=-created_at&type=buy",
 	"url": "https://www.simonblyth.co.uk/properties/?radius=1&pagen=1&sort=-created_at&type=buy"

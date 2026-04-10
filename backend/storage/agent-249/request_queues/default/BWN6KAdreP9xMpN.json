@@ -1,8 +1,8 @@
 {
 	"id": "BWN6KAdreP9xMpN",
-	"json": "{\"id\":\"BWN6KAdreP9xMpN\",\"url\":\"https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/\",\"uniqueKey\":\"https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":null,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"BWN6KAdreP9xMpN\",\"url\":\"https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/\",\"loadedUrl\":\"https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/\",\"uniqueKey\":\"https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"totalPages\":null,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T09:36:20.760Z\"}",
 	"method": "GET",
-	"orderNo": 1772803711984,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed",
 	"url": "https://www.linleyandsimpson.co.uk/property/for-sale/in-yorkshire/exclude-sale-agreed/"

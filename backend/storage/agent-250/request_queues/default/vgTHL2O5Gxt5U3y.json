@@ -1,8 +1,8 @@
 {
 	"id": "vgTHL2O5Gxt5U3y",
-	"json": "{\"id\":\"vgTHL2O5Gxt5U3y\",\"url\":\"https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4/\",\"uniqueKey\":\"https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":4,\"totalPages\":52,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"vgTHL2O5Gxt5U3y\",\"url\":\"https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4/\",\"loadedUrl\":\"https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4/\",\"uniqueKey\":\"https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":4,\"totalPages\":52,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T09:41:52.947Z\"}",
 	"method": "GET",
-	"orderNo": 1772780304790,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4",
 	"url": "https://www.chartersestateagents.co.uk/property/for-sale/in-hampshire-and-surrey/exclude-sale-agreed/page-4/"

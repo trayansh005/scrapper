@@ -1,8 +1,8 @@
 {
 	"id": "wyqBh75ACDv6OCx",
-	"json": "{\"id\":\"wyqBh75ACDv6OCx\",\"url\":\"https://www.mypropertybox.co.uk/results-gallery.php?section=sales&ddm_order=2&page=1\",\"uniqueKey\":\"https://www.mypropertybox.co.uk/results-gallery.php?ddm_order=2&page=1&section=sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"pageNum\":1,\"label\":\"SALES\",\"totalPages\":17}}",
+	"json": "{\"id\":\"wyqBh75ACDv6OCx\",\"url\":\"https://www.mypropertybox.co.uk/results-gallery.php?section=sales&ddm_order=2&page=1\",\"loadedUrl\":\"https://www.mypropertybox.co.uk/results-gallery.php?section=sales&ddm_order=2&page=1\",\"uniqueKey\":\"https://www.mypropertybox.co.uk/results-gallery.php?ddm_order=2&page=1&section=sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"pageNum\":1,\"label\":\"SALES\",\"totalPages\":17,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T04:57:19.262Z\"}",
 	"method": "GET",
-	"orderNo": 1772262799286,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.mypropertybox.co.uk/results-gallery.php?ddm_order=2&page=1&section=sales",
 	"url": "https://www.mypropertybox.co.uk/results-gallery.php?section=sales&ddm_order=2&page=1"

@@ -1,49 +1,57 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 1,
-  "requestsRetries": 1,
+  "requestsFinished": 14,
+  "requestsFailed": 0,
+  "requestsRetries": 5,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 133532,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-03-31T06:23:15.162Z",
-  "crawlerFinishedAt": "2026-03-31T06:33:03.103Z",
-  "statsPersistedAt": "2026-03-31T06:33:03.103Z",
-  "crawlerRuntimeMillis": 588138,
-  "crawlerLastStartTimestamp": 1774938194965,
+  "requestMinDurationMillis": 57165,
+  "requestMaxDurationMillis": 172235,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 1258521,
+  "crawlerStartedAt": "2026-04-10T04:34:16.305Z",
+  "crawlerFinishedAt": "2026-04-10T05:12:19.880Z",
+  "statsPersistedAt": "2026-04-10T05:12:19.880Z",
+  "crawlerRuntimeMillis": 2283925,
+  "crawlerLastStartTimestamp": 1775795655955,
   "requestRetryHistogram": [
-    null,
-    null,
-    null,
-    1
+    9,
+    1,
+    2,
+    2
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 133532,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 133532,
-  "requestsTotal": 1,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 89894,
+  "requestTotalDurationMillis": 1258521,
+  "requestsTotal": 14,
   "requestsWithStatusCode": {
-    "200": 4
+    "200": 20
   },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
-      "missing error code": {
-        "Error": {
-          "requestHandler timed out after 120 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  },
+  "errors": {},
   "retryErrors": {
     "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
       "missing error code": {
         "Error": {
           "requestHandler timed out after 120 seconds.": {
-            "count": 3
+            "count": 6
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 60 seconds.": {
+            "count": 4
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_HTTP2_PROTOCOL_ERROR at https://www.hi-residential.com/properties/page/7/?department=residential-sales&officeID=5#038;officeID=5": {
+            "count": 1
           }
         }
       }

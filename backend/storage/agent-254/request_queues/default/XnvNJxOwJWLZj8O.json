@@ -1,8 +1,8 @@
 {
 	"id": "XnvNJxOwJWLZj8O",
-	"json": "{\"id\":\"XnvNJxOwJWLZj8O\",\"url\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2/\",\"uniqueKey\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"isRental\":true,\"label\":\"LETTINGS\",\"baseUrl\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/\"}}",
+	"json": "{\"id\":\"XnvNJxOwJWLZj8O\",\"url\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2/\",\"loadedUrl\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2/\",\"uniqueKey\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"isRental\":true,\"label\":\"LETTINGS\",\"baseUrl\":\"https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T11:32:38.501Z\"}",
 	"method": "GET",
-	"orderNo": 1774967486845,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2",
 	"url": "https://www.balgoresproperty.co.uk/properties-to-rent/essex-and-kent/page-2/"

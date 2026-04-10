@@ -1,8 +1,8 @@
 {
 	"id": "rGs5TWhkKxHwapu",
-	"json": "{\"id\":\"rGs5TWhkKxHwapu\",\"url\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2/\",\"uniqueKey\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"isRental\":false,\"label\":\"SALES\",\"baseUrl\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/\"}}",
+	"json": "{\"id\":\"rGs5TWhkKxHwapu\",\"url\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2/\",\"loadedUrl\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2/\",\"uniqueKey\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"isRental\":false,\"label\":\"SALES\",\"baseUrl\":\"https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T11:28:50.978Z\"}",
 	"method": "GET",
-	"orderNo": 1774967658245,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2",
 	"url": "https://www.balgoresproperty.co.uk/properties-for-sale/essex-and-kent/page-2/"

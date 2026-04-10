@@ -1,8 +1,8 @@
 {
 	"id": "2CJgy4ek2Ow10s8",
-	"json": "{\"id\":\"2CJgy4ek2Ow10s8\",\"url\":\"https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4\",\"uniqueKey\":\"https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":4,\"isRental\":false,\"label\":\"SALE\",\"totalPages\":16}}",
+	"json": "{\"id\":\"2CJgy4ek2Ow10s8\",\"url\":\"https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4\",\"loadedUrl\":\"https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4\",\"uniqueKey\":\"https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":4,\"isRental\":false,\"label\":\"SALE\",\"totalPages\":16,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-10T05:23:44.673Z\"}",
 	"method": "GET",
-	"orderNo": 1772438392810,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4",
 	"url": "https://www.hawesandco.co.uk/properties-for-sale/all-properties/!/page/4"
