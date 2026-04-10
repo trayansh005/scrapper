@@ -1,0 +1,159 @@
+{
+  "usableSessionsCount": 3,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_daF3Lgev1U",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T10:24:09.428Z",
+      "createdAt": "2026-04-09T09:34:09.428Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_A9ye0vcWDu",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "recordID",
+            "value": "7fbcfd35-effc-402b-858e-1ef9457829da",
+            "expires": "2027-04-09T09:34:13.000Z",
+            "domain": "www.linleyandsimpson.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-09T09:34:16.978Z",
+            "lastAccessed": "2026-04-09T09:36:23.881Z"
+          },
+          {
+            "key": "dmSessionID",
+            "value": "01c3108a-ea0f-4872-bd09-8fc9d4200bc3",
+            "expires": "2026-04-09T09:54:13.000Z",
+            "domain": "www.linleyandsimpson.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-09T09:34:16.978Z",
+            "lastAccessed": "2026-04-09T09:36:23.881Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.499773446.1775727260",
+            "expires": "2026-04-10T09:34:33.000Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.881Z",
+            "lastAccessed": "2026-04-09T09:36:23.881Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.577301695.1775727261",
+            "expires": "2026-07-08T09:34:21.000Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.887Z",
+            "lastAccessed": "2026-04-09T09:36:23.887Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.2.1775727261743.985573760346063296",
+            "expires": "2026-07-08T09:34:34.000Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.888Z",
+            "lastAccessed": "2026-04-09T09:36:23.888Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.94407367.1775727260",
+            "expires": "2027-05-14T09:34:33.873Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.889Z",
+            "lastAccessed": "2026-04-09T09:36:23.889Z"
+          },
+          {
+            "key": "_ga_QPNL0GSZCF",
+            "value": "GS2.3.s1775727261$o1$g1$t1775727274$j47$l0$h0",
+            "expires": "2027-05-14T09:34:34.993Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.889Z",
+            "lastAccessed": "2026-04-09T09:36:23.889Z"
+          },
+          {
+            "key": "_ga_XXPJGXMS72",
+            "value": "GS2.1.s1775727260$o1$g1$t1775727380$j60$l0$h0",
+            "expires": "2027-05-14T09:36:20.771Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.889Z",
+            "lastAccessed": "2026-04-09T09:36:23.889Z"
+          },
+          {
+            "key": "_ga_Z505HEQL93",
+            "value": "GS2.1.s1775727261$o1$g1$t1775727380$j60$l0$h0",
+            "expires": "2027-05-14T09:36:20.778Z",
+            "domain": "linleyandsimpson.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T09:36:23.889Z",
+            "lastAccessed": "2026-04-09T09:36:23.889Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T10:24:09.433Z",
+      "createdAt": "2026-04-09T09:34:09.433Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ljMShYuSwb",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T10:26:20.789Z",
+      "createdAt": "2026-04-09T09:36:20.789Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

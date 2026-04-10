@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 3,
+  "usableSessionsCount": 9,
   "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_CGzgF5RTDA",
+      "id": "session_Vh3RlHaay6",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T09:18:14.790Z",
-      "createdAt": "2026-03-11T08:28:14.790Z",
+      "expiresAt": "2026-04-10T06:54:03.279Z",
+      "createdAt": "2026-04-10T06:04:03.279Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_QmTGqQirwt",
+      "id": "session_wJD6FYE2cP",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -35,39 +35,39 @@
           {
             "key": "CookieScriptConsent",
             "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
-            "expires": "2026-04-10T08:29:38.000Z",
+            "expires": "2026-05-10T06:11:46.000Z",
             "domain": "www.bairstoweves.co.uk",
             "path": "/",
             "secure": true,
             "hostOnly": true,
-            "creation": "2026-03-11T08:28:22.679Z",
-            "lastAccessed": "2026-03-11T08:29:38.947Z"
+            "creation": "2026-04-10T06:04:14.334Z",
+            "lastAccessed": "2026-04-10T06:11:47.524Z"
           },
           {
             "key": "_ctesius2_session",
-            "value": "c3hnOUZQWXo0UWhoMVJMMnN5bzBRcjhoK0F1NU5SdmxWOTR1VGticTNTbGlwVWtFM0ZOUEtka0NYbUU4eDVOZlpHUXp2YjJIQzZCOHAzYUJ5S0tlamhxSXNHM042R0tqTllBNWIyQUFLdkx6WXFNb05IVkt2bXYyNEVET3RXdTU1VFlPOWFjMElpcGVYdlcwQ3VnRk5BPT0tLVl5NVNSODE5MW9sTjdoYU0ybXd4ZkE9PQ%3D%3D--57b7edd13fb23d804119cecadf57b22e9e9f510b",
-            "expires": "2026-03-11T09:19:38.946Z",
+            "value": "Q05ZNGZRM3IxNk9XNUFwZGZsekhOcENrMEY0enBHbzBFdVdTSU5razJjcG1mSDdMbGFqYmcyNXFzcm5ZY0NhRHpQZXV5cFRwK2lodHAwZ24vL0NpTGUrRWZlSGlSeXZleFN2Y2ttbU1CR1NEVXNXNWk0aHhwTGErT2ZFY0VWOFg1TTdtcHJPVXE1UU9NR1FaZUVYdFlRPT0tLUhtSjNmQ3NwQi9jM2Q1dlVlYytaVGc9PQ%3D%3D--731f2b17566b24af56602e172ee9bad80693efb6",
+            "expires": "2026-04-10T07:01:47.523Z",
             "domain": "www.bairstoweves.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-03-11T08:28:22.680Z",
-            "lastAccessed": "2026-03-11T08:29:38.947Z"
+            "creation": "2026-04-10T06:04:14.334Z",
+            "lastAccessed": "2026-04-10T06:11:47.524Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T09:18:14.798Z",
-      "createdAt": "2026-03-11T08:28:14.798Z",
-      "usageCount": 1,
+      "expiresAt": "2026-04-10T06:54:03.283Z",
+      "createdAt": "2026-04-10T06:04:03.283Z",
+      "usageCount": 7,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_bquCW2tbXE",
+      "id": "session_BOtsW3Okfg",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -80,8 +80,128 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-11T09:19:34.783Z",
-      "createdAt": "2026-03-11T08:29:34.783Z",
+      "expiresAt": "2026-04-10T06:55:27.089Z",
+      "createdAt": "2026-04-10T06:05:27.089Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Ic39ItSlhv",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-10T06:56:28.706Z",
+      "createdAt": "2026-04-10T06:06:28.706Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_SGYGF59RZa",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-10T06:57:34.263Z",
+      "createdAt": "2026-04-10T06:07:34.263Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_j0zZ3joBTP",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-10T06:58:33.657Z",
+      "createdAt": "2026-04-10T06:08:33.657Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_VCM34tI7lh",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-10T06:59:33.087Z",
+      "createdAt": "2026-04-10T06:09:33.087Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_rx3aTYOau2",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-10T07:00:36.183Z",
+      "createdAt": "2026-04-10T06:10:36.183Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_57x220wtgj",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-10T07:01:44.251Z",
+      "createdAt": "2026-04-10T06:11:44.251Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

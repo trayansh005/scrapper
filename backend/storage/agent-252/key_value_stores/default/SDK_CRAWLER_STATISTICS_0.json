@@ -1,30 +1,41 @@
 {
-  "requestsFinished": 32,
+  "requestsFinished": 33,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 8363,
-  "requestMaxDurationMillis": 52391,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 13604,
+  "requestMaxDurationMillis": 259647,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 577720,
-  "crawlerStartedAt": "2026-04-08T09:04:56.333Z",
-  "crawlerFinishedAt": "2026-04-08T09:14:36.400Z",
-  "statsPersistedAt": "2026-04-08T09:14:36.401Z",
-  "crawlerRuntimeMillis": 580333,
-  "crawlerLastStartTimestamp": 1775639096068,
+  "requestTotalFinishedDurationMillis": 1582296,
+  "crawlerStartedAt": "2026-04-09T10:31:06.933Z",
+  "crawlerFinishedAt": "2026-04-09T10:59:02.199Z",
+  "statsPersistedAt": "2026-04-09T10:59:02.199Z",
+  "crawlerRuntimeMillis": 1675737,
+  "crawlerLastStartTimestamp": 1775730666462,
   "requestRetryHistogram": [
-    32
+    32,
+    1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 18054,
-  "requestTotalDurationMillis": 577720,
-  "requestsTotal": 32,
+  "requestAvgFinishedDurationMillis": 47948,
+  "requestTotalDurationMillis": 1582296,
+  "requestsTotal": 33,
   "requestsWithStatusCode": {
-    "200": 30,
+    "200": 31,
     "404": 2
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 90 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }

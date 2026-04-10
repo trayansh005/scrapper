@@ -1,0 +1,283 @@
+{
+  "usableSessionsCount": 10,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_Q3zV37pIbu",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:33:07.493Z",
+      "createdAt": "2026-04-09T08:43:07.493Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_woQl42ezeW",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "SHSessionID",
+            "value": "lbzvemo0yyzyclzbvgfjp0mk",
+            "expires": "2026-04-09T09:33:27.396Z",
+            "domain": "www.darlows.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-09T08:43:27.399Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          },
+          {
+            "key": "ARRAffinity",
+            "value": "a179b39c466971057a1b65106dbbfcec9fe81a02a8959afaede579f6194190ed",
+            "expires": "2026-04-09T09:33:27.396Z",
+            "domain": "www.darlows.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-04-09T08:43:27.399Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          },
+          {
+            "key": "ARRAffinitySameSite",
+            "value": "a179b39c466971057a1b65106dbbfcec9fe81a02a8959afaede579f6194190ed",
+            "expires": "2026-04-09T09:33:27.396Z",
+            "domain": "www.darlows.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-04-09T08:43:27.399Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          },
+          {
+            "key": "__utmzz",
+            "value": "utmcsr=(direct)|utmcmd=(none)|utmccn=(not set)",
+            "expires": "2026-10-06T08:50:10.000Z",
+            "domain": "darlows.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T08:43:27.400Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          },
+          {
+            "key": "__utmzzses",
+            "value": "1",
+            "expires": "2026-04-09T09:40:12.225Z",
+            "domain": "darlows.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T08:43:27.406Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          },
+          {
+            "key": "branchId",
+            "value": "1013",
+            "expires": "2026-04-09T09:40:12.225Z",
+            "domain": "www.darlows.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-09T08:43:27.407Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          },
+          {
+            "key": "f5866e64_f24_autoId",
+            "value": "57920c9f-7244-4969-bfb4-252a6c32d8cf",
+            "expires": "2027-04-09T08:50:10.000Z",
+            "domain": "darlows.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-09T08:44:26.010Z",
+            "lastAccessed": "2026-04-09T08:50:12.226Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:33:07.504Z",
+      "createdAt": "2026-04-09T08:43:07.504Z",
+      "usageCount": 9,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_BX77tb8BZA",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:34:16.553Z",
+      "createdAt": "2026-04-09T08:44:16.553Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Vq8bh12TVP",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:35:09.686Z",
+      "createdAt": "2026-04-09T08:45:09.686Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_T4Vou1cgfV",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:36:04.730Z",
+      "createdAt": "2026-04-09T08:46:04.730Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Nn2cxtRuau",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:36:59.015Z",
+      "createdAt": "2026-04-09T08:46:59.015Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_2QYuB0JPKm",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:37:53.975Z",
+      "createdAt": "2026-04-09T08:47:53.975Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_9wI5qZ6PAr",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:38:47.737Z",
+      "createdAt": "2026-04-09T08:48:47.737Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_N9HaBUORAE",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:39:39.255Z",
+      "createdAt": "2026-04-09T08:49:39.255Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ewqfAhspTC",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-09T09:40:09.104Z",
+      "createdAt": "2026-04-09T08:50:09.104Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

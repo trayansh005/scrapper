@@ -1,8 +1,8 @@
 {
 	"id": "HvHQ9cjp8z8AHOt",
-	"json": "{\"id\":\"HvHQ9cjp8z8AHOt\",\"url\":\"https://www.newtonfallowell.co.uk/properties/page-26/for-sale/in-the-midlands/?orderby=price_desc&radius=3\",\"uniqueKey\":\"https://www.newtonfallowell.co.uk/properties/page-26/for-sale/in-the-midlands?orderby=price_desc&radius=3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":26,\"totalPages\":169,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"HvHQ9cjp8z8AHOt\",\"url\":\"https://www.newtonfallowell.co.uk/properties/page-26/for-sale/in-the-midlands/?orderby=price_desc&radius=3\",\"loadedUrl\":\"https://www.newtonfallowell.co.uk/properties/for-sale/in-the-midlands/page-26/?orderby=price_desc&radius=3\",\"uniqueKey\":\"https://www.newtonfallowell.co.uk/properties/page-26/for-sale/in-the-midlands?orderby=price_desc&radius=3\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":26,\"totalPages\":169,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T08:57:42.302Z\"}",
 	"method": "GET",
-	"orderNo": 1772803557529,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.newtonfallowell.co.uk/properties/page-26/for-sale/in-the-midlands?orderby=price_desc&radius=3",
 	"url": "https://www.newtonfallowell.co.uk/properties/page-26/for-sale/in-the-midlands/?orderby=price_desc&radius=3"

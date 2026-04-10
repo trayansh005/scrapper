@@ -1,60 +1,29 @@
 {
-  "requestsFinished": 11,
-  "requestsFailed": 1,
-  "requestsRetries": 1,
+  "requestsFinished": 14,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 2,
-  "requestMinDurationMillis": 11011,
-  "requestMaxDurationMillis": 45832,
-  "requestTotalFailedDurationMillis": 60201,
-  "requestTotalFinishedDurationMillis": 294494,
-  "crawlerStartedAt": "2026-04-08T05:13:38.312Z",
-  "crawlerFinishedAt": "2026-04-08T05:20:34.717Z",
-  "statsPersistedAt": "2026-04-08T05:20:34.717Z",
-  "crawlerRuntimeMillis": 416569,
-  "crawlerLastStartTimestamp": 1775625218148,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 6637,
+  "requestMaxDurationMillis": 32797,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 292304,
+  "crawlerStartedAt": "2026-04-10T05:16:44.930Z",
+  "crawlerFinishedAt": "2026-04-10T05:21:39.010Z",
+  "statsPersistedAt": "2026-04-10T05:21:39.010Z",
+  "crawlerRuntimeMillis": 294255,
+  "crawlerLastStartTimestamp": 1775798204755,
   "requestRetryHistogram": [
-    11,
-    null,
-    1
+    14
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 60201,
-  "requestAvgFinishedDurationMillis": 26772,
-  "requestTotalDurationMillis": 354695,
-  "requestsTotal": 12,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 20879,
+  "requestTotalDurationMillis": 292304,
+  "requestsTotal": 14,
   "requestsWithStatusCode": {
-    "200": 11
+    "200": 14
   },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at https://remax.co.uk/properties-for-sale/?page=8": {
-            "count": 1
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }

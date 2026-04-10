@@ -1,8 +1,8 @@
 {
 	"id": "GvX1tArdjCzzIRd",
-	"json": "{\"id\":\"GvX1tArdjCzzIRd\",\"url\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2/#/\",\"uniqueKey\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"totalPages\":57,\"isRental\":false,\"label\":\"SALES\",\"apiUrl\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first.ljson?page=2\"}}",
+	"json": "{\"id\":\"GvX1tArdjCzzIRd\",\"url\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2/#/\",\"loadedUrl\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2/#/\",\"uniqueKey\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":2,\"totalPages\":57,\"isRental\":false,\"label\":\"SALES\",\"apiUrl\":\"https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first.ljson?page=2\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-10T06:06:28.676Z\"}",
 	"method": "GET",
-	"orderNo": 1773218054600,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2",
 	"url": "https://www.bairstoweves.co.uk/properties/sales/status-available/most-recent-first/page-2/#/"

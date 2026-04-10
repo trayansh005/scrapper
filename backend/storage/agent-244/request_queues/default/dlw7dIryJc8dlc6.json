@@ -1,8 +1,8 @@
 {
 	"id": "dlw7dIryJc8dlc6",
-	"json": "{\"id\":\"dlw7dIryJc8dlc6\",\"url\":\"https://www.mypropertybox.co.uk/results-gallery.php?section=lets&ddm_order=2&page=16\",\"uniqueKey\":\"https://www.mypropertybox.co.uk/results-gallery.php?ddm_order=2&page=16&section=lets\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"pageNum\":16,\"label\":\"RENTALS\",\"totalPages\":22}}",
+	"json": "{\"id\":\"dlw7dIryJc8dlc6\",\"url\":\"https://www.mypropertybox.co.uk/results-gallery.php?section=lets&ddm_order=2&page=16\",\"loadedUrl\":\"https://www.mypropertybox.co.uk/results-gallery.php?section=lets&ddm_order=2&page=16\",\"uniqueKey\":\"https://www.mypropertybox.co.uk/results-gallery.php?ddm_order=2&page=16&section=lets\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"pageNum\":16,\"label\":\"RENTALS\",\"totalPages\":22,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T05:03:14.201Z\"}",
 	"method": "GET",
-	"orderNo": 1772262437776,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.mypropertybox.co.uk/results-gallery.php?ddm_order=2&page=16&section=lets",
 	"url": "https://www.mypropertybox.co.uk/results-gallery.php?section=lets&ddm_order=2&page=16"
