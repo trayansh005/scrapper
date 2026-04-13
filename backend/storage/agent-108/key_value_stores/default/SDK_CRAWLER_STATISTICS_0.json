@@ -1,48 +1,66 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 309,
-  "requestsRetries": 309,
-  "requestsFailedPerMinute": 197,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 26674,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-04-06T07:34:08.254Z",
-  "crawlerFinishedAt": "2026-04-06T07:35:40.919Z",
-  "statsPersistedAt": "2026-04-06T07:35:40.919Z",
-  "crawlerRuntimeMillis": 93798,
-  "crawlerLastStartTimestamp": 1775460847121,
+  "requestsFinished": 209,
+  "requestsFailed": 100,
+  "requestsRetries": 110,
+  "requestsFailedPerMinute": 1,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 1074,
+  "requestMaxDurationMillis": 54955,
+  "requestTotalFailedDurationMillis": 1570,
+  "requestTotalFinishedDurationMillis": 3745924,
+  "crawlerStartedAt": "2026-04-10T12:20:24.439Z",
+  "crawlerFinishedAt": "2026-04-10T13:23:04.569Z",
+  "statsPersistedAt": "2026-04-10T13:23:04.569Z",
+  "crawlerRuntimeMillis": 3760922,
+  "crawlerLastStartTimestamp": 1775823623647,
   "requestRetryHistogram": [
-    null,
-    null,
-    309
+    199,
+    10,
+    100
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 86,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 26674,
+  "requestAvgFailedDurationMillis": 16,
+  "requestAvgFinishedDurationMillis": 17923,
+  "requestTotalDurationMillis": 3747494,
   "requestsTotal": 309,
   "requestsWithStatusCode": {
-    "429": 927
+    "404": 9
   },
   "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
-      "missing error code": {
+    "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:868:107": {
+      "ENOTFOUND": {
+        "RequestError": {
+          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
+            "count": 100
+          }
+        }
+      }
+    },
+    "node:dns:118:26": {
+      "ENOTFOUND": {
         "Error": {
-          "Request blocked - received 429 status code.": {
-            "count": 309
+          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
+            "count": 100
           }
         }
       }
     }
   },
   "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
-      "missing error code": {
+    "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:868:107": {
+      "ENOTFOUND": {
+        "RequestError": {
+          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
+            "count": 210
+          }
+        }
+      }
+    },
+    "node:dns:118:26": {
+      "ENOTFOUND": {
         "Error": {
-          "Request blocked - received 429 status code.": {
-            "count": 618
+          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
+            "count": 210
           }
         }
       }
