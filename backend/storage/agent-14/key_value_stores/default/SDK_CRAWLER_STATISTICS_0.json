@@ -1,29 +1,41 @@
 {
   "requestsFinished": 58,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 18,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 26928,
-  "requestMaxDurationMillis": 97428,
+  "requestMinDurationMillis": 27486,
+  "requestMaxDurationMillis": 88113,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 4007433,
-  "crawlerStartedAt": "2026-04-06T07:43:03.616Z",
-  "crawlerFinishedAt": "2026-04-06T08:49:57.410Z",
-  "statsPersistedAt": "2026-04-06T08:49:57.410Z",
-  "crawlerRuntimeMillis": 4014559,
-  "crawlerLastStartTimestamp": 1775461382851,
+  "requestTotalFinishedDurationMillis": 4143705,
+  "crawlerStartedAt": "2026-04-10T10:00:05.663Z",
+  "crawlerFinishedAt": "2026-04-10T11:09:52.175Z",
+  "statsPersistedAt": "2026-04-10T11:09:52.175Z",
+  "crawlerRuntimeMillis": 4186717,
+  "crawlerLastStartTimestamp": 1775815205458,
   "requestRetryHistogram": [
-    58
+    40,
+    18
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 69094,
-  "requestTotalDurationMillis": 4007433,
+  "requestAvgFinishedDurationMillis": 71443,
+  "requestTotalDurationMillis": 4143705,
   "requestsTotal": 58,
   "requestsWithStatusCode": {
-    "200": 58
+    "200": 58,
+    "429": 18
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\basic\\internals\\basic-crawler.js:913:19": {
+      "missing error code": {
+        "Error": {
+          "Request blocked - received 429 status code.": {
+            "count": 18
+          }
+        }
+      }
+    }
+  }
 }
