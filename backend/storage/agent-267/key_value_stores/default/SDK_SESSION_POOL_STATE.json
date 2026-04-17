@@ -1,0 +1,109 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_gEqiG3uNd8",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-17T09:07:23.649Z",
+      "createdAt": "2026-04-17T08:17:23.649Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_loGfJ24iVo",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "session",
+            "value": "8ce0c4c2d9deb7ee7f24b17d5fe0ad54",
+            "expires": "2026-04-17T09:07:31.037Z",
+            "domain": "oakleyproperty.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-04-17T08:17:31.043Z",
+            "lastAccessed": "2026-04-17T08:17:31.043Z"
+          },
+          {
+            "key": "_ga_K71SJDJLB1",
+            "value": "GS2.1.s1776413848$o1$g0$t1776413848$j60$l0$h0",
+            "expires": "2027-05-22T08:17:28.168Z",
+            "domain": "oakleyproperty.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-17T08:17:31.044Z",
+            "lastAccessed": "2026-04-17T08:17:31.044Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.2024095455.1776413848",
+            "expires": "2027-05-22T08:17:28.168Z",
+            "domain": "oakleyproperty.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-17T08:17:31.044Z",
+            "lastAccessed": "2026-04-17T08:17:31.044Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.61382707.1776413848",
+            "expires": "2026-07-16T08:17:28.000Z",
+            "domain": "oakleyproperty.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-17T08:17:31.045Z",
+            "lastAccessed": "2026-04-17T08:17:31.045Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1776413849403.254894108506338832",
+            "expires": "2026-07-16T08:17:29.000Z",
+            "domain": "oakleyproperty.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-17T08:17:31.045Z",
+            "lastAccessed": "2026-04-17T08:17:31.045Z"
+          },
+          {
+            "key": "is-fonts-loaded",
+            "value": "1",
+            "expires": "2026-05-15T08:17:29.000Z",
+            "domain": "oakleyproperty.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-17T08:17:31.046Z",
+            "lastAccessed": "2026-04-17T08:17:31.046Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-17T09:07:23.653Z",
+      "createdAt": "2026-04-17T08:17:23.653Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

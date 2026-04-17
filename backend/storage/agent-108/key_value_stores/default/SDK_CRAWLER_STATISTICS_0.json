@@ -1,66 +1,53 @@
 {
-  "requestsFinished": 209,
-  "requestsFailed": 100,
-  "requestsRetries": 110,
-  "requestsFailedPerMinute": 1,
+  "requestsFinished": 236,
+  "requestsFailed": 0,
+  "requestsRetries": 4,
+  "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 1074,
-  "requestMaxDurationMillis": 54955,
-  "requestTotalFailedDurationMillis": 1570,
-  "requestTotalFinishedDurationMillis": 3745924,
-  "crawlerStartedAt": "2026-04-10T12:20:24.439Z",
-  "crawlerFinishedAt": "2026-04-10T13:23:04.569Z",
-  "statsPersistedAt": "2026-04-10T13:23:04.569Z",
-  "crawlerRuntimeMillis": 3760922,
-  "crawlerLastStartTimestamp": 1775823623647,
+  "requestMinDurationMillis": 1168,
+  "requestMaxDurationMillis": 28737,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 4203917,
+  "crawlerStartedAt": "2026-04-16T11:59:51.202Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-04-16T13:18:22.215Z",
+  "crawlerRuntimeMillis": 4711362,
+  "crawlerLastStartTimestamp": 1776340790853,
   "requestRetryHistogram": [
-    199,
-    10,
-    100
+    232,
+    4
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 16,
-  "requestAvgFinishedDurationMillis": 17923,
-  "requestTotalDurationMillis": 3747494,
-  "requestsTotal": 309,
-  "requestsWithStatusCode": {
-    "404": 9
-  },
-  "errors": {
-    "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:868:107": {
-      "ENOTFOUND": {
-        "RequestError": {
-          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
-            "count": 100
-          }
-        }
-      }
-    },
-    "node:dns:118:26": {
-      "ENOTFOUND": {
-        "Error": {
-          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
-            "count": 100
-          }
-        }
-      }
-    }
-  },
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 17813,
+  "requestTotalDurationMillis": 4203917,
+  "requestsTotal": 236,
+  "requestsWithStatusCode": {},
+  "errors": {},
   "retryErrors": {
     "file:///D:/RSSC%20Technologies%20Data/Projects/scrapper/backend/node_modules/got/dist/source/core/index.js:868:107": {
-      "ENOTFOUND": {
+      "ERR_GOT_REQUEST_ERROR": {
         "RequestError": {
-          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
-            "count": 210
+          "The HTTP/2 stream has been early terminated": {
+            "count": 1
           }
         }
       }
     },
-    "node:dns:118:26": {
-      "ENOTFOUND": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\http2-wrapper\\source\\client-request.js:412:19": {
+      "missing error code": {
         "Error": {
-          "getaddrinfo ENOTFOUND www.hamptons.co.uk": {
-            "count": 210
+          "The HTTP/2 stream has been early terminated": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 60 seconds.": {
+            "count": 3
           }
         }
       }
