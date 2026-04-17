@@ -1,0 +1,9 @@
+{
+	"id": "16PUdex1gTwrIbp",
+	"json": "{\"id\":\"16PUdex1gTwrIbp\",\"url\":\"https://oakleyproperty.com/residential-properties?section=residential&isLet=1&isUnavailableSale=0&isUnavailableLet=0\",\"loadedUrl\":\"https://oakleyproperty.com/residential-properties?section=residential&isLet=1&isUnavailableSale=0&isUnavailableLet=0\",\"uniqueKey\":\"https://oakleyproperty.com/residential-properties?isLet=1&isUnavailableLet=0&isUnavailableSale=0&section=residential\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"LETTINGS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-17T08:19:19.715Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://oakleyproperty.com/residential-properties?isLet=1&isUnavailableLet=0&isUnavailableSale=0&section=residential",
+	"url": "https://oakleyproperty.com/residential-properties?section=residential&isLet=1&isUnavailableSale=0&isUnavailableLet=0"
+}

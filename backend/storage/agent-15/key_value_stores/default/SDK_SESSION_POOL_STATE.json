@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 2,
+  "usableSessionsCount": 0,
   "retiredSessionsCount": 2,
   "sessions": [
     {
-      "id": "session_a2H7Y4SfWa",
+      "id": "session_8qwva9plBP",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-12T07:36:53.253Z",
-      "createdAt": "2026-03-12T06:46:53.253Z",
+      "expiresAt": "2026-04-13T09:51:02.925Z",
+      "createdAt": "2026-04-13T09:01:02.925Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_ERhSBjgzRE",
+      "id": "session_e216VopRuR",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -35,127 +35,43 @@
           {
             "key": "cookie_directive",
             "value": "seen",
-            "expires": "2027-03-12T06:46:58.000Z",
+            "expires": "2027-04-13T09:01:06.000Z",
             "domain": "www.sequencehome.co.uk",
             "path": "/",
             "hostOnly": true,
-            "creation": "2026-03-12T06:46:59.998Z",
-            "lastAccessed": "2026-03-12T06:46:59.998Z"
+            "creation": "2026-04-13T09:01:14.535Z",
+            "lastAccessed": "2026-04-13T09:01:14.535Z"
           },
           {
             "key": "_ctesius2_session",
-            "value": "YmlHblpZa2ZKdENINkVoY1R1ZHI1ZytSV3hMM3ExQW5IcDl3RFlIZTFnQXBGeGhrcUdXemwrKy9tYXBOZ0xMTVBDdjQzWWVlVzRaTTNYV0NYbzZNVVFEL29WZHN2REhrWXcyc2VkYjNLajRwMzFmc3VQQUVRbTZkVzYxa29ZcHpWSDVubXlaK3locTZjbmt0ajlCa1B3PT0tLVpjMlZrYldxREV6ZE9FaGVVWFVIeEE9PQ%3D%3D--bbe20367754ce9deda446a6efee540a9f89281ef",
-            "expires": "2026-03-12T07:36:59.996Z",
+            "value": "aStrbnFqaWxmT2xQREVSby9rMlVBVytKcm1pdHBxK1ZOYU42T09kWXRmb0huRElhSng1SEZMa29ZM3ladkllanVNb3luYy9ueHBUcmlBc2tQbWNxNTB3OFEvQUxBQTViSXpuRUl3MVlLQWg4K1hTNk1YcUZ4Y0F6dUhxMnNKTGt1aWxnQWw4aVZ1TWdWU2h1dWk0ay9nPT0tLWFzNXlMdm1rZk8vKzVTek9QdFlsVUE9PQ%3D%3D--21bb41e326d235530b6781f3724ce7530333fe2a",
+            "expires": "2026-04-13T09:51:14.531Z",
             "domain": "www.sequencehome.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-03-12T06:46:59.999Z",
-            "lastAccessed": "2026-03-12T06:46:59.999Z"
+            "creation": "2026-04-13T09:01:14.535Z",
+            "lastAccessed": "2026-04-13T09:01:14.535Z"
           },
           {
             "key": "CookieScriptConsent",
             "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
-            "expires": "2026-04-11T06:46:59.000Z",
+            "expires": "2026-05-13T09:01:09.000Z",
             "domain": "www.sequencehome.co.uk",
             "path": "/",
             "secure": true,
             "hostOnly": true,
-            "creation": "2026-03-12T06:46:59.999Z",
-            "lastAccessed": "2026-03-12T06:46:59.999Z"
-          },
-          {
-            "key": "_clsk",
-            "value": "x44m84%5E1773298019994%5E1%5E1%5Eb.clarity.ms%2Fcollect",
-            "expires": "2026-03-13T06:46:59.000Z",
-            "domain": "sequencehome.co.uk",
-            "path": "/",
-            "hostOnly": false,
-            "creation": "2026-03-12T06:46:59.999Z",
-            "lastAccessed": "2026-03-12T06:46:59.999Z"
+            "creation": "2026-04-13T09:01:14.535Z",
+            "lastAccessed": "2026-04-13T09:01:14.535Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-12T07:36:53.261Z",
-      "createdAt": "2026-03-12T06:46:53.261Z",
-      "usageCount": 2,
-      "maxUsageCount": 50,
-      "errorScore": 4
-    },
-    {
-      "id": "session_jaT7lkdvZk",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-12T08:37:00.164Z",
-      "createdAt": "2026-03-12T07:47:00.164Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_bubjut5v2k",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": [
-          {
-            "key": "cookie_directive",
-            "value": "seen",
-            "expires": "2027-03-12T07:47:04.000Z",
-            "domain": "www.sequencehome.co.uk",
-            "path": "/",
-            "hostOnly": true,
-            "creation": "2026-03-12T07:47:06.004Z",
-            "lastAccessed": "2026-03-12T07:47:06.004Z"
-          },
-          {
-            "key": "CookieScriptConsent",
-            "value": "{\"googleconsentmap\":{\"ad_storage\":\"targeting\",\"analytics_storage\":\"performance\",\"ad_user_data\":\"targeting\",\"ad_personalization\":\"targeting\",\"functionality_storage\":\"functionality\",\"personalization_storage\":\"functionality\",\"security_storage\":\"functionality\"}}",
-            "expires": "2026-04-11T07:47:05.000Z",
-            "domain": "www.sequencehome.co.uk",
-            "path": "/",
-            "secure": true,
-            "hostOnly": true,
-            "creation": "2026-03-12T07:47:06.004Z",
-            "lastAccessed": "2026-03-12T07:47:06.004Z"
-          },
-          {
-            "key": "_ctesius2_session",
-            "value": "dG44clliZEZ3VUozZWxja2twcDB6ZjduR1BFL2pUaUp6VkdFZ0JtU1hQaDFic0NYM1BQbFN4R1RPemJMeGFaT2MrejdRWk4xaklOZEhlZEF6bDJleXZKVjJjdjN0UXlVdHprZ2pyRjhvcVdobDNOdEhpbUdsT1ZJa2Y4QnRQT3RFdnlJN3Nac0FFL2NMMUtoSVlRcmpnPT0tLStKZHJsbit4UTJhLy9tM0hnYUViamc9PQ%3D%3D--ddc7ecda42f98e62477b13902d06b0744f11b97e",
-            "expires": "2026-03-12T08:37:06.002Z",
-            "domain": "www.sequencehome.co.uk",
-            "path": "/",
-            "secure": true,
-            "httpOnly": true,
-            "hostOnly": true,
-            "creation": "2026-03-12T07:47:06.004Z",
-            "lastAccessed": "2026-03-12T07:47:06.004Z"
-          }
-        ]
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-03-12T08:37:00.172Z",
-      "createdAt": "2026-03-12T07:47:00.172Z",
+      "expiresAt": "2026-04-13T09:51:02.930Z",
+      "createdAt": "2026-04-13T09:01:02.930Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

@@ -1,9 +1,9 @@
 {
 	"id": "PpcDtJpdxTm1MRi",
-	"json": "{\"id\":\"PpcDtJpdxTm1MRi\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-326/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-326/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-326\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"page.evaluate: Target page, context or browser has been closed\\n    at PlaywrightCrawler.requestHandler (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\scraper-agent-54.js:114:34)\\n    at async wrap (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"pageNum\":326,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":5}}}",
+	"json": "{\"id\":\"PpcDtJpdxTm1MRi\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-326/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-326/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-326\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":326,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-17T11:04:12.309Z\"}",
 	"method": "GET",
-	"orderNo": 1775574427344,
-	"retryCount": 1,
+	"orderNo": null,
+	"retryCount": 0,
 	"uniqueKey": "https://www.leaders.co.uk/properties/to-rent/page-326",
 	"url": "https://www.leaders.co.uk/properties/to-rent/page-326/"
 }

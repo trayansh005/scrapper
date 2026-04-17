@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 24,
-  "retiredSessionsCount": 1,
+  "usableSessionsCount": 21,
+  "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_uAiiTl76Jd",
+      "id": "session_Do4d8nBQ7T",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,94 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:12:14.394Z",
-      "createdAt": "2026-04-08T05:22:14.394Z",
+      "expiresAt": "2026-04-17T12:07:30.866Z",
+      "createdAt": "2026-04-17T11:17:30.866Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_AOBZVzlV0i",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:12:14.397Z",
-      "createdAt": "2026-04-08T05:22:14.397Z",
-      "usageCount": 4,
-      "maxUsageCount": 50,
-      "errorScore": 6
-    },
-    {
-      "id": "session_GajlDL8mvc",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:12:49.105Z",
-      "createdAt": "2026-04-08T05:22:49.105Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_Tt4koVK5lg",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:13:19.198Z",
-      "createdAt": "2026-04-08T05:23:19.198Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_CIkUVzRnAv",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:13:50.783Z",
-      "createdAt": "2026-04-08T05:23:50.783Z",
-      "usageCount": 0,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_aGiSfNuM3c",
+      "id": "session_Gzmz35Lp8D",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -114,125 +34,152 @@
         "cookies": [
           {
             "key": "PHPSESSID",
-            "value": "607ae79bfc43517a4b680b7db7d143b7",
-            "expires": "2026-04-08T06:14:18.581Z",
+            "value": "e6f7abf061c630073d428c5075de4ebe",
+            "expires": "2026-04-17T12:08:07.587Z",
             "domain": "robertholmes.co.uk",
             "path": "/",
             "hostOnly": true,
-            "creation": "2026-04-08T05:24:18.582Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
-          },
-          {
-            "key": "initialLandingPage",
-            "value": "https://robertholmes.co.uk/search/page/4/?address_keyword&department=residential-sales&availability=2",
-            "expires": "2026-04-09T05:24:13.000Z",
-            "domain": "robertholmes.co.uk",
-            "path": "/",
-            "hostOnly": true,
-            "creation": "2026-04-08T05:24:18.583Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
+            "creation": "2026-04-17T11:18:07.592Z",
+            "lastAccessed": "2026-04-17T11:28:33.548Z"
           },
           {
             "key": "_ga_BL161XNCMC",
-            "value": "GS2.1.s1775625856$o1$g1$t1775626443$j60$l0$h0",
-            "expires": "2027-05-13T05:34:03.510Z",
+            "value": "GS2.1.s1776424683$o1$g1$t1776425312$j20$l0$h0",
+            "expires": "2027-05-22T11:28:32.614Z",
             "domain": "robertholmes.co.uk",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-04-08T05:24:18.583Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
+            "creation": "2026-04-17T11:18:07.593Z",
+            "lastAccessed": "2026-04-17T11:28:33.549Z"
           },
           {
             "key": "_ga",
-            "value": "GA1.1.1138362475.1775625857",
-            "expires": "2027-05-13T05:24:16.563Z",
+            "value": "GA1.1.1862291785.1776424683",
+            "expires": "2027-05-22T11:18:03.176Z",
             "domain": "robertholmes.co.uk",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-04-08T05:24:18.584Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
+            "creation": "2026-04-17T11:18:07.593Z",
+            "lastAccessed": "2026-04-17T11:28:33.548Z"
+          },
+          {
+            "key": "initialLandingPage",
+            "value": "https://robertholmes.co.uk/search/?address_keyword=&department=residential-sales&availability=2",
+            "expires": "2026-04-18T11:18:03.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-17T11:18:07.594Z",
+            "lastAccessed": "2026-04-17T11:28:33.548Z"
           },
           {
             "key": "wc_visitor",
-            "value": "124794-7d0e35b8-ef91-5b9b-9dcf-0c002f6efd4d",
-            "expires": "2027-05-13T05:34:03.603Z",
+            "value": "124794-4be7112b-79a4-cd21-d30b-58f49311cb17",
+            "expires": "2027-05-22T11:28:32.624Z",
             "domain": "robertholmes.co.uk",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-04-08T05:24:18.584Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
-          },
-          {
-            "key": "wc_client",
-            "value": "direct+..+none+..++..++..++..++..+https%3A%2F%2Frobertholmes.co.uk%2Fsearch%2Fpage%2F4%2F%3Faddress_keyword%26department%3Dresidential-sales%26availability%3D2+..+124794-7d0e35b8-ef91-5b9b-9dcf-0c002f6efd4d+..++..++..+",
-            "expires": "2026-10-05T05:24:17.000Z",
-            "domain": "robertholmes.co.uk",
-            "path": "/",
-            "hostOnly": false,
-            "creation": "2026-04-08T05:24:18.584Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
-          },
-          {
-            "key": "wc_client_current",
-            "value": "direct+..+none+..++..++..++..++..+https%3A%2F%2Frobertholmes.co.uk%2Fsearch%2Fpage%2F4%2F%3Faddress_keyword%26department%3Dresidential-sales%26availability%3D2+..+124794-7d0e35b8-ef91-5b9b-9dcf-0c002f6efd4d+..++..++..+",
-            "expires": "2026-04-08T06:14:18.581Z",
-            "domain": "robertholmes.co.uk",
-            "path": "/",
-            "hostOnly": false,
-            "creation": "2026-04-08T05:24:18.584Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
+            "creation": "2026-04-17T11:18:07.594Z",
+            "lastAccessed": "2026-04-17T11:28:33.548Z"
           },
           {
             "key": "prism_613005266",
-            "value": "84635799-00cb-4c53-8461-7f4a687dab11",
-            "expires": "2026-05-08T05:24:18.000Z",
+            "value": "bb1750bd-be5e-4345-aecb-e8bde66e1f50",
+            "expires": "2026-05-17T11:18:03.000Z",
             "domain": "robertholmes.co.uk",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-04-08T05:24:18.584Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
+            "creation": "2026-04-17T11:18:07.595Z",
+            "lastAccessed": "2026-04-17T11:28:33.549Z"
           },
           {
-            "key": "_gd1775626146324",
-            "expires": "2026-04-08T05:29:07.000Z",
+            "key": "wc_client",
+            "value": "direct+..+none+..++..++..++..++..+https%3A%2F%2Frobertholmes.co.uk%2Fsearch%2F%3Faddress_keyword%3D%26department%3Dresidential-sales%26availability%3D2+..+124794-4be7112b-79a4-cd21-d30b-58f49311cb17+..++..++..+",
+            "expires": "2026-10-14T11:18:04.000Z",
             "domain": "robertholmes.co.uk",
-            "path": "/search/page/4",
+            "path": "/",
             "hostOnly": false,
-            "creation": "2026-04-08T05:29:06.868Z",
-            "lastAccessed": "2026-04-08T05:29:06.868Z"
+            "creation": "2026-04-17T11:18:07.595Z",
+            "lastAccessed": "2026-04-17T11:28:33.549Z"
+          },
+          {
+            "key": "wc_client_current",
+            "value": "direct+..+none+..++..++..++..++..+https%3A%2F%2Frobertholmes.co.uk%2Fsearch%2F%3Faddress_keyword%3D%26department%3Dresidential-sales%26availability%3D2+..+124794-4be7112b-79a4-cd21-d30b-58f49311cb17+..++..++..+",
+            "expires": "2026-04-17T12:08:07.588Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-17T11:18:07.595Z",
+            "lastAccessed": "2026-04-17T11:28:33.549Z"
+          },
+          {
+            "key": "_gd1776425051182",
+            "expires": "2026-04-17T11:24:12.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/search/page/3",
+            "hostOnly": false,
+            "creation": "2026-04-17T11:24:11.722Z",
+            "lastAccessed": "2026-04-17T11:24:11.722Z"
           },
           {
             "key": "wc_swap",
-            "value": "2080592094+..+2089479833+..+121944+..+2080592041+..+2089471100+..+121942+..+2081060874+..+2088799669+..+121945+..+2080163608+..+2080169601+..+122498",
-            "expires": "2026-04-08T05:34:46.000Z",
+            "value": "2080592028+..+2089479833+..+121944+..+2081062021+..+2089471100+..+121942+..+2081062920+..+2088799669+..+121945+..+2080162035+..+2080169601+..+122498",
+            "expires": "2026-04-17T11:28:36.000Z",
             "domain": "robertholmes.co.uk",
             "path": "/",
             "hostOnly": false,
-            "creation": "2026-04-08T05:30:22.358Z",
-            "lastAccessed": "2026-04-08T05:34:06.301Z"
+            "creation": "2026-04-17T11:24:11.722Z",
+            "lastAccessed": "2026-04-17T11:28:33.549Z"
           },
           {
-            "key": "_gd1775626295125",
-            "expires": "2026-04-08T05:31:36.000Z",
+            "key": "_gd1776425087881",
+            "expires": "2026-04-17T11:24:48.000Z",
             "domain": "robertholmes.co.uk",
-            "path": "/search/page/8",
+            "path": "/search/page/4",
             "hostOnly": false,
-            "creation": "2026-04-08T05:31:35.729Z",
-            "lastAccessed": "2026-04-08T05:31:35.729Z"
+            "creation": "2026-04-17T11:24:47.935Z",
+            "lastAccessed": "2026-04-17T11:24:47.935Z"
+          },
+          {
+            "key": "_gd1776425124090",
+            "expires": "2026-04-17T11:25:25.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/search/page/5",
+            "hostOnly": false,
+            "creation": "2026-04-17T11:25:24.655Z",
+            "lastAccessed": "2026-04-17T11:25:24.655Z"
+          },
+          {
+            "key": "_gd1776425160217",
+            "expires": "2026-04-17T11:26:01.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/search/page/6",
+            "hostOnly": false,
+            "creation": "2026-04-17T11:26:00.738Z",
+            "lastAccessed": "2026-04-17T11:26:00.738Z"
+          },
+          {
+            "key": "_gd1776425197327",
+            "expires": "2026-04-17T11:26:38.000Z",
+            "domain": "robertholmes.co.uk",
+            "path": "/search/page/7",
+            "hostOnly": false,
+            "creation": "2026-04-17T11:26:37.879Z",
+            "lastAccessed": "2026-04-17T11:26:37.879Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:13:50.784Z",
-      "createdAt": "2026-04-08T05:23:50.784Z",
+      "expiresAt": "2026-04-17T12:07:30.870Z",
+      "createdAt": "2026-04-17T11:17:30.870Z",
       "usageCount": 20,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_LA56jnCqh6",
+      "id": "session_KeR2Pv0z2B",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -245,14 +192,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:14:29.708Z",
-      "createdAt": "2026-04-08T05:24:29.708Z",
+      "expiresAt": "2026-04-17T12:08:21.110Z",
+      "createdAt": "2026-04-17T11:18:21.110Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_gNqQEFF2nO",
+      "id": "session_FvLAs7yjTS",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -265,14 +212,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:14:56.997Z",
-      "createdAt": "2026-04-08T05:24:56.997Z",
+      "expiresAt": "2026-04-17T12:08:57.242Z",
+      "createdAt": "2026-04-17T11:18:57.242Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_uvnhh6JB9i",
+      "id": "session_BA7vG3XO2I",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -285,14 +232,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:15:16.632Z",
-      "createdAt": "2026-04-08T05:25:16.632Z",
+      "expiresAt": "2026-04-17T12:09:23.505Z",
+      "createdAt": "2026-04-17T11:19:23.505Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_01fbpUocCZ",
+      "id": "session_PfO9ssiEL2",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -305,14 +252,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:15:52.195Z",
-      "createdAt": "2026-04-08T05:25:52.195Z",
+      "expiresAt": "2026-04-17T12:09:52.772Z",
+      "createdAt": "2026-04-17T11:19:52.772Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_z7sSrb1gdj",
+      "id": "session_LBcenPDZPo",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -325,14 +272,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:16:27.977Z",
-      "createdAt": "2026-04-08T05:26:27.977Z",
+      "expiresAt": "2026-04-17T12:10:18.399Z",
+      "createdAt": "2026-04-17T11:20:18.399Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_UtiTDe1E3m",
+      "id": "session_Zy1nEVcftW",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -345,14 +292,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:17:03.748Z",
-      "createdAt": "2026-04-08T05:27:03.748Z",
+      "expiresAt": "2026-04-17T12:10:45.314Z",
+      "createdAt": "2026-04-17T11:20:45.314Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_XB1ogq6i5a",
+      "id": "session_BbU7OAdiC2",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -365,14 +312,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:17:40.629Z",
-      "createdAt": "2026-04-08T05:27:40.629Z",
+      "expiresAt": "2026-04-17T12:11:01.956Z",
+      "createdAt": "2026-04-17T11:21:01.956Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_JbW79wKK8X",
+      "id": "session_drs4APm6s1",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -385,14 +332,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:17:50.259Z",
-      "createdAt": "2026-04-08T05:27:50.259Z",
+      "expiresAt": "2026-04-17T12:11:38.174Z",
+      "createdAt": "2026-04-17T11:21:38.174Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_D32ogKqMH0",
+      "id": "session_ctspKrHP5f",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -405,14 +352,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:18:25.644Z",
-      "createdAt": "2026-04-08T05:28:25.644Z",
+      "expiresAt": "2026-04-17T12:12:14.903Z",
+      "createdAt": "2026-04-17T11:22:14.903Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_ADNJEsFQoF",
+      "id": "session_g9EdNdiiJk",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -425,14 +372,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:19:02.821Z",
-      "createdAt": "2026-04-08T05:29:02.821Z",
+      "expiresAt": "2026-04-17T12:12:51.628Z",
+      "createdAt": "2026-04-17T11:22:51.628Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_0YH7qSO5tF",
+      "id": "session_FYeTa6GclK",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -445,14 +392,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:19:38.913Z",
-      "createdAt": "2026-04-08T05:29:38.913Z",
+      "expiresAt": "2026-04-17T12:13:31.959Z",
+      "createdAt": "2026-04-17T11:23:31.959Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_72yBryHj5t",
+      "id": "session_ojTgz10ZRg",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -465,14 +412,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:20:18.264Z",
-      "createdAt": "2026-04-08T05:30:18.264Z",
+      "expiresAt": "2026-04-17T12:14:07.481Z",
+      "createdAt": "2026-04-17T11:24:07.481Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_DrSWASnVrr",
+      "id": "session_legMDimDQy",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -485,14 +432,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:20:54.391Z",
-      "createdAt": "2026-04-08T05:30:54.391Z",
+      "expiresAt": "2026-04-17T12:14:43.820Z",
+      "createdAt": "2026-04-17T11:24:43.820Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_pdjsxaQJNb",
+      "id": "session_7TrhVuTWa0",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -505,14 +452,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:21:31.406Z",
-      "createdAt": "2026-04-08T05:31:31.406Z",
+      "expiresAt": "2026-04-17T12:15:20.013Z",
+      "createdAt": "2026-04-17T11:25:20.013Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_mbEnrMvhYf",
+      "id": "session_69nrPfogC1",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -525,14 +472,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:22:07.797Z",
-      "createdAt": "2026-04-08T05:32:07.797Z",
+      "expiresAt": "2026-04-17T12:15:56.753Z",
+      "createdAt": "2026-04-17T11:25:56.753Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_g3BAs8JMUR",
+      "id": "session_1Vq6T1t1lP",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -545,14 +492,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:22:44.219Z",
-      "createdAt": "2026-04-08T05:32:44.219Z",
+      "expiresAt": "2026-04-17T12:16:32.825Z",
+      "createdAt": "2026-04-17T11:26:32.825Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_OE5isiB9PS",
+      "id": "session_j52vVHA6jt",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -565,14 +512,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:23:22.184Z",
-      "createdAt": "2026-04-08T05:33:22.184Z",
+      "expiresAt": "2026-04-17T12:17:09.969Z",
+      "createdAt": "2026-04-17T11:27:09.969Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_NbM1RP2PeJ",
+      "id": "session_plCeCie9my",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -585,14 +532,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:23:38.980Z",
-      "createdAt": "2026-04-08T05:33:38.980Z",
+      "expiresAt": "2026-04-17T12:17:48.240Z",
+      "createdAt": "2026-04-17T11:27:48.240Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_Cb0xLvlzMw",
+      "id": "session_Y9DmBNGWF6",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -605,8 +552,8 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-08T06:23:58.489Z",
-      "createdAt": "2026-04-08T05:33:58.489Z",
+      "expiresAt": "2026-04-17T12:18:25.200Z",
+      "createdAt": "2026-04-17T11:28:25.200Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

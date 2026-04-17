@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 0,
-  "retiredSessionsCount": 57,
+  "usableSessionsCount": 19,
+  "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_vUbl2MTLZr",
+      "id": "session_34ppvJdjrh",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -11,19 +11,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:00.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.765Z",
+            "lastAccessed": "2026-04-15T09:10:01.765Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "MjdkZzdOM2xVNnZpYWZpK00yVHNuWTFoR2I2cW01ZDNlR1dKZ2I1YlNFdVJCVXJwdUgrTktjcVgvK0t1UzM2enFCTTI2clhRckZTRmprNVpyUE9CTEdNNEZTNlFnckZtUUp4Z1piQmErb3BXQTRvZzlXVGxSZ21RdG9QQVVpa1BFMmZ5anhReDMxMG9qRlpMcE03V2VnPT0tLVg5eXZ4T29YZUZvL2lQZld5ZzQ5U3c9PQ%3D%3D--128d4b658438ae37311b28b86f1de43c3c8a58bb",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.765Z",
+            "lastAccessed": "2026-04-15T09:10:01.765Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:45.821Z",
-      "createdAt": "2026-04-10T09:59:45.821Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T09:59:58.241Z",
+      "createdAt": "2026-04-15T09:09:58.240Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_4abx8HkAi1",
+      "id": "session_XNQoFx63fF",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -31,19 +56,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:00.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.731Z",
+            "lastAccessed": "2026-04-15T09:10:01.731Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "NVlsTmE4MFYxalpFbzRESXRmSkgyYlhoMGhuZm12V0cxNnl3OXBwanV0YSsyaHpjYjBKNG4wc3ErS1h0ZEt4VEUxRWR4ZFkvTEZCN09BUm1yNFBhaGRLekt3dVFqbkR5UUMvcm5UdUhya0wwZm0vakdITWhEN3FhK1ZIZThwU1Y5TFhJRXlBUGdSVUZlYTFpSDMxV3NnPT0tLUJlREl5YU9lT0dBUURVdmQzeTNjTmc9PQ%3D%3D--d4baca25f018f8b9a8663a334f72309a8976a532",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.731Z",
+            "lastAccessed": "2026-04-15T09:10:01.731Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:45.836Z",
-      "createdAt": "2026-04-10T09:59:45.836Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T09:59:58.265Z",
+      "createdAt": "2026-04-15T09:09:58.265Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_q8qPCLhm0j",
+      "id": "session_Qd4qY1WNsp",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -51,19 +101,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:00.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.817Z",
+            "lastAccessed": "2026-04-15T09:10:01.817Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "blVkQWlGU2tkU2dKR3FZREFMMTdWUmlDNWMrY3gwODF3M0I0ekRDYWNlMTErOURhYUVkNkkzeS9wb3lneXB5NzZxYWtQdytyY1I3d1RRczA2NG5IbzNnK0ZYWnVOTWdOR0U2ZWhxNmk4Y0E4bXN4bHg0S2VIUzBVeXhJVWp2Uk5nc2lqaTJYV1ZGZmIyenM1VWcwRlFnPT0tLVhRMnFwcksxckVjeElqZk5ZVmFHcFE9PQ%3D%3D--c6a29d378573ca902520663a98a8cca2d0eb67e2",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.818Z",
+            "lastAccessed": "2026-04-15T09:10:01.818Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:45.837Z",
-      "createdAt": "2026-04-10T09:59:45.837Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T09:59:58.269Z",
+      "createdAt": "2026-04-15T09:09:58.269Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_aVNl24QhEL",
+      "id": "session_tzbfgWfI1g",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -71,19 +146,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:00.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.789Z",
+            "lastAccessed": "2026-04-15T09:10:01.789Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "dlJyRTc0bm9lOWpUMlljaTJIT0FHN2JqVmhZOXI0QjhmbDRteU5YajBtaFZQT2hLWGpXQUdyVGpxdEY5QTBkcHFpT3FJSXVzMXlQbWZkenVEcU4rRTFacEhzbHZFNTRGczJId25td0x4VzB4MVdxYnVRaTBLZUs3UktYU3JjdDJ4KzNkNThobTNOeEJSWTA4QUdWRGVnPT0tLTg3NTRzVXQ5NUZuVWhaaEJKVlNNOWc9PQ%3D%3D--19bde36168534096739b647acf67ecd6b9467b8c",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.789Z",
+            "lastAccessed": "2026-04-15T09:10:01.789Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:45.838Z",
-      "createdAt": "2026-04-10T09:59:45.838Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T09:59:58.272Z",
+      "createdAt": "2026-04-15T09:09:58.272Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_a3WKBxSLNF",
+      "id": "session_5BcmNnD04g",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -91,19 +191,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:00.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.649Z",
+            "lastAccessed": "2026-04-15T09:10:01.649Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "eEs3ZFpKeEdka2hsVndjVWNKV3J3SUFwN25GbGJrc1VRR1gxWmkxVE8wSjFhZVB4TTZ2M28xOG55a21sMUVuUVV1YWpUaXZVNUdMTmRKRElHME0yV0d6YlhsNFlnZ01PdmhiazIwM0JHZERDakR4bXliTFZ2S1Yxc05HYkVHcnVlYWMzVEVpMHh0OFZURlFJL29JM2hRPT0tLWxoTzJIZms3ZWk2cW9yZUJjS0t0TFE9PQ%3D%3D--2c1f03a6a09febe2ca19acb2c7c8e7c75f2f50e8",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:01.650Z",
+            "lastAccessed": "2026-04-15T09:10:01.650Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:45.839Z",
-      "createdAt": "2026-04-10T09:59:45.839Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T09:59:58.275Z",
+      "createdAt": "2026-04-15T09:09:58.275Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_takd8mX1fB",
+      "id": "session_QFk2BnuF2w",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -111,19 +236,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:12.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:13.184Z",
+            "lastAccessed": "2026-04-15T09:10:13.184Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "ek9PcWhMY1c5b3hST1d0SkFTNWU4QlJkU21XMWJFMzRYRmRYSFd4STlwVnozL2UvcWtTaHprbzVpb1MxeUowYWM0QnpkbUU4MXRmRWZueEc2QzhRbktiNGdLeEJDVzNoMDQvYW8zaXVRT3N2NmNqM21QaWtFcUpGRVgvL3FEeGpGT3EyS0NYYmloV1pJY1M4dEVzWkN3PT0tLTZLczJJT2VSS2pQcHB0dHk2UzlpT3c9PQ%3D%3D--56d6ae3db0b6217b48419435025fa6c4e010524c",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:13.184Z",
+            "lastAccessed": "2026-04-15T09:10:13.184Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.781Z",
-      "createdAt": "2026-04-10T09:59:46.781Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:11.909Z",
+      "createdAt": "2026-04-15T09:10:11.909Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_IMnOkKLdG7",
+      "id": "session_OoyjmjhhBx",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -131,19 +281,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:14.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:14.800Z",
+            "lastAccessed": "2026-04-15T09:10:14.800Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "M3JHd3FjZ0tTK2lzR012YkJseS9TQm5mSVhSMml2Z0RWSXVORmd3SWF4SFNkSlBLbUVQVm9xYURzQnRDV1lYbWZhMXRFa1JHSGkzRDBhbGdiQkpBRkpscHI4cXI3U0dNa1pwaFFqaFRZRzJ6R3FEZ2ltRFMyeG9KbHlyRWtMTnZxNFhERG1pT3BtS3lFQnhUdExtQThBPT0tLWVsUXYxclNodmtQbExDZnF5aGJkUGc9PQ%3D%3D--74d5bc3f12fb972634dd2a86c5b6627637ef1add",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:14.800Z",
+            "lastAccessed": "2026-04-15T09:10:14.800Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.783Z",
-      "createdAt": "2026-04-10T09:59:46.783Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:13.574Z",
+      "createdAt": "2026-04-15T09:10:13.574Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_cKabecU7Td",
+      "id": "session_VuQ0is8wTK",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -151,19 +326,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:24.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:25.201Z",
+            "lastAccessed": "2026-04-15T09:10:25.201Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "M29sdFF2Y2VzZFdvMjBRYkY3ditEaE41KzJtWHc1WGxYR1BlSFhTWlg0T1FudmxhdzZwWmJueUxYWlJnSEx4Ykh4aUUzMVFseENHa3V2OVlXMStXUU8rdy9xRjVpQklYK1IyWmVXSHhQSExsVHhtbWVhNnYwS0FPbHVMMlk4RXZPQVZFUVpkekVIejd4N29ONjhna3ZnPT0tLXJEMWR0VDliemFXVURSWmdKSzBqdnc9PQ%3D%3D--b67eb94d0327d19772b272e24baae7eca4a46897",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:25.201Z",
+            "lastAccessed": "2026-04-15T09:10:25.201Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.785Z",
-      "createdAt": "2026-04-10T09:59:46.785Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:23.881Z",
+      "createdAt": "2026-04-15T09:10:23.881Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_5x93SI3Jmj",
+      "id": "session_wn7oJUuhBG",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -171,19 +371,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:25.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:26.004Z",
+            "lastAccessed": "2026-04-15T09:10:26.004Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "TGNwSlZxL3NCUlFPVEQxMkNJbDYyVERNWmFTMEFpTFVMQ0EvTzgrMDRiazBKREJFSDB2TEExdW5yODc5WTdNRzBzWS9DdmpJT3k0djFscGltMXFzWUFmWk51V3JuNWhSdTdibSs5Ui8ya2VHeEpMdFhIbHM3cEIwbmJYUkwvQ3BUSHZVUkhYMHl5MnJNOVNhYkdodXB3PT0tLUNGWmcrbWtxTjcvbWdUaDlmZUo0cHc9PQ%3D%3D--bad936f47b7370db4cc50edfe58b33e527a8251d",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:26.004Z",
+            "lastAccessed": "2026-04-15T09:10:26.004Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.787Z",
-      "createdAt": "2026-04-10T09:59:46.787Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:25.039Z",
+      "createdAt": "2026-04-15T09:10:25.039Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_nPohZFIZbT",
+      "id": "session_79B2M04U40",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -191,19 +416,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:25.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:26.489Z",
+            "lastAccessed": "2026-04-15T09:10:26.489Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "TTBQSm1Cd1plMDdKZjAzbUhIUERQakhnM1hlT1pGdkVlMjZVek1pelFvZEVjRUtBL0x1L1pscFVMTFhyUm5kaWRFMW4zUzYzMEZZMGlQOXRDZ0pNelRqYk5IWjhadlZOTGZxcU5JalFUNmp5bDhjVFY1c2tnZU1LMDlTRVVRWTJ6UU5FK2tqR1M2TkFjd3JhbWp1NW1nPT0tLVdNMlpvbGlvQ0hvN1FtUHB4c1pYYlE9PQ%3D%3D--6dc95045ece95fc62dcf850bf8ad6cea78a8fa14",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:26.489Z",
+            "lastAccessed": "2026-04-15T09:10:26.489Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.789Z",
-      "createdAt": "2026-04-10T09:59:46.789Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:25.622Z",
+      "createdAt": "2026-04-15T09:10:25.622Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_7bpedcMV1C",
+      "id": "session_3EzxoufFV8",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -211,19 +461,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:38.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:39.321Z",
+            "lastAccessed": "2026-04-15T09:10:39.321Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "aUltVzgxL0FnRE9obUZ5NzhZcWRiLzh2Qk0vSTZkT25KK1JZaDBxK1oydnZJNndya2JTYnRmQjBqQ0xYMDFYVFlzZGdSRzZVU0x0UFZVcHYrYTRzQTdiQ3FQNmVLZ2JQSG9MTXQxdTE0dnNhUEhsclJadlpwVHhHMkJCVU02bTh4MUpGNWFqenhCVmFDd1hUbGpmeUh3PT0tLTFlWFZOZXJreHY0OUdGV0JFcERwTXc9PQ%3D%3D--ae3d7f68d7518ddb4942d74f124df4ba7ed13588",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:39.321Z",
+            "lastAccessed": "2026-04-15T09:10:39.321Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.831Z",
-      "createdAt": "2026-04-10T09:59:46.831Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:37.984Z",
+      "createdAt": "2026-04-15T09:10:37.984Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_bbetbGW8lr",
+      "id": "session_pnmcKsjXKq",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -231,19 +506,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:39.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:40.325Z",
+            "lastAccessed": "2026-04-15T09:10:40.325Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "aVRjb2IrNHVUUm9EUjEwOFNyKy9MMEp2cThCTEIyRjRkTmZmdkVNVG1pSDBnVjBXc1FrSTlWTVpGTzBFOGo1NmRncXE4UnFFbTdNSHlSZFBac0kvY0ExcXZ0NnZWOHU2dnJ1SUxsYy92cFFSVlJ2NU1IbUxwTmg1SGI1cklkb05PbWNZY1dOay9tZGl2S29NYUhwVFhnPT0tLWtDUEZnT0NkVVNHT2pzUjA5VXpmdFE9PQ%3D%3D--25b6d658d9c56b70d673a3ca830347a3da1cb1a3",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:40.325Z",
+            "lastAccessed": "2026-04-15T09:10:40.325Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.906Z",
-      "createdAt": "2026-04-10T09:59:46.906Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:39.451Z",
+      "createdAt": "2026-04-15T09:10:39.451Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_fxbWefhvst",
+      "id": "session_rYyPg32hte",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -251,19 +551,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:50.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:51.257Z",
+            "lastAccessed": "2026-04-15T09:10:51.257Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "Z2VvaHBmcEFMVjYzZ3V6SEdRYUkvWUJFa2Qzazh4VE9LZG53U1BHTXo2OVF4b2JNR0RmeGF2WGIrTUZCRnU4LzlpSTR2TjdxYW5qRlF0SEU5ZnFNc3dNSEQvT3kyZ1A2eGd1RHlOUWZqUUJGS0lPYXd2SzZFKzFPOFVuTzRoMzY4VkZyWW0zTFFuMEhSSnBadVE4M2h3PT0tLVpZaThnald4c0R4aUE4VEc4bnZwL3c9PQ%3D%3D--480d3357aeb12c3b2a6321053af8c9c39d0db941",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:51.257Z",
+            "lastAccessed": "2026-04-15T09:10:51.257Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.908Z",
-      "createdAt": "2026-04-10T09:59:46.908Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:49.686Z",
+      "createdAt": "2026-04-15T09:10:49.686Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_ZKs0KysSxE",
+      "id": "session_B76It10YME",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -271,19 +596,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:51.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:51.947Z",
+            "lastAccessed": "2026-04-15T09:10:51.947Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "TitWK2ZudHI4SHZSbXJSakV5clBTeHNSaUNyWktueTFuMjFOWTYxdVhmMnhIUHFlM0NQcmFld1RqQ1V1cE9US0tYSXhhSDZDSzljbm5KQXVHamdJUUx4eVJESXZqWW9ZaW1NNndUZkpTei96TVQ3VEl2MC8zdlpHOUpMNWRpZkorYkU2VDNGWVZweVdLcXBmUGJPZkFnPT0tLVRwS3MxTmNBUENiSVhhdlRXeWxyeVE9PQ%3D%3D--74dae98771bdd9e0d47be87e45a8f04c7ac5b803",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:51.947Z",
+            "lastAccessed": "2026-04-15T09:10:51.947Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.910Z",
-      "createdAt": "2026-04-10T09:59:46.910Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:51.000Z",
+      "createdAt": "2026-04-15T09:10:51.000Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_GkkKsKifgu",
+      "id": "session_JrnSZxvtCe",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -291,19 +641,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:10:52.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:52.688Z",
+            "lastAccessed": "2026-04-15T09:10:52.688Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "akRObE05dVJpc1duTURYT1k5TWJMV0s3SStCWTk4TzExaWpCU29Ddm1tVCthWXdRWkppaFFiazlpVHFvOGszcnB6U1lBS3VUV01jYm9ZLzQ4UHROeVpxVzBJOExZSEtyNGxDdXVibEdLMGpOWWFFL0p5alROdERVeUN2cXp4em5vRHZJT3U2SjYzQ3NQZ2xaemQwamV3PT0tLU83MW9xMGdiVDBoNmJOcW15N1RJZWc9PQ%3D%3D--05657278d631f07fa274ede4c0a88d80427113a1",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:10:52.688Z",
+            "lastAccessed": "2026-04-15T09:10:52.688Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.911Z",
-      "createdAt": "2026-04-10T09:59:46.911Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:51.639Z",
+      "createdAt": "2026-04-15T09:10:51.639Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_FkHjZjmTpV",
+      "id": "session_rSW7xZfztl",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -311,19 +686,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:11:00.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:00.641Z",
+            "lastAccessed": "2026-04-15T09:11:00.641Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "MTM3WTRtd000TnR3dkxvaC9kbVNrZWdKSDdIVlYxaG1sQThKUjljY3ppeTBSMHNrWklHWS9lZHBNZ0VlWUtmZk14cnVpRndDSi9BTkNrT0cwWjdubkRHNWZLMkp3Mm5lSjY0OHVPRFRCeVJIeWM1THk0S290ZzVseHk4YVlMbTBuVEtHTnpjNk5keEJaL2h3NTNmOHFBPT0tLUdCTzBjTnBBTm1XTlp2Q1M4YnZuM2c9PQ%3D%3D--93bee04fa694d7ff3029a3ab50e09efa485e734e",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:00.641Z",
+            "lastAccessed": "2026-04-15T09:11:00.641Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.917Z",
-      "createdAt": "2026-04-10T09:59:46.917Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:00:59.430Z",
+      "createdAt": "2026-04-15T09:10:59.430Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_dOQNeTH1rg",
+      "id": "session_L5QFY7546r",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -331,19 +731,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:11:03.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:04.353Z",
+            "lastAccessed": "2026-04-15T09:11:04.353Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "SUF2YUxlT29pRnNIaDlSQUFPOFQ2Z2hRbTZJODdkRm1LZDVWQStLMm9aYVpCK0Z1N2pQRVpPUGhqRHNDb3VubTUrRis4cWxUYnp2eE91Uml0dFdwSjFLbm9JeC9QRFYzWkFoWVRQRzNIaHVsR2tuKzd6UHBNcjJuQjJVS2FqYzRvWUFCT1NzVCs0clJoM2VURFR6VWF3PT0tLUhHZUE2QXBvaEpzRktrRDRRSjRrV0E9PQ%3D%3D--ef54477fe0119dac81671b76c292665624961810",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:04.353Z",
+            "lastAccessed": "2026-04-15T09:11:04.353Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.959Z",
-      "createdAt": "2026-04-10T09:59:46.959Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:01:03.424Z",
+      "createdAt": "2026-04-15T09:11:03.424Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_eK3SIPJlIp",
+      "id": "session_VswedV0agy",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -351,19 +776,44 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:11:04.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:05.318Z",
+            "lastAccessed": "2026-04-15T09:11:05.318Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "WStqSGRybE9reG9Mak8zZzJscFlublVXRjR4MGhBRTNYcVd3bUVzTG9iamlqakhIM205RGM1cHBqT003dHRBakFPbkd3cnJuVXh3U2FJN2p5aDFUdzhwTllhcys1Q3VkWm0rSDhPeHlJMitSNHFyaUVwYWlaVWpXVUJid1BqUDlVUW5wUXN3WnlHUjBYNTBMcjFmZFlBPT0tLTlkaFZsUEpHWWJEeFZnUXVnMmZMR3c9PQ%3D%3D--e26341d4155375d0d477b797557bd0354cc218c5",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:05.318Z",
+            "lastAccessed": "2026-04-15T09:11:05.318Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.965Z",
-      "createdAt": "2026-04-10T09:59:46.965Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:01:04.529Z",
+      "createdAt": "2026-04-15T09:11:04.529Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     },
     {
-      "id": "session_BBk1XGZPbk",
+      "id": "session_ntklLiFhKu",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -371,776 +821,41 @@
         "enableLooseMode": false,
         "allowSpecialUseDomain": true,
         "prefixSecurity": "silent",
-        "cookies": []
+        "cookies": [
+          {
+            "key": "page_layout_action_taken",
+            "value": "false",
+            "expires": "2026-04-22T09:11:05.000Z",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:06.139Z",
+            "lastAccessed": "2026-04-15T09:11:06.139Z",
+            "sameSite": "none"
+          },
+          {
+            "key": "_ctesius2_session",
+            "value": "UEgzb1A3RFoyUUwvb0ZHQnIwbmRMVHhscm1WNDJkRGIrZzBmRFpuRFlLWlY0NTdCQVJ4M0xhRVorL0FJQjlvZkNQOG5sanlKQ0hWcjh1bTlJVEovcUpkRnJBMFdZNGVNeDdDRWwrbjhic0Qzb1pHY3ZQbTFPa3VCRWRwaFFaajErbWZ1UmszQ3ZuN1RxeXpIQ1ZnYXJRPT0tLWFXbHg0S1ZnYm5TL2JOZ0hhV2tQNHc9PQ%3D%3D--b884d30b2e514eef7b4846691ea7d0f459c2c1e2",
+            "domain": "www.countrywidescotland.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-15T09:11:06.140Z",
+            "lastAccessed": "2026-04-15T09:11:06.140Z",
+            "sameSite": "strict"
+          }
+        ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.997Z",
-      "createdAt": "2026-04-10T09:59:46.997Z",
-      "usageCount": 3,
+      "expiresAt": "2026-04-15T10:01:05.344Z",
+      "createdAt": "2026-04-15T09:11:05.344Z",
+      "usageCount": 1,
       "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_p86MzxIxRC",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:46.999Z",
-      "createdAt": "2026-04-10T09:59:46.999Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_PfHbvfim85",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.000Z",
-      "createdAt": "2026-04-10T09:59:47.000Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_Xe3Gvt9ex9",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.033Z",
-      "createdAt": "2026-04-10T09:59:47.033Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_8f2oXaqBXv",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.035Z",
-      "createdAt": "2026-04-10T09:59:47.035Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_KiY4wc2SsN",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.048Z",
-      "createdAt": "2026-04-10T09:59:47.048Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_07EREPOurb",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.050Z",
-      "createdAt": "2026-04-10T09:59:47.050Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_jpVPPPKwaf",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.052Z",
-      "createdAt": "2026-04-10T09:59:47.052Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_ocyeMCJtTG",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.109Z",
-      "createdAt": "2026-04-10T09:59:47.109Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_mnkohMDS7A",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.110Z",
-      "createdAt": "2026-04-10T09:59:47.110Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_4WEybiOnc6",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.112Z",
-      "createdAt": "2026-04-10T09:59:47.112Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_udsc9L5KfQ",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.170Z",
-      "createdAt": "2026-04-10T09:59:47.170Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_vrvQtbKbWb",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.173Z",
-      "createdAt": "2026-04-10T09:59:47.173Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_mbIcplwwyN",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.178Z",
-      "createdAt": "2026-04-10T09:59:47.178Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_iAQbR7XwXr",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.211Z",
-      "createdAt": "2026-04-10T09:59:47.211Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_Hkj7FaucZb",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.217Z",
-      "createdAt": "2026-04-10T09:59:47.217Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_DM1bfGXQQf",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.284Z",
-      "createdAt": "2026-04-10T09:59:47.284Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_2JgOKPnNGN",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.285Z",
-      "createdAt": "2026-04-10T09:59:47.285Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_wgjdt8cbdD",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.286Z",
-      "createdAt": "2026-04-10T09:59:47.286Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_fz2MMpPmse",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.295Z",
-      "createdAt": "2026-04-10T09:59:47.295Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_jGZjGfUGE2",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.297Z",
-      "createdAt": "2026-04-10T09:59:47.297Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_GwIOozfRbn",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.348Z",
-      "createdAt": "2026-04-10T09:59:47.348Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_tXD8Q1istj",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.356Z",
-      "createdAt": "2026-04-10T09:59:47.356Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_XUQcZmbmQo",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.363Z",
-      "createdAt": "2026-04-10T09:59:47.363Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_iF8jyVstgM",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.404Z",
-      "createdAt": "2026-04-10T09:59:47.404Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_nYiK9Clrcm",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.410Z",
-      "createdAt": "2026-04-10T09:59:47.410Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_294sXx3CX7",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.420Z",
-      "createdAt": "2026-04-10T09:59:47.420Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_HgLhm5aTob",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.434Z",
-      "createdAt": "2026-04-10T09:59:47.434Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_wBDCRVoaEP",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.497Z",
-      "createdAt": "2026-04-10T09:59:47.497Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_sMezYijN6j",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.499Z",
-      "createdAt": "2026-04-10T09:59:47.499Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_bVm5RtFnDH",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.500Z",
-      "createdAt": "2026-04-10T09:59:47.500Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_9UHDINhsxq",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.502Z",
-      "createdAt": "2026-04-10T09:59:47.502Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_j3a3W32N4r",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.526Z",
-      "createdAt": "2026-04-10T09:59:47.526Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_tyCfWIntbK",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.567Z",
-      "createdAt": "2026-04-10T09:59:47.567Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_MyysqPiTYa",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.570Z",
-      "createdAt": "2026-04-10T09:59:47.570Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_RIt4wDZlbt",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.576Z",
-      "createdAt": "2026-04-10T09:59:47.576Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_5INzNWozhx",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.577Z",
-      "createdAt": "2026-04-10T09:59:47.577Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_aXWErtXrXt",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.588Z",
-      "createdAt": "2026-04-10T09:59:47.588Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
-    },
-    {
-      "id": "session_QWKODzykyK",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-10T10:49:47.627Z",
-      "createdAt": "2026-04-10T09:59:47.627Z",
-      "usageCount": 3,
-      "maxUsageCount": 50,
-      "errorScore": 7
+      "errorScore": 0
     }
   ]
 }
