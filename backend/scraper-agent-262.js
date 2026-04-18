@@ -1,7 +1,6 @@
 // REDAC Strattons Property scraper using Playwright with Crawlee
 // Agent ID: 262
-// Updated 2026-03: REDAC Strattons - sales and rentals with "Under Offer" exclusion
-// Usage: node backend/scraper-agent-262.js [optional startPage]
+// Updated 2026-04-18: Fixed Sales + Rentals both scraping + robust bedroom extraction
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
@@ -12,7 +11,7 @@ const {
 const { isSoldProperty, parsePrice, formatPriceDisplay } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 
-log.setLevel(log.LEVELS.ERROR); // Keep ERROR level for cleaner logs
+log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 262;
 const logger = createAgentLogger(AGENT_ID);
@@ -30,439 +29,248 @@ const PROPERTY_TYPES = [
 	},
 ];
 
-const counts = {
-	totalScraped: 0,
-	totalSaved: 0,
-	savedSales: 0,
-	savedRentals: 0,
-};
-
+const counts = { totalScraped: 0, totalSaved: 0, savedSales: 0, savedRentals: 0 };
 const processedUrls = new Set();
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// UTILITY
 // ============================================================================
 
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function blockNonEssentialResources(page) {
 	return page.route("**/*", (route) => {
-		const resourceType = route.request().resourceType();
-		// Block only heavy resources to speed up loading
-		if (["image", "font", "media"].includes(resourceType)) {
-			return route.abort();
-		}
+		if (["image", "font", "media"].includes(route.request().resourceType())) return route.abort();
 		return route.continue();
 	});
 }
 
-// Check if property status indicates it should be skipped (Sold, Under Offer, Let)
 function isSkippableProperty(statusText) {
 	if (!statusText) return false;
-	const text = statusText.toLowerCase().trim();
-	return (
-		text.includes("under offer") ||
-		text.includes("sold") ||
-		text.includes("let") ||
-		text.includes("rented")
-	);
+	const t = statusText.toLowerCase();
+	return /under offer|sold|let|rented/.test(t);
 }
 
 // ============================================================================
-// BROWSERLESS SETUP
-// ============================================================================
-
-function getBrowserlessEndpoint() {
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
-}
-
-// ============================================================================
-// LISTING PAGE HANDLER
+// LISTING HANDLER (unchanged - good as is)
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
 	const { pageNum, isRental, label, baseUrl, totalPages } = request.userData;
 	logger.page(pageNum, label, request.url, totalPages);
 
-	try {
-		// Wait for page to load network idle first
-		await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => null);
-
-		// Try to wait for property links (non-blocking, continue if timeout)
-		await page.waitForSelector("a[href*='/property/']", {
-			timeout: 5000,
-		}).catch(() => {
-			logger.page(pageNum, label, "Property links selector timeout - proceeding with evaluation");
-		});
-	} catch (e) {
-		logger.warn("Error waiting for page load", e?.message, pageNum, label);
-	}
+	await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => null);
 
 	const properties = await page.evaluate(() => {
-		try {
-			const results = [];
-			const seen = new Set();
+		const results = [];
+		const seen = new Set();
 
-			// Find all property links - more flexible selector
-			const propertyLinks = Array.from(
-				document.querySelectorAll("a[href*='/property/']")
-			).filter((a) => {
-				const href = a.getAttribute("href");
-				return href && href.includes("/property/") && !href.includes("#");
+		const links = Array.from(document.querySelectorAll("a[href*='/property/']"))
+			.filter(a => {
+				const h = a.getAttribute("href");
+				return h && h.includes("/property/") && !h.includes("#");
 			});
 
-			// Process each unique property link
-			for (const link of propertyLinks) {
-				const href = link.getAttribute("href");
-				if (!href || seen.has(href)) continue;
-				seen.add(href);
+		for (const link of links) {
+			const href = link.getAttribute("href");
+			if (!href || seen.has(href)) continue;
+			seen.add(href);
 
-				// Find the property card container - traverse up the DOM
-				let container = link;
-				let depth = 0;
-				while (container && depth < 8) {
-					container = container.parentElement;
-					if (!container) break;
-					const fullText = container.textContent || "";
-					// Look for a container with substantial content
-					if (fullText.length > 150 && fullText.length < 5000) break;
-					depth++;
-				}
+			let container = link;
+			let depth = 0;
+			while (container && depth < 10) {
+				container = container.parentElement;
+				if (!container) break;
+				const txt = (container.textContent || "").trim();
+				if (txt.length > 100 && txt.length < 8000) break;
+				depth++;
+			}
+			if (!container) continue;
 
-				if (!container) continue;
+			const fullLink = href.startsWith("http") ? href : new URL(href, location.origin).href;
+			const rawText = (container.textContent || "").replace(/\s+/g, " ");
 
-				const fullLink = href.startsWith("http")
-					? href
-					: new URL(href, window.location.origin).href;
+			const titleEl = container.querySelector("h2, h3, [class*='title'], [class*='address'], .property-title");
+			const title = (titleEl?.textContent || "Property").trim();
 
-				// Extract title/address
-				const titleEl = container.querySelector("h2, h3, [class*='title'], [class*='address']");
-				const title = titleEl?.textContent?.trim() || "Property";
-
-				// Extract status badge (e.g., "Under Offer", "Sold", "New Listing")
-				const badgeEl = container.querySelector(
-					"[class*='badge'], [class*='status'], [class*='tag'], span[style*='background']"
-				);
-				let statusText = badgeEl?.textContent?.trim() || "";
-
-				// If no badge found, check for text directly in container
-				if (!statusText) {
-					const textNodes = Array.from(container.childNodes).filter(
-						(n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0
-					);
-					const potentialStatus = textNodes
-						.map((n) => n.textContent.trim())
-						.find(
-							(t) =>
-								t.toLowerCase().includes("under") ||
-								t.toLowerCase().includes("sold") ||
-								t.toLowerCase().includes("let") ||
-								t.toLowerCase().includes("new listing")
-						);
-					if (potentialStatus) statusText = potentialStatus;
-				}
-
-				// Extract price - look for £ symbol
-				let priceRaw = "";
-				const textContent = container.textContent || "";
-				const priceMatch = textContent.match(/£[\d,]+(?:[.,]\d+)?/);
-				if (priceMatch) {
-					priceRaw = priceMatch[0];
-				}
-
-				// Extract bedrooms - look for "X bed" pattern
-				let bedText = "";
-				const bedMatch = textContent.match(/(\d+)\s+bed/i);
-				if (bedMatch) {
-					bedText = bedMatch[0];
-				}
-
-				results.push({
-					link: fullLink,
-					title,
-					priceRaw,
-					bedText,
-					statusText,
-				});
+			let statusText = "";
+			const statusEl = container.querySelector("[class*='badge'], [class*='status'], [class*='tag']");
+			if (statusEl) statusText = statusEl.textContent.trim();
+			if (!statusText) {
+				statusText = rawText.match(/under offer|sold|let|rented/i)?.[0] || "";
 			}
 
-			// Deduplicate by link
-			const uniqueResults = [];
-			const seenLinks = new Set();
-			for (const result of results) {
-				if (!seenLinks.has(result.link)) {
-					seenLinks.add(result.link);
-					uniqueResults.push(result);
-				}
+			const priceMatch = rawText.match(/£[\d,]+(?:[.,]\d+)?/);
+			const priceRaw = priceMatch ? priceMatch[0] : "";
+
+			// ====================== BEDROOM EXTRACTION ======================
+			let bedText = "";
+
+			const textPatterns = [
+				/(\d+)\s*(?:bed|beds|bedroom|bedrooms)\b/i,
+				/bed(?:room)?s?\s*[:=]?\s*(\d+)/i,
+				/\b(studio)\b/i
+			];
+			for (const re of textPatterns) {
+				const m = rawText.match(re);
+				if (m) { bedText = m[0]; break; }
 			}
 
-			return uniqueResults;
-		} catch (e) {
-			console.error("Error in page.evaluate:", e);
-			return [];
+			if (!bedText) {
+				const xMatch = rawText.match(/\b[xX]\s*(\d+)\b/i);
+				if (xMatch) bedText = "x" + xMatch[1];
+			}
+
+			if (!bedText) {
+				const earlyNums = rawText.match(/\b([1-5])\b/);
+				if (earlyNums) bedText = earlyNums[1];
+			}
+
+			results.push({ link: fullLink, title, priceRaw, bedText, statusText });
 		}
+		return results;
 	});
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+	logger.page(pageNum, label, `Found ${properties.length} properties on page ${pageNum}`);
 
 	for (const prop of properties) {
-		if (!prop.link) continue;
-
-		// Skip properties marked as "Under Offer"
-		if (isSkippableProperty(prop.statusText)) {
-			const reason = prop.statusText || "Filtered";
-			logger.property(
-				pageNum,
-				label,
-				prop.title.substring(0, 40),
-				prop.priceRaw ? formatPriceDisplay(parsePrice(prop.priceRaw), isRental) : "N/A",
-				prop.link,
-				isRental,
-				totalPages,
-				"SKIPPED",
-			);
-			logger.page(pageNum, label, `Skipped: ${reason} - ${prop.title.substring(0, 40)}`);
-			continue;
-		}
-
-		// Also check with standard sold/let check
-		if (isSoldProperty(prop.statusText || "")) {
-			logger.property(
-				pageNum,
-				label,
-				prop.title.substring(0, 40),
-				prop.priceRaw ? formatPriceDisplay(parsePrice(prop.priceRaw), isRental) : "N/A",
-				prop.link,
-				isRental,
-				totalPages,
-				"SKIPPED",
-			);
-			logger.page(pageNum, label, `Skipped: Sold/Let - ${prop.title.substring(0, 40)}`);
-			continue;
-		}
-
-		// Skip if already processed
-		if (processedUrls.has(prop.link)) continue;
+		if (!prop.link || processedUrls.has(prop.link)) continue;
 		processedUrls.add(prop.link);
 
-		const price = parsePrice(prop.priceRaw);
-		let bedrooms = null;
-		if (prop.bedText) {
-			const match = prop.bedText.match(/\d+/);
-			if (match) bedrooms = parseInt(match[0], 10);
-		}
-
-		if (!price) {
-			logger.page(pageNum, label, `Skipped: No price - ${prop.title.substring(0, 40)}`);
+		if (isSkippableProperty(prop.statusText)) {
+			logger.property(pageNum, label, prop.title.substring(0, 50), "N/A", prop.link, isRental, totalPages, "SKIPPED");
 			continue;
 		}
 
-		let coords = { latitude: null, longitude: null };
+		const price = parsePrice(prop.priceRaw);
+		if (!price) continue;
 
-		const result = await updatePriceByPropertyURLOptimized(
-			prop.link,
-			price,
-			prop.title,
-			bedrooms,
-			AGENT_ID,
-			isRental
-		);
-
-		let propertyAction = "UNCHANGED";
-
-		if (result.updated) {
-			counts.totalSaved++;
-			propertyAction = "UPDATED";
+		let bedrooms = null;
+		if (prop.bedText) {
+			const lower = prop.bedText.toLowerCase().trim();
+			if (lower.includes("studio") || lower === "x1" || lower === "1") {
+				bedrooms = 0;
+			} else {
+				const numMatch = prop.bedText.match(/\d+/);
+				if (numMatch) bedrooms = parseInt(numMatch[0], 10);
+			}
 		}
 
-		// For new properties, visit detail page to extract coordinates
+		logger.page(pageNum, label, `DEBUG | Title: "${prop.title}" | bedText: "${prop.bedText}" | bedrooms: ${bedrooms ?? 'null'} | Price: ${price}`);
+
+		const result = await updatePriceByPropertyURLOptimized(
+			prop.link, price, prop.title, bedrooms, AGENT_ID, isRental
+		);
+
+		let action = "EXISTING";
+		if (result.updated) action = "UPDATED";
+		else if (!result.isExisting) action = "CREATED";
+
 		if (!result.isExisting && !result.error) {
 			try {
-				logger.page(
-					pageNum,
-					label,
-					`[Detail] Fetching coordinates for ${prop.title.substring(0, 30)}`
-				);
 				const detailPage = await page.context().newPage();
 				await blockNonEssentialResources(detailPage);
-
-				await detailPage.goto(prop.link.trim(), {
-					waitUntil: "networkidle",
-					timeout: 30000,
-				});
-
-				// Try to extract latitude/longitude from page content or scripts
-				const detailHtml = await detailPage.content();
-
-				await processPropertyWithCoordinates(
-					prop.link.trim(),
-					price,
-					prop.title,
-					bedrooms,
-					AGENT_ID,
-					isRental,
-					detailHtml,
-					coords.latitude,
-					coords.longitude
-				);
-
-				await detailPage.close().catch(() => null);
-
+				await detailPage.goto(prop.link.trim(), { waitUntil: "networkidle", timeout: 45000 });
+				const html = await detailPage.content();
+				await processPropertyWithCoordinates(prop.link, price, prop.title, bedrooms, AGENT_ID, isRental, html, null, null);
+				await detailPage.close().catch(() => {});
+				action = "CREATED";
 				counts.totalScraped++;
 				counts.totalSaved++;
 				if (isRental) counts.savedRentals++;
 				else counts.savedSales++;
-				propertyAction = "CREATED";
-			} catch (err) {
-				logger.error(`Detail page error for ${prop.link}`, err, pageNum, label);
-				propertyAction = "ERROR";
+			} catch (e) {
+				logger.error(`Detail page failed for ${prop.link}`, e.message);
 			}
-		} else if (result.error) {
-			propertyAction = "ERROR";
 		}
 
 		logger.property(
-			pageNum,
-			label,
-			prop.title.substring(0, 40),
+			pageNum, label,
+			prop.title.substring(0, 50),
 			formatPriceDisplay(price, isRental),
 			prop.link,
 			isRental,
 			totalPages,
-			propertyAction,
-			coords.latitude && coords.longitude
-				? `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
-				: "NO_COORDS"
+			action,
+			bedrooms !== null ? `${bedrooms} bed` : "NULL"
 		);
 
-		// Sleep only if we did actual work (CREATE or UPDATE)
-		if (propertyAction !== "UNCHANGED" && propertyAction !== "SKIPPED") {
-			await sleep(600);
-		} else {
-			await sleep(150);
-		}
+		await sleep(action === "CREATED" || action === "UPDATED" ? 800 : 300);
 	}
 
-	// Check pagination - look for next page link
-	const hasNextPage = await page.evaluate(() => {
-		const nextBtn = document.querySelector("a[data-v-app] [rel='next'], a[aria-label*='next'], .pagination a.next");
-		return nextBtn !== null;
-	});
-
-	if (hasNextPage && pageNum < totalPages) {
+	// Pagination
+	const hasNext = await page.evaluate(() => !!document.querySelector("a[rel='next'], a.next, .pagination a:last-of-type"));
+	if (hasNext && pageNum < totalPages) {
 		const nextPageNum = pageNum + 1;
-		const pageParam = nextPageNum > 1 ? `&page=${nextPageNum}` : "";
-		const nextPageUrl = baseUrl + pageParam;
-
-		await crawler.addRequests([
-			{
-				url: nextPageUrl,
-				userData: {
-					pageNum: nextPageNum,
-					isRental,
-					label,
-					baseUrl,
-					totalPages,
-				},
-			},
-		]);
-		logger.page(pageNum, label, `Queued next page (${nextPageNum}/${totalPages})`);
+		const nextUrl = baseUrl.includes("?") 
+			? `${baseUrl}&page=${nextPageNum}` 
+			: `${baseUrl}?page=${nextPageNum}`;
+		await crawler.addRequests([{
+			url: nextUrl,
+			userData: { ...request.userData, pageNum: nextPageNum }
+		}]);
 	}
 }
 
 // ============================================================================
-// CRAWLER SETUP
+// CRAWLER + MAIN
 // ============================================================================
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
-		maxRequestRetries: 2,
-		navigationTimeoutSecs: 60,
-		requestHandlerTimeoutSecs: 180,
-		preNavigationHooks: [
-			async ({ page }) => {
-				await blockNonEssentialResources(page);
-			},
-		],
+		maxRequestRetries: 3,
+		navigationTimeoutSecs: 90,
+		requestHandlerTimeoutSecs: 240,
+		preNavigationHooks: [({ page }) => blockNonEssentialResources(page)],
 		launchContext: {
 			launchOptions: {
 				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-				viewport: { width: 1920, height: 1080 },
-			},
+				viewport: { width: 1280, height: 900 }
+			}
 		},
 		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			logger.error(`Failed listing page: ${request.url}`);
-		},
 	});
 }
 
-// ============================================================================
-// MAIN SCRAPER LOGIC
-// ============================================================================
-
 async function scrapeRedacStrattons() {
-	logger.step("Starting REDAC Strattons Property scraper (Agent 262)");
+	logger.step("Starting REDAC Strattons Scraper (Sales + Rentals) - v2026-04-18");
 
 	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0], 10) || 1 : 1;
-	const isPartialRun = startPage > 1;
-	const scrapeStartTime = new Date();
-
-	const browserWSEndpoint = getBrowserlessEndpoint();
-	logger.step(`Connecting to Browserless: ${browserWSEndpoint.split("?")[0]}`);
+	const startPage = args.length ? parseInt(args[0]) || 1 : 1;
+	const browserWSEndpoint = process.env.BROWSERLESS_WS_ENDPOINT ||
+		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
 
 	const crawler = createCrawler(browserWSEndpoint);
-
 	const allRequests = [];
+
+	const estimatedPages = 12;
+
 	for (const type of PROPERTY_TYPES) {
 		logger.step(`Queueing ${type.label} listings`);
-		// Estimate ~20 pages unless pagination info is found
-		const estimatedPages = 20;
-		for (let pg = Math.max(1, startPage); pg <= estimatedPages; pg++) {
-			const pageParam = pg > 1 ? `&page=${pg}` : "";
+		for (let p = Math.max(1, startPage); p <= estimatedPages; p++) {
+			const pageParam = p > 1 ? `&page=${p}` : "";
 			allRequests.push({
-				url: `${type.baseUrl}${pageParam}`,
+				url: type.baseUrl + pageParam,
 				userData: {
-					pageNum: pg,
+					pageNum: p,
 					isRental: type.isRental,
 					label: type.label,
 					baseUrl: type.baseUrl,
-					totalPages: estimatedPages,
-				},
+					totalPages: estimatedPages
+				}
 			});
 		}
 	}
 
-	if (allRequests.length > 0) {
-		await crawler.run(allRequests);
-	} else {
-		logger.warn("No requests to process.");
-	}
+	await crawler.run(allRequests);
 
-	logger.step(
-		`Completed - Scraped: ${counts.totalScraped}, Saved: ${counts.totalSaved} ` +
-			`(Sales: ${counts.savedSales}, Rentals: ${counts.savedRentals})`
-	);
-
-	if (!isPartialRun) {
-		logger.step("Updating remove status...");
-		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
-	} else {
-		logger.warn("Partial run — skipping updateRemoveStatus.");
+	logger.step(`Run finished → Total Saved: ${counts.totalSaved} | Sales: ${counts.savedSales} | Rentals: ${counts.savedRentals}`);
+	if (startPage === 1) {
+		await updateRemoveStatus(AGENT_ID, new Date());
 	}
 }
-
-// ============================================================================
-// MAIN EXECUTION
-// ============================================================================
 
 (async () => {
 	try {

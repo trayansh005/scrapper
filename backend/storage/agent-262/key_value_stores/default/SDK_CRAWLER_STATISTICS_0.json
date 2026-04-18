@@ -1,28 +1,28 @@
 {
-  "requestsFinished": 40,
+  "requestsFinished": 24,
   "requestsFailed": 0,
   "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 5,
-  "requestMinDurationMillis": 8209,
-  "requestMaxDurationMillis": 42661,
+  "requestsFinishedPerMinute": 7,
+  "requestMinDurationMillis": 3746,
+  "requestMaxDurationMillis": 31749,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 516195,
-  "crawlerStartedAt": "2026-04-09T12:25:24.565Z",
-  "crawlerFinishedAt": "2026-04-09T12:34:02.829Z",
-  "statsPersistedAt": "2026-04-09T12:34:02.829Z",
-  "crawlerRuntimeMillis": 518485,
-  "crawlerLastStartTimestamp": 1775737524344,
+  "requestTotalFinishedDurationMillis": 195799,
+  "crawlerStartedAt": "2026-04-18T06:17:10.605Z",
+  "crawlerFinishedAt": "2026-04-18T06:20:29.140Z",
+  "statsPersistedAt": "2026-04-18T06:20:29.140Z",
+  "crawlerRuntimeMillis": 198824,
+  "crawlerLastStartTimestamp": 1776493030316,
   "requestRetryHistogram": [
-    40
+    24
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 12905,
-  "requestTotalDurationMillis": 516195,
-  "requestsTotal": 40,
+  "requestAvgFinishedDurationMillis": 8158,
+  "requestTotalDurationMillis": 195799,
+  "requestsTotal": 24,
   "requestsWithStatusCode": {
-    "200": 40
+    "200": 24
   },
   "errors": {},
   "retryErrors": {}
