@@ -1,8 +1,7 @@
 // Jackie Quinn scraper using Playwright with Crawlee
 // Agent ID: 8
 // Website: www.jackiequinn.co.uk
-// Usage:
-// node backend/scraper-agent-8.js [startPage]
+// Updated: Fixed title, bedrooms, and coordinates extraction
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const cheerio = require("cheerio");
@@ -14,13 +13,12 @@ const {
 } = require("./lib/db-helpers.js");
 const {
 	isSoldProperty,
-	extractBedroomsFromHTML,
 	formatPriceDisplay,
 } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
 
-// Disable Crawlee's verbose logging
+// Disable verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 8;
@@ -38,7 +36,6 @@ const processedUrls = new Set();
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -51,83 +48,92 @@ function getBrowserlessEndpoint() {
 }
 
 // ============================================================================
-// DETAIL PAGE SCRAPING
+// DETAIL PAGE - IMPROVED COORDINATES EXTRACTION
 // ============================================================================
-
 async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 	try {
 		await blockNonEssentialResources(detailPage);
 
 		await detailPage.goto(property.link, {
-			waitUntil: "networkidle",   // better than domcontentloaded
+			waitUntil: "domcontentloaded",
 			timeout: 60000,
 		});
 
-		// Wait for map container to appear
-		await detailPage.waitForSelector('#map, .map, [id*="map"], iframe[src*="google.com/maps"], .property-map',
-			{ timeout: 15000 }).catch(() => { });
-
-		// Click any "View Map" / "Map" link/tab if present
-		await detailPage.evaluate(() => {
-			const mapTriggers = [
-				'a[href*="map"]',
-				'button:contains("Map")',
-				'.map-tab',
-				'[data-tab*="map"]',
-				'a:contains("map")'
-			];
-			for (const sel of mapTriggers) {
-				const el = document.querySelector(sel);
-				if (el) {
-					el.click();
-					return;
-				}
-			}
+		// Wait for property content
+		await detailPage.waitForSelector('.card__content, .property-description, #map', {
+			timeout: 15000,
 		}).catch(() => { });
 
-		await detailPage.waitForTimeout(3000); // Give map JS time to run
+		// Scroll to map area if exists
+		await detailPage.evaluate(() => {
+			const mapEl = document.querySelector('#map, .map, [class*="map"]');
+			if (mapEl) mapEl.scrollIntoView({ behavior: "smooth" });
+		});
 
-		// Extract coordinates using multiple strategies
+		await detailPage.waitForTimeout(1500); // Give map time to load
+
 		const coords = await detailPage.evaluate(() => {
-			// Strategy 1: Look for common patterns in window / global variables
-			if (window.mapData || window.propertyData || window.__PRELOADED_STATE__) {
-				const data = window.mapData || window.propertyData || window.__PRELOADED_STATE__;
-				if (data.latitude && data.longitude) {
-					return { lat: data.latitude, lng: data.longitude };
+			// Strategy 1: Window global objects
+			const dataSources = [
+				window.mapData,
+				window.propertyData,
+				window.__PRELOADED_STATE__,
+				window.__INITIAL_STATE__,
+				window.__APP_STATE__,
+				window.__REACT_QUERY_STATE__
+			];
+
+			for (const data of dataSources) {
+				if (data && typeof data === 'object') {
+					const lat = data.latitude || data.lat || data.coords?.latitude || data.coords?.lat || data.location?.lat;
+					const lng = data.longitude || data.lng || data.coords?.longitude || data.coords?.lng || data.location?.lng;
+					if (lat && lng) {
+						return { lat: parseFloat(lat), lng: parseFloat(lng) };
+					}
 				}
 			}
 
-			// Strategy 2: Google Maps iframe src (common)
-			const iframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.googleapis"]');
-			if (iframe) {
-				const src = iframe.src;
-				const match = src.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ||
-					src.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-				if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-			}
-
-			// Strategy 3: data attributes on map div
-			const mapDiv = document.querySelector('#map, .map-container, [class*="map"]');
-			if (mapDiv) {
-				const lat = mapDiv.dataset.lat || mapDiv.dataset.latitude;
-				const lng = mapDiv.dataset.lng || mapDiv.dataset.longitude;
-				if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
-			}
-
-			// Strategy 4: Search in all script tags for JSON containing lat/lng
+			// Strategy 2: Search all scripts for JSON containing lat/lng (most reliable for this site)
 			const scripts = Array.from(document.querySelectorAll('script'));
 			for (const script of scripts) {
 				const text = script.textContent || '';
-				const latMatch = text.match(/"latitude":\s*(-?\d+\.\d+)/i) ||
-					text.match(/"lat":\s*(-?\d+\.\d+)/i);
-				const lngMatch = text.match(/"longitude":\s*(-?\d+\.\d+)/i) ||
-					text.match(/"lng":\s*(-?\d+\.\d+)/i);
+				if (!text.includes('latitude') && !text.includes('lat') && !text.includes('lng')) continue;
+
+				const latMatch = text.match(/"latitude"\s*:\s*(-?\d+\.?\d*)/i) ||
+					text.match(/"lat"\s*:\s*(-?\d+\.?\d*)/i) ||
+					text.match(/lat["']\s*:\s*(-?\d+\.?\d*)/i);
+
+				const lngMatch = text.match(/"longitude"\s*:\s*(-?\d+\.?\d*)/i) ||
+					text.match(/"lng"\s*:\s*(-?\d+\.?\d*)/i) ||
+					text.match(/lng["']\s*:\s*(-?\d+\.?\d*)/i);
+
 				if (latMatch && lngMatch) {
 					return {
 						lat: parseFloat(latMatch[1]),
 						lng: parseFloat(lngMatch[1])
 					};
+				}
+			}
+
+			// Strategy 3: Google Maps iframe
+			const iframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.googleapis"]');
+			if (iframe) {
+				const src = iframe.src;
+				const match = src.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+					src.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+				if (match) {
+					return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+				}
+			}
+
+			// Strategy 4: Data attributes
+			const mapDiv = document.querySelector('#map, .map-container, [class*="map"]');
+			if (mapDiv) {
+				const lat = mapDiv.dataset.lat || mapDiv.dataset.latitude || mapDiv.getAttribute('data-lat');
+				const lng = mapDiv.dataset.lng || mapDiv.dataset.longitude || mapDiv.getAttribute('data-lng');
+				if (lat && lng) {
+					return { lat: parseFloat(lat), lng: parseFloat(lng) };
 				}
 			}
 
@@ -144,11 +150,9 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			AGENT_ID,
 			isRental,
 			htmlContent,
-			coords ? coords.lat : null,     // Pass extracted coords
+			coords ? coords.lat : null,
 			coords ? coords.lng : null
 		);
-
-		// ... rest of your stats
 
 		return coords || { latitude: null, longitude: null };
 
@@ -161,101 +165,123 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 }
 
 // ============================================================================
-// PARSING LOGIC (Listing Page)
+// LISTING PAGE HANDLER - FIXED PARSING
 // ============================================================================
-
-function parseListingPage(htmlContent) {
-	const $ = cheerio.load(htmlContent);
-	const results = [];
-
-	$(".propertyBox").each((_, el) => {
-		const $item = $(el);
-
-		const $linkEl = $item.find("h2.searchProName a");
-		const rawHref = $linkEl.attr("href");
-		if (!rawHref) return;
-
-		const link = rawHref.startsWith("http") ? rawHref : `https://www.jackiequinn.co.uk${rawHref}`;
-		const title = $linkEl.text().trim();
-
-		const priceText = $item.find("h3 div").text().trim();
-		if (isSoldProperty(priceText)) return;
-
-		const price = formatPriceUk(priceText);
-		if (!price) return;
-
-		const description = $item.find(".featuredDescriptions").text().trim();
-		const allText = $item.text();
-
-		// Use centralized helper for bedroom extraction
-		const bedrooms = extractBedroomsFromHTML(allText);
-
-		results.push({ link, title, price, bedrooms });
-	});
-
-	return results;
-}
-
-// ============================================================================
-// REQUEST HANDLER
-// ============================================================================
-
 async function handleListingPage({ page, request }) {
 	const { pageNumber, totalPages, isRental, label } = request.userData;
+
 	logger.page(pageNumber, label, request.url, totalPages);
 
-	await page.waitForSelector(".propertyBox", { timeout: 15000 }).catch(() => { });
-	await page.waitForSelector(".propertyBox", { timeout: 30000 }).catch(() => { });
+	// Wait for cards to load
+	await page.waitForSelector('.card.card--grid', { timeout: 30000 }).catch(() => { });
 
-	const htmlContent = await page.content();
-	const properties = parseListingPage(htmlContent);
+	// Scroll to load all cards
+	await page.evaluate(async () => {
+		await new Promise((resolve) => {
+			let totalHeight = 0;
+			const distance = 800;
+			const timer = setInterval(() => {
+				window.scrollBy(0, distance);
+				totalHeight += distance;
+				if (totalHeight >= document.body.scrollHeight - 1000) {
+					clearInterval(timer);
+					resolve();
+				}
+			}, 150);
+		});
+	});
+
+
+	// Extract properties with improved logic
+	const properties = await page.evaluate(() => {
+		const results = [];
+		const cards = document.querySelectorAll('.card.card--grid:not(.card--property-worth)');
+
+		cards.forEach(card => {
+			const linkEl = card.querySelector('a[href*="/property/"]');
+			if (!linkEl) return;
+
+			const link = linkEl.href;
+
+			// Clean title - remove "New" badge and extra text
+			let title = '';
+			const titleEl = card.querySelector('.card__title');
+			if (titleEl) {
+				title = titleEl.textContent.trim();
+			} else {
+				title = linkEl.textContent.trim();
+			}
+			// Remove "New" if it appears at the end
+			title = title.replace(/^New\s+/i, '').replace(/\s+New\s*$/i, '').trim();
+
+			// Price
+			const priceEl = card.querySelector('.card__price .price-value');
+			let priceText = priceEl ? priceEl.textContent.trim() : '';
+			if (!priceText) {
+				const priceMatch = card.textContent.match(/£[\d,]+/);
+				priceText = priceMatch ? priceMatch[0] : '';
+			}
+
+			// Bedrooms
+			let bedrooms = null;
+			const bedEl = card.querySelector('.fa-bed-front + span.number, .card__info__item span.number');
+			if (bedEl) {
+				const num = parseInt(bedEl.textContent.trim(), 10);
+				if (!isNaN(num)) bedrooms = num;
+			}
+
+			if (link && priceText) {
+				results.push({
+					link,
+					title,
+					price: priceText,
+					bedrooms
+				});
+			}
+		});
+
+		return results;
+	});
 
 	logger.page(
 		pageNumber,
 		label,
 		`Found ${properties.length} properties on page ${pageNumber}`,
-		totalPages,
+		totalPages
 	);
 
 	for (const property of properties) {
 		stats.totalScraped++;
+
 		if (!property.link) continue;
 		if (processedUrls.has(property.link)) {
-			logger.property(
-				pageNumber,
-				label,
-				property.title.substring(0, 40),
-				formatPriceDisplay(property.price, isRental),
-				property.link,
-				isRental,
-				totalPages,
-				"SKIPPED: ALREADY PROCESSED",
-			);
+			logger.property(pageNumber, label, property.title.substring(0, 40),
+				formatPriceDisplay(property.price, isRental), property.link, isRental, totalPages, "SKIPPED");
 			continue;
 		}
+
 		processedUrls.add(property.link);
 
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
 			property.price,
 			property.title,
-			property.bedrooms,
+			property.bedrooms,           // ← Now properly extracted
 			AGENT_ID,
-			isRental,
+			isRental
 		);
 
 		let propertyAction = "UNCHANGED";
 		let coords = { latitude: null, longitude: null };
 
 		if (result.updated) propertyAction = "UPDATED";
-
 		if (!result.isExisting && !result.error) {
 			propertyAction = "CREATED";
 			coords = await scrapePropertyDetail(page.context(), property, isRental);
 		}
+
 		if (propertyAction === "CREATED") {
 			stats.totalSaved++;
-
 			if (isRental) stats.savedLettings++;
 			else stats.savedSales++;
 		}
@@ -270,11 +296,11 @@ async function handleListingPage({ page, request }) {
 			totalPages,
 			propertyAction,
 			coords.latitude,
-			coords.longitude,
+			coords.longitude
 		);
 
 		if (propertyAction === "CREATED") {
-			await sleep(1000);
+			await sleep(300);// Be gentle
 		}
 	}
 }
@@ -282,7 +308,6 @@ async function handleListingPage({ page, request }) {
 // ============================================================================
 // CRAWLER SETUP
 // ============================================================================
-
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
@@ -309,9 +334,8 @@ function createCrawler(browserWSEndpoint) {
 }
 
 // ============================================================================
-// MAIN SCRAPER LOGIC
+// MAIN FUNCTION
 // ============================================================================
-
 async function scrapeJackieQuinn() {
 	const args = process.argv.slice(2);
 	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
@@ -323,37 +347,50 @@ async function scrapeJackieQuinn() {
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
-	const totalPages = 21;
 	const requests = [];
-	for (let pageNum = Math.max(1, startPage); pageNum <= totalPages; pageNum++) {
+
+	// SALES (2 pages)
+	const totalSalesPages = 2;
+
+	for (let i = 1; i <= totalSalesPages; i++) {
 		requests.push({
-			url: `https://www.jackiequinn.co.uk/search?category=1&listingtype=5&statusids=1%2C10%2C4%2C16%2C3&obc=Price&obd=Descending&page=${pageNum}`,
+			url: `https://www.jackiequinn.co.uk/properties-for-sale/property/any-bed/all-location?exclude=1&page=${i}`,
 			userData: {
-				pageNumber: pageNum,
-				totalPages,
+				pageNumber: i,
+				totalPages: totalSalesPages,
 				isRental: false,
 				label: "SALES",
 			},
 		});
 	}
 
-	if (requests.length > 0) {
-		logger.step(`Queueing ${requests.length} listing pages starting from page ${startPage}...`);
-		await crawler.run(requests);
-	}
+	// LETTINGS (only 1 page)
+	requests.push({
+		url: "https://www.jackiequinn.co.uk/property-to-rent",
+		userData: {
+			pageNumber: 1,
+			totalPages: 1,
+			isRental: true,
+			label: "LETTINGS",
+		},
+	});
+
+	logger.step(`Queueing ${requests.length} listing pages...`);
+	await crawler.run(requests);
 
 	logger.step(
-		`Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+		`Completed Jackie Quinn - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`
 	);
 
 	if (!isPartialRun) {
-		logger.step("Updating remove status for properties not seen in this run...");
+		logger.step("Updating remove status for properties not seen...");
 		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 	} else {
-		logger.warn("Partial run detected. Skipping updateRemoveStatus.");
+		logger.warn("Partial run - skipping updateRemoveStatus");
 	}
 }
 
+// Run the scraper
 (async () => {
 	try {
 		await scrapeJackieQuinn();

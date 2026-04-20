@@ -1,29 +1,49 @@
 {
-  "requestsFinished": 7,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
-  "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 44790,
-  "requestMaxDurationMillis": 87551,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 502837,
-  "crawlerStartedAt": "2026-04-13T08:40:55.129Z",
-  "crawlerFinishedAt": "2026-04-13T08:49:19.716Z",
-  "statsPersistedAt": "2026-04-13T08:49:19.717Z",
-  "crawlerRuntimeMillis": 504944,
-  "crawlerLastStartTimestamp": 1776069654773,
+  "requestsFinished": 0,
+  "requestsFailed": 7,
+  "requestsRetries": 7,
+  "requestsFailedPerMinute": 34,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 1719,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-04-18T08:35:52.398Z",
+  "crawlerFinishedAt": "2026-04-18T08:36:03.537Z",
+  "statsPersistedAt": "2026-04-18T08:36:03.537Z",
+  "crawlerRuntimeMillis": 12022,
+  "crawlerLastStartTimestamp": 1776501351515,
   "requestRetryHistogram": [
+    null,
+    null,
     7
   ],
   "statsId": 1,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 71834,
-  "requestTotalDurationMillis": 502837,
+  "requestAvgFailedDurationMillis": 246,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 1719,
   "requestsTotal": 7,
-  "requestsWithStatusCode": {
-    "200": 7
+  "requestsWithStatusCode": {},
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 7
+          }
+        }
+      }
+    }
   },
-  "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 14
+          }
+        }
+      }
+    }
+  }
 }
