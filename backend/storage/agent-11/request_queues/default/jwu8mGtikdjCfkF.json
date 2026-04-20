@@ -1,0 +1,9 @@
+{
+	"id": "jwu8mGtikdjCfkF",
+	"json": "{\"id\":\"jwu8mGtikdjCfkF\",\"url\":\"https://vhhomes.co.uk/property-search/?type=buy&status=available&per-page=10&sort=price-high&view=list&ppage=3\",\"loadedUrl\":\"https://vhhomes.co.uk/property-search/?type=buy&status=available&per-page=10&sort=price-high&view=list&ppage=3\",\"uniqueKey\":\"https://vhhomes.co.uk/property-search?per-page=10&ppage=3&sort=price-high&status=available&type=buy&view=list\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":3,\"isRental\":false,\"label\":\"SALES\",\"totalPages\":5,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-18T10:59:42.650Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://vhhomes.co.uk/property-search?per-page=10&ppage=3&sort=price-high&status=available&type=buy&view=list",
+	"url": "https://vhhomes.co.uk/property-search/?type=buy&status=available&per-page=10&sort=price-high&view=list&ppage=3"
+}

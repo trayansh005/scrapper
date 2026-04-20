@@ -1,29 +1,60 @@
 {
-  "requestsFinished": 17,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsFinished": 15,
+  "requestsFailed": 2,
+  "requestsRetries": 2,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 45113,
-  "requestMaxDurationMillis": 111071,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1252869,
-  "crawlerStartedAt": "2026-04-13T08:19:58.343Z",
-  "crawlerFinishedAt": "2026-04-13T08:40:54.763Z",
-  "statsPersistedAt": "2026-04-13T08:40:54.763Z",
-  "crawlerRuntimeMillis": 1256704,
-  "crawlerLastStartTimestamp": 1776068398059,
+  "requestMinDurationMillis": 73578,
+  "requestMaxDurationMillis": 135250,
+  "requestTotalFailedDurationMillis": 702,
+  "requestTotalFinishedDurationMillis": 1367785,
+  "crawlerStartedAt": "2026-04-18T08:11:57.900Z",
+  "crawlerFinishedAt": "2026-04-18T08:35:51.475Z",
+  "statsPersistedAt": "2026-04-18T08:35:51.475Z",
+  "crawlerRuntimeMillis": 1434067,
+  "crawlerLastStartTimestamp": 1776499917408,
   "requestRetryHistogram": [
-    17
+    15,
+    null,
+    2
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 73698,
-  "requestTotalDurationMillis": 1252869,
+  "requestAvgFailedDurationMillis": 351,
+  "requestAvgFinishedDurationMillis": 91186,
+  "requestTotalDurationMillis": 1368487,
   "requestsTotal": 17,
   "requestsWithStatusCode": {
-    "200": 17
+    "200": 15
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 2
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 60 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
+            "count": 3
+          }
+        }
+      }
+    }
+  }
 }

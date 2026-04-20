@@ -128,6 +128,49 @@ async function handleListingPage({ page, request, crawler }) {
 		});
 
 		// Extract properties
+		// const properties = await page.evaluate(() => {
+		// 	const containers = Array.from(document.querySelectorAll("a.pli.search-property-card"));
+		// 	const items = [];
+
+		// 	for (const container of containers) {
+		// 		const link = container.href;
+
+		// 		// Monthly price is usually in .pim .fs-4
+		// 		// Weekly price is usually in .piw .fs-4
+		// 		const priceMonthlyEl = container.querySelector(".pim .fs-4");
+		// 		const priceWeeklyEl = container.querySelector(".piw .fs-4");
+
+		// 		let priceText = "";
+		// 		if (priceMonthlyEl) {
+		// 			priceText = priceMonthlyEl.textContent.trim();
+		// 		} else if (priceWeeklyEl) {
+		// 			priceText = priceWeeklyEl.textContent.trim() + " pw";
+		// 		}
+
+		// 		const title = container.querySelector(".fs-3")?.textContent?.trim() || "OpenRent Property";
+		// 		const statusText = container.innerText || "";
+
+		// 		let bedrooms = null;
+		// 		const featuresEl = container.querySelector("ul.inline-list-divide");
+		// 		if (featuresEl) {
+		// 			const text = featuresEl.textContent;
+		// 			const bedMatch = text.match(/(\d+)\s*(beds?|bedrooms?)/i);
+		// 			const roomMatch = text.match(/(\d+)\s*(rooms?)/i);
+		// 			if (bedMatch) bedrooms = parseInt(bedMatch[1]);
+		// 			else if (roomMatch) bedrooms = parseInt(roomMatch[1]);
+		// 		}
+
+		// 		if (link && priceText) {
+		// 			items.push({ link, title, priceText, bedrooms, statusText });
+		// 		}
+		// 	}
+		// 	return items;
+		// });
+
+
+		// quick debug
+		// === REPLACE your existing properties = await page.evaluate(() => { ... }) block with this ===
+
 		const properties = await page.evaluate(() => {
 			const containers = Array.from(document.querySelectorAll("a.pli.search-property-card"));
 			const items = [];
@@ -135,33 +178,43 @@ async function handleListingPage({ page, request, crawler }) {
 			for (const container of containers) {
 				const link = container.href;
 
-				// Monthly price is usually in .pim .fs-4
-				// Weekly price is usually in .piw .fs-4
-				const priceMonthlyEl = container.querySelector(".pim .fs-4");
-				const priceWeeklyEl = container.querySelector(".piw .fs-4");
-
+				// Force find price - try both monthly and weekly
 				let priceText = "";
-				if (priceMonthlyEl) {
-					priceText = priceMonthlyEl.textContent.trim();
-				} else if (priceWeeklyEl) {
-					priceText = priceWeeklyEl.textContent.trim() + " pw";
+				const monthlyEl = container.querySelector(".pim .fs-4");
+				const weeklyEl = container.querySelector(".piw .fs-4");
+
+				if (monthlyEl) {
+					priceText = monthlyEl.textContent.trim() + " pcm";
+				} else if (weeklyEl) {
+					priceText = weeklyEl.textContent.trim() + " pw";
+				} else {
+					// Fallback: search any £ amount in the card
+					const priceMatch = container.textContent.match(/£[\d,]+/);
+					if (priceMatch) priceText = priceMatch[0];
 				}
 
-				const title = container.querySelector(".fs-3")?.textContent?.trim() || "OpenRent Property";
-				const statusText = container.innerText || "";
+				const titleEl = container.querySelector(".fs-3");
+				const title = titleEl ? titleEl.textContent.trim() : "OpenRent Property";
 
+				// Bedrooms
 				let bedrooms = null;
-				const featuresEl = container.querySelector("ul.inline-list-divide");
-				if (featuresEl) {
-					const text = featuresEl.textContent;
-					const bedMatch = text.match(/(\d+)\s*(beds?|bedrooms?)/i);
-					const roomMatch = text.match(/(\d+)\s*(rooms?)/i);
+				const featuresUl = container.querySelector("ul.inline-list-divide");
+				if (featuresUl) {
+					const text = featuresUl.textContent;
+					const bedMatch = text.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
 					if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-					else if (roomMatch) bedrooms = parseInt(roomMatch[1]);
 				}
+
+				const statusText = container.textContent || "";
 
 				if (link && priceText) {
-					items.push({ link, title, priceText, bedrooms, statusText });
+					items.push({
+						link,
+						title,
+						priceText,
+						bedrooms,
+						statusText
+					});
 				}
 			}
 			return items;
