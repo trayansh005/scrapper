@@ -1,49 +1,30 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 7,
-  "requestsRetries": 7,
-  "requestsFailedPerMinute": 34,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 1719,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-04-18T08:35:52.398Z",
-  "crawlerFinishedAt": "2026-04-18T08:36:03.537Z",
-  "statsPersistedAt": "2026-04-18T08:36:03.537Z",
-  "crawlerRuntimeMillis": 12022,
-  "crawlerLastStartTimestamp": 1776501351515,
+  "requestsFinished": 7,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 22943,
+  "requestMaxDurationMillis": 67632,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 371701,
+  "crawlerStartedAt": "2026-04-22T12:24:16.029Z",
+  "crawlerFinishedAt": "2026-04-22T12:30:29.324Z",
+  "statsPersistedAt": "2026-04-22T12:30:29.325Z",
+  "crawlerRuntimeMillis": 373757,
+  "crawlerLastStartTimestamp": 1776860655568,
   "requestRetryHistogram": [
-    null,
-    null,
     7
   ],
   "statsId": 1,
-  "requestAvgFailedDurationMillis": 246,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 1719,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 53100,
+  "requestTotalDurationMillis": 371701,
   "requestsTotal": 7,
-  "requestsWithStatusCode": {},
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
-            "count": 7
-          }
-        }
-      }
-    }
+  "requestsWithStatusCode": {
+    "200": 6,
+    "404": 1
   },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
-            "count": 14
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }
