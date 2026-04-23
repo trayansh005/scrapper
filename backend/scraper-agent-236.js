@@ -101,58 +101,78 @@ async function scrapeAvocado() {
 			const properties = await page.evaluate(() => {
 				try {
 					const cards = Array.from(document.querySelectorAll(".card"));
+
 					return cards
 						.filter((card) => !card.classList.contains("card--property-worth"))
 						.map((card) => {
 							try {
-								// Find anchor inside card (image or title link)
+								// ================= LINK =================
 								const a = card.querySelector('a[href*="/property/"]');
 								if (!a) return null;
+
 								const href = a.getAttribute("href");
-								const link = href.startsWith("/")
+								const link = href && href.startsWith("/")
 									? `https://avocadopropertyagents.co.uk${href}`
 									: href;
 
-								// Price
-								const priceEl = card.querySelector(".price-value, .card-price, .price");
-								const rawPrice = priceEl ? priceEl.textContent.trim() : "";
+								if (!link) return null;
+
+								// ================= TITLE (FIXED) =================
+								let title = "";
+
+								const heading =
+									card.querySelector("h2, h3, .card-title, .property-title");
+
+								if (heading && heading.textContent.trim()) {
+									title = heading.textContent.trim();
+								} else if (a.textContent) {
+									title = a.textContent.replace(/\s+/g, " ").trim();
+								}
+
+								if (!title) {
+									title = "Property Listing";
+								}
+
+								// ================= PRICE =================
+								const priceEl = card.querySelector(
+									".price-value, .card-price, .price"
+								);
+
+								const rawPrice = priceEl
+									? priceEl.textContent.trim()
+									: "";
+
 								let price = "";
 								if (rawPrice) {
 									const m = rawPrice.match(/[0-9,.]+/);
-									if (m) price = parseInt(m[0].replace(/,/g, "")).toLocaleString();
-								}
-
-								// Title
-								const title = a.textContent ? a.textContent.trim() : "";
-
-								// Bedrooms: look for i.fa-bed then the following .number span
-								let bedrooms = null;
-								const bedIcon = card.querySelector("i.fa-bed, .icon-bedroom");
-								if (bedIcon) {
-									// Try immediate sibling(s)
-									let el = bedIcon.nextElementSibling;
-									while (el && !(el.classList && el.classList.contains("number")))
-										el = el.nextElementSibling;
-									if (el && el.textContent && el.textContent.trim()) {
-										bedrooms = el.textContent.trim();
-									} else {
-										// Fallback: take the first .number inside the card detail (usually bedrooms)
-										const nums = Array.from(
-											card.querySelectorAll(".card-content__detail .number, .number"),
-										);
-										if (nums.length) bedrooms = nums[0].textContent.trim();
+									if (m) {
+										price = m[0].replace(/,/g, "");
 									}
-								} else {
-									// If there's no bed icon, still try to find a .number that appears near bedroom text
-									const nums = Array.from(
-										card.querySelectorAll(".card-content__detail .number, .number"),
-									);
-									if (nums.length) bedrooms = nums[0].textContent.trim();
 								}
 
+								// ================= BEDROOMS =================
+								let bedrooms = null;
+
+								const nums = Array.from(
+									card.querySelectorAll(
+										".card-content__detail .number, .number"
+									)
+								);
+
+								if (nums.length && nums[0].textContent.trim()) {
+									bedrooms = nums[0].textContent.trim();
+								}
+
+								// ================= STATUS =================
 								const statusText = card.innerText || "";
 
-								return { link, title, price, bedrooms, statusText };
+								return {
+									link,
+									title,
+									price,
+									bedrooms,
+									statusText,
+								};
 							} catch (e) {
 								return null;
 							}
@@ -161,6 +181,7 @@ async function scrapeAvocado() {
 				} catch (err) {
 					return [];
 				}
+
 			});
 
 			logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
@@ -202,7 +223,7 @@ async function scrapeAvocado() {
 							);
 
 							let actionTaken = "UNCHANGED";
-							
+
 							if (result.updated) {
 								stats.totalSaved++;
 								actionTaken = "UPDATED";

@@ -57,12 +57,12 @@ function getBrowserlessEndpoint() {
 // ============================================================================
 
 const PROPERTY_TYPES = [
-	// {
-	// 	url: "https://www.gatekeeper.co.uk/properties",
-	// 	isRental: false,
-	// 	label: "SALES",
-	// 	buttonSelector: "#buyBtn",
-	// },
+	{
+		url: "https://www.gatekeeper.co.uk/properties",
+		isRental: false,
+		label: "SALES",
+		buttonSelector: "#buyBtn",
+	},
 	{
 		url: "https://www.gatekeeper.co.uk/properties",
 		isRental: true,
@@ -319,41 +319,40 @@ async function extractPropertiesFromPage(page, isRental) {
 				const titleEl = card.querySelector("h3");
 				const title = titleEl ? titleEl.textContent.trim() : "N/A";
 
-				const locationEls = Array.from(card.querySelectorAll("p")).filter(
-					(p) =>
-						p.textContent.includes("Oxfordshire") ||
-						p.textContent.includes("Witney") ||
-						p.textContent.includes("Standlake"),
-				);
-				const location =
-					locationEls.length > 0
-						? locationEls[0].textContent.trim()
-						: card.querySelector("p")?.textContent.trim() || "N/A";
+				// Get location - find the p tag next to the location icon or use fallback
+				const locationIcon = card.querySelector('img[src*="location.svg"]');
+				const locationEl = locationIcon ? locationIcon.nextElementSibling : null;
+				const location = locationEl ? locationEl.textContent.trim() : "";
 
-				const priceEls = Array.from(card.querySelectorAll("p")).filter((p) =>
-					p.textContent.match(/£[\d,]+/),
+				// Get price - look for the teal colored price or any p with £
+				const priceEl = Array.from(card.querySelectorAll("p")).find((p) =>
+					p.textContent.includes("£"),
 				);
-				const priceRaw = priceEls.length > 0 ? priceEls[0].textContent.trim() : "N/A";
+				const priceRaw = priceEl ? priceEl.textContent.trim() : "N/A";
 				const priceText = priceRaw
 					.replace(/£/g, "")
 					.replace(/[^0-9,.-]/g, "")
 					.trim();
 
 				let bedrooms = null;
-				const flexItems = Array.from(
-					card.querySelectorAll(".flex.flex-col.justify-center.items-center"),
+				// Find beds in the flex containers
+				const bedsTextEl = Array.from(card.querySelectorAll("p, span")).find((el) =>
+					el.textContent.includes("Beds"),
 				);
-				flexItems.forEach((item) => {
-					const text = item.textContent;
-					if (text.includes("Beds")) {
-						const numMatch = text.match(/(\d+)\s*Beds/);
+				if (bedsTextEl) {
+					const bedsContainer = bedsTextEl.closest("div") || bedsTextEl.parentElement;
+					const numEl = bedsContainer.querySelector("span.font-bold");
+					if (numEl) {
+						bedrooms = parseInt(numEl.textContent.trim());
+					} else {
+						const numMatch = bedsTextEl.textContent.match(/(\d+)\s*Beds/);
 						bedrooms = numMatch ? parseInt(numMatch[1]) : null;
 					}
-				});
+				}
 
 				results.push({
 					url,
-					title: `${title}, ${location}`,
+					title: location ? `${title}, ${location}` : title,
 					price: priceText,
 					bedrooms,
 					latitude: null,
@@ -453,8 +452,12 @@ function createCrawler(browserWSEndpoint) {
 
 			// trigger property search after selecting tab
 			await page.evaluate(() => {
-				if (typeof search_properties_form === "function") {
-					search_properties_form();
+				const buttons = Array.from(document.querySelectorAll("button"));
+				const searchBtn = buttons.find(
+					(b) => b.innerText.trim() === "Search" && b.id !== "postcode_search_btn",
+				);
+				if (searchBtn) {
+					searchBtn.click();
 				}
 			});
 
@@ -568,23 +571,19 @@ function createCrawler(browserWSEndpoint) {
 		logger.step(`Starting Gatekeeper scraper (Agent ${AGENT_ID})`);
 
 		const browserWSEndpoint = getBrowserlessEndpoint();
+		const crawler = createCrawler(browserWSEndpoint);
 
-		for (const propertyType of PROPERTY_TYPES) {
-			const crawler = createCrawler(browserWSEndpoint);
+		const initialRequests = PROPERTY_TYPES.map((pt) => ({
+			url: pt.url,
+			uniqueKey: `${pt.url}-${pt.label}`,
+			userData: {
+				url: pt.url,
+				isRental: pt.isRental,
+				label: pt.label,
+			},
+		}));
 
-			const initialRequests = [
-				{
-					url: propertyType.url,
-					userData: {
-						url: propertyType.url,
-						isRental: propertyType.isRental,
-						label: propertyType.label,
-					},
-				},
-			];
-
-			await crawler.run(initialRequests);
-		}
+		await crawler.run(initialRequests);
 
 		if (!isPartialRun) {
 			await updateRemoveStatus(AGENT_ID, scrapeStartTime);
