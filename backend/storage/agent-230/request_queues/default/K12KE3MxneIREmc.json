@@ -1,0 +1,9 @@
+{
+	"id": "K12KE3MxneIREmc",
+	"json": "{\"id\":\"K12KE3MxneIREmc\",\"url\":\"https://www.humberts.com/search/page/11/?country=GB&department=residential-sales&tenure=&address_keyword=&radius=25&commercial_for_sale_to_rent=&property_type=&minimum_bedrooms=&minimum_price=&maximum_price=&lat=&lng=\",\"loadedUrl\":\"https://www.humberts.com/search/page/11/?country=GB&department=residential-sales&tenure&address_keyword&radius=25&commercial_for_sale_to_rent&property_type&minimum_bedrooms&minimum_price&maximum_price&lat&lng\",\"uniqueKey\":\"https://www.humberts.com/search/page/11?address_keyword=&commercial_for_sale_to_rent=&country=GB&department=residential-sales&lat=&lng=&maximum_price=&minimum_bedrooms=&minimum_price=&property_type=&radius=25&tenure=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":11,\"totalPages\":13,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-23T07:29:06.744Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.humberts.com/search/page/11?address_keyword=&commercial_for_sale_to_rent=&country=GB&department=residential-sales&lat=&lng=&maximum_price=&minimum_bedrooms=&minimum_price=&property_type=&radius=25&tenure=",
+	"url": "https://www.humberts.com/search/page/11/?country=GB&department=residential-sales&tenure=&address_keyword=&radius=25&commercial_for_sale_to_rent=&property_type=&minimum_bedrooms=&minimum_price=&maximum_price=&lat=&lng="
+}

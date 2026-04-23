@@ -260,7 +260,14 @@ function createCrawler(browserWSEndpoint) {
 
 			const requests = [];
 			for (let pg = startPage; pg <= totalPages; pg++) {
-				const url = `${urlBase}${suffix}&page=${pg}`;
+				let url;
+
+				if (pg === 1) {
+					url = `${urlBase}${suffix}`;
+				} else {
+					url = `${urlBase}page/${pg}/${suffix}`;
+				}
+
 				requests.push({
 					url,
 					userData: { pageNum: pg, totalPages, isRental, label },

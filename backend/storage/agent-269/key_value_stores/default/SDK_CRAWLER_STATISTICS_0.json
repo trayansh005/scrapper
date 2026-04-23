@@ -1,29 +1,52 @@
 {
-  "requestsFinished": 12,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsFinished": 38,
+  "requestsFailed": 2,
+  "requestsRetries": 2,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": 134384,
-  "requestMaxDurationMillis": 563518,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 3126476,
-  "crawlerStartedAt": "2026-04-23T05:56:05.715Z",
-  "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-04-23T06:52:09.295Z",
-  "crawlerRuntimeMillis": 3363807,
-  "crawlerLastStartTimestamp": 1776923765488,
+  "requestsFinishedPerMinute": 6,
+  "requestMinDurationMillis": 5061,
+  "requestMaxDurationMillis": 34975,
+  "requestTotalFailedDurationMillis": 11239,
+  "requestTotalFinishedDurationMillis": 286347,
+  "crawlerStartedAt": "2026-04-23T07:34:50.346Z",
+  "crawlerFinishedAt": "2026-04-23T07:41:14.433Z",
+  "statsPersistedAt": "2026-04-23T07:41:14.433Z",
+  "crawlerRuntimeMillis": 384243,
+  "crawlerLastStartTimestamp": 1776929690190,
   "requestRetryHistogram": [
-    12
+    38,
+    null,
+    null,
+    2
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 260540,
-  "requestTotalDurationMillis": 3126476,
-  "requestsTotal": 12,
+  "requestAvgFailedDurationMillis": 5620,
+  "requestAvgFinishedDurationMillis": 7535,
+  "requestTotalDurationMillis": 297586,
+  "requestsTotal": 40,
   "requestsWithStatusCode": {
-    "200": 13
+    "200": 46
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\scraper-agent-269.js:169:11": {
+      "missing error code": {
+        "ReferenceError": {
+          "nextUrl is not defined": {
+            "count": 2
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\scraper-agent-269.js:169:11": {
+      "missing error code": {
+        "ReferenceError": {
+          "nextUrl is not defined": {
+            "count": 6
+          }
+        }
+      }
+    }
+  }
 }
