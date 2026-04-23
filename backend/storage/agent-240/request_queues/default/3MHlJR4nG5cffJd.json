@@ -1,6 +1,6 @@
 {
 	"id": "3MHlJR4nG5cffJd",
-	"json": "{\"id\":\"3MHlJR4nG5cffJd\",\"url\":\"https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on\",\"loadedUrl\":\"https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on\",\"uniqueKey\":\"https://www.ashtons.co.uk/rent?exclude_unavailable=on&location=&max_price=&min_bedrooms=&min_price=&radius=0.5\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"FOR LETTING\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-08T12:02:40.818Z\"}",
+	"json": "{\"id\":\"3MHlJR4nG5cffJd\",\"url\":\"https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on\",\"loadedUrl\":\"https://www.ashtons.co.uk/rent?location=&radius=0.5&min_price=&max_price=&min_bedrooms=&exclude_unavailable=on\",\"uniqueKey\":\"https://www.ashtons.co.uk/rent?exclude_unavailable=on&location=&max_price=&min_bedrooms=&min_price=&radius=0.5\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"FOR LETTING\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-20T07:01:33.677Z\"}",
 	"method": "GET",
 	"orderNo": null,
 	"retryCount": 0,

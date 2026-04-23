@@ -129,24 +129,64 @@ async function scrapeAshtons() {
 			await sleep(2500 + Math.random() * 1500);
 
 			// Scroll to load everything
-			logger.step("Infinite scroll loading...");
-			let prevHeight = 0;
+			// === IMPROVED INFINITE SCROLL + CLICK "SHOW MORE" FOR ASHTONS ===
+			logger.step("Loading all properties with Scroll + Show More...");
+
+			let prevPropertyCount = 0;
 			let attempts = 0;
-			const maxAttempts = 60;
+			const maxAttempts = 40;
 
 			while (attempts < maxAttempts) {
+				// Scroll to bottom
 				await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-				await sleep(3500 + Math.random() * 2000);
+				await sleep(3000 + Math.random() * 1500);
 
-				const height = await page.evaluate(() => document.body.scrollHeight);
-				if (height === prevHeight) {
-					logger.step(`Scroll stopped - no more content (attempt ${attempts})`);
+				// Try to click "Show More" button if present
+				const showMoreClicked = await page.evaluate(() => {
+					const buttons = Array.from(document.querySelectorAll('button, a'));
+					const showMoreBtn = buttons.find(btn => {
+						const text = (btn.textContent || '').toLowerCase().trim();
+						return text.includes('show more') ||
+							text.includes('load more') ||
+							text.includes('more properties') ||
+							btn.id?.includes('more') ||
+							btn.className?.includes('more');
+					});
+
+					if (showMoreBtn) {
+						showMoreBtn.scrollIntoView({ behavior: 'smooth' });
+						showMoreBtn.click();
+						return true;
+					}
+					return false;
+				});
+
+				if (showMoreClicked) {
+					logger.step("Clicked 'Show More' button");
+					await sleep(4000 + Math.random() * 2000);
+				}
+
+				// Count current property cards
+				const currentCount = await page.$$eval('.c-property-card, .o-card.c-property-card', els => els.length);
+
+				logger.step(`Properties loaded so far: ${currentCount}`);
+
+				if (currentCount === prevPropertyCount && !showMoreClicked) {
+					logger.step(`No more properties to load (Total: ${currentCount})`);
 					break;
 				}
-				prevHeight = height;
+
+				prevPropertyCount = currentCount;
 				attempts++;
-				if (attempts % 5 === 0) logger.step(`Scroll ${attempts}/${maxAttempts}`);
+
+				if (attempts % 5 === 0) {
+					logger.step(`Loading progress: ${currentCount} properties (${attempts}/${maxAttempts})`);
+				}
 			}
+
+			// Final wait
+			await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+			await sleep(3000);
 
 			// Debug: screenshot + broad card count
 			const safeLabel = label.toLowerCase().replace(/\s+/g, '-');
@@ -155,22 +195,23 @@ async function scrapeAshtons() {
 			logger.step(`Screenshot: ${shotPath}`);
 
 			const potentialCards = await page.$$eval(
-				'article, li, div[class*="card"], div[class*="property"], div[class*="listing"], div[data-testid*="property"], .result, .item',
+				'.c-property-card, .o-card.c-property-card',
 				els => els.length
 			);
 			logger.step(`Detected ${potentialCards} potential cards`);
 
 			// Extract – loose text-based fallback
+						// Extract properties
 			const properties = await page.evaluate(() => {
 				const items = [];
-				const cardElements = document.querySelectorAll(
-					'article, li, div[class*="card"], div[class*="property"], div[class*="listing"], div[data-testid*="property"], .result, .item'
-				);
+				const cardElements = document.querySelectorAll('.c-property-card, .o-card.c-property-card');
 
-				Array.from(cardElements).slice(0, 300).forEach((card) => {
+				console.log(`Total cards found in DOM: ${cardElements.length}`);
+
+				Array.from(cardElements).forEach((card, index) => {   // Removed .slice(0, 300)
 					try {
 						// Link
-						const linkEl = card.querySelector('a[href*="/property/"], a[href*="/details/"], a[href*="property-"], a');
+						const linkEl = card.querySelector('a[href*="/property/"], a.c-property-card__anchor');
 						if (!linkEl) return;
 						let href = linkEl.getAttribute('href');
 						if (!href) return;
@@ -178,48 +219,55 @@ async function scrapeAshtons() {
 
 						const cardText = card.innerText.trim().replace(/\s+/g, ' ');
 
-						// Price - look for £ followed by digits, possibly with pcm
-						const priceMatch = cardText.match(/£[\d,]+(?:\s*(?:pcm|per\s*calendar\s*month|monthly))?/i);
+						// Price
+						const priceMatch = cardText.match(/£[\d,]+/);
 						let price = priceMatch ? priceMatch[0].replace(/[£,]/g, '').trim() : null;
 						if (!price) return;
 
 						// Title
 						let title = '';
-						const heading = card.querySelector('h1,h2,h3,h4,h5,strong,.address,.title,.location,.property-address');
+						const heading = card.querySelector('h1, h2, h3, h4, h5, .c-property-card__title, strong, .address');
 						if (heading) {
 							title = heading.innerText.trim();
 						} else {
-							title = cardText.split(/[\n•]/)[0]?.trim() || '';
+							title = cardText.split(/[\n•]/)[0]?.trim() || `Property ${index}`;
 						}
-						if (!title || title.length < 8) return;
+						if (!title || title.length < 5) return;
 
-						// IMPROVED BEDROOMS EXTRACTION
+						// === FIXED BEDROOMS EXTRACTION ===
 						let bedrooms = null;
 
-						// Try to find number right before/after "bed" keywords
-						const bedPatterns = [
-							/(\d+)\s*(?:bed|bedroom|bedrooms|bed(s)?)/i,
-							/(?:bed|bedroom|bedrooms|bed(s)?)\s*(\d+)/i,           // number after word
-							/(\d+)\s*bed/i                                         // shorter variants
-						];
-
-						for (const pattern of bedPatterns) {
-							const match = cardText.match(pattern);
-							if (match) {
-								const num = match[1] || match[2];
-								const parsed = parseInt(num, 10);
-								if (parsed >= 0 && parsed <= 20) {  // reasonable range for bedrooms
-									bedrooms = parsed.toString();     // keep as string for DB consistency
-									break;
+						const bedroomDl = card.querySelector('dl.c-property-feature--bedrooms');
+						if (bedroomDl) {
+							const valueEl = bedroomDl.querySelector('dd.c-property-feature__value');
+							if (valueEl) {
+								const text = valueEl.textContent.trim();
+								const match = text.match(/(\d+)/);
+								if (match) {
+									const num = parseInt(match[1], 10);
+									if (num >= 1 && num <= 20) {
+										bedrooms = num;
+									}
 								}
 							}
 						}
 
-						// Skip sold/let agreed
+						// Fallback
+						if (!bedrooms) {
+							const bedMatch = cardText.match(/(\d+)\s*(?:bed|bedroom|bedrooms)/i);
+							if (bedMatch) {
+								const num = parseInt(bedMatch[1], 10);
+								if (num >= 1 && num <= 20) bedrooms = num;
+							}
+						}
+
+						// Skip sold / let agreed
 						if (/sold|stc|let\s*agreed|under offer|reserved/i.test(cardText)) return;
 
 						items.push({ link, title, price, bedrooms });
-					} catch { }
+					} catch (e) {
+						// silent fail per card
+					}
 				});
 
 				// Debug: show sample of first card
