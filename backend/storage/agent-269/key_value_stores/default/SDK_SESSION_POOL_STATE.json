@@ -1,0 +1,688 @@
+{
+  "usableSessionsCount": 12,
+  "retiredSessionsCount": 3,
+  "sessions": [
+    {
+      "id": "session_576RtyM8uG",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T06:46:06.929Z",
+      "createdAt": "2026-04-23T05:56:06.929Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_9FGiGRorIe",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "csrftoken",
+            "value": "j5gO7Ls3SaifTfQsri6eNSS19hnuaw3KoJuwB4PtEhsk149EwwhzSUGTASwOeuX3",
+            "expires": "2027-04-22T06:43:52.599Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-23T05:56:14.281Z",
+            "lastAccessed": "2026-04-23T06:44:06.549Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.380775391.1776923769",
+            "expires": "2026-07-22T05:56:09.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.281Z",
+            "lastAccessed": "2026-04-23T06:44:06.549Z"
+          },
+          {
+            "key": "zabUserId",
+            "value": "1776923769816zabu0.6505261919804913",
+            "expires": "2027-04-23T05:56:09.000Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-23T05:56:14.286Z",
+            "lastAccessed": "2026-04-23T06:44:06.549Z"
+          },
+          {
+            "key": "_ga_9SRV0CY4QE",
+            "value": "GS2.1.s1776923769$o1$g1$t1776926633$j60$l0$h0",
+            "expires": "2027-05-28T06:43:53.366Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.286Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_ga_R7GVLJ5255",
+            "value": "GS2.1.s1776923769$o1$g1$t1776926633$j60$l0$h0",
+            "expires": "2027-05-28T06:43:53.432Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.288Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_ga_V1M60N37VV",
+            "value": "GS2.1.s1776923769$o1$g1$t1776926633$j60$l0$h0",
+            "expires": "2027-05-28T06:43:53.447Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.288Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1780370184.1776923770",
+            "expires": "2027-05-28T06:43:53.367Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.288Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.2112205177.1776923771",
+            "expires": "2026-04-24T06:43:53.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.288Z",
+            "lastAccessed": "2026-04-23T06:44:06.555Z"
+          },
+          {
+            "key": "zsc8e7a7eab6ed9409dbf3bb91a34f8f406",
+            "value": "1776923771285zsc0.17417084313830977",
+            "expires": "2026-04-23T07:13:54.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.556Z"
+          },
+          {
+            "key": "zft-sdc",
+            "value": "isef%3Dtrue-isfr%3Dtrue-source%3Ddirect",
+            "expires": "2026-04-23T23:59:59.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.557Z"
+          },
+          {
+            "key": "zps-tgr-dts",
+            "value": "sc%3D1-expAppOnNewSession%3D%5B%5D-pc%3D12-sesst%3D1776923771288",
+            "expires": "2027-04-23T05:56:09.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_uetsid",
+            "value": "215554103ed911f195c6b9851d71c069",
+            "expires": "2026-04-24T06:43:53.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_uetvid",
+            "value": "215577103ed911f192349dad91608fa6",
+            "expires": "2027-05-18T06:43:53.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_clck",
+            "value": "1hn3v4e%5E2%5Eg5g%5E0%5E2304",
+            "expires": "2027-04-23T05:56:11.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.557Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.2.1776923771428.423317317775807844",
+            "expires": "2026-07-22T06:43:53.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.557Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "17ymujs%5E1776926638667%5E11%5E1%5Eq.clarity.ms%2Fcollect",
+            "expires": "2026-04-24T06:43:58.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T05:56:14.289Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "twk_idm_key",
+            "value": "APzdP0nMP1gAUX4pcC9If",
+            "expires": "2026-04-23T06:49:19.300Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-23T05:59:19.301Z",
+            "lastAccessed": "2026-04-23T06:44:06.557Z"
+          },
+          {
+            "key": "TawkConnectionTime",
+            "value": "0",
+            "expires": "2026-04-23T06:49:19.300Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-23T05:59:19.302Z",
+            "lastAccessed": "2026-04-23T06:44:06.560Z"
+          },
+          {
+            "key": "_ga_9SRV0CY4QE",
+            "value": "deleted",
+            "expires": "2027-05-28T06:35:00.703Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:37:21.786Z",
+            "lastAccessed": "2026-04-23T06:44:06.559Z"
+          },
+          {
+            "key": "_gat",
+            "value": "1",
+            "expires": "2026-04-23T06:44:37.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:44:06.559Z",
+            "lastAccessed": "2026-04-23T06:44:06.559Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T06:46:06.934Z",
+      "createdAt": "2026-04-23T05:56:06.934Z",
+      "usageCount": 13,
+      "maxUsageCount": 50,
+      "errorScore": 3
+    },
+    {
+      "id": "session_AHGri2uxNU",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T06:49:11.137Z",
+      "createdAt": "2026-04-23T05:59:11.137Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_6BvDCEGlsO",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T06:52:11.716Z",
+      "createdAt": "2026-04-23T06:02:11.716Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_0HG73mLHLJ",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T06:56:30.709Z",
+      "createdAt": "2026-04-23T06:06:30.709Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_pNn7Rnuha7",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:00:12.339Z",
+      "createdAt": "2026-04-23T06:10:12.339Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_8b1Z8ZUYI4",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:04:00.275Z",
+      "createdAt": "2026-04-23T06:14:00.275Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_G9pU1l9Q1n",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:13:24.101Z",
+      "createdAt": "2026-04-23T06:23:24.101Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_mXN864BCns",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:18:53.366Z",
+      "createdAt": "2026-04-23T06:28:53.366Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_R72xZ7pScx",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:23:36.297Z",
+      "createdAt": "2026-04-23T06:33:36.297Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_zsl8NP5XkB",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:27:11.000Z",
+      "createdAt": "2026-04-23T06:37:11.000Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_v2K8oiqaeS",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:31:37.343Z",
+      "createdAt": "2026-04-23T06:41:37.343Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_dzpPr3PYtx",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:33:51.773Z",
+      "createdAt": "2026-04-23T06:43:51.773Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_BAc6jD7ApS",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:38:14.925Z",
+      "createdAt": "2026-04-23T06:48:14.925Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_s53QpJhVGq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "csrftoken",
+            "value": "DEuIvaooUYrTzVG36yq4pLXpzmrSqmxfTEYEWof4xgJ8aX9VnKuGOzF2SnEnDKpw",
+            "expires": "2027-04-22T06:48:17.017Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.159467404.1776926902",
+            "expires": "2026-07-22T06:48:21.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_ga_9SRV0CY4QE",
+            "value": "GS2.1.s1776926909$o1$g0$t1776926909$j60$l0$h0",
+            "expires": "2027-05-28T06:48:29.711Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_ga_R7GVLJ5255",
+            "value": "GS2.1.s1776926909$o1$g0$t1776926909$j60$l0$h0",
+            "expires": "2027-05-28T06:48:29.899Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_ga_V1M60N37VV",
+            "value": "GS2.1.s1776926909$o1$g0$t1776926909$j60$l0$h0",
+            "expires": "2027-05-28T06:48:29.926Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "zabUserId",
+            "value": "1776926910057zabu0.19645085473868185",
+            "expires": "2027-04-23T06:48:30.000Z",
+            "domain": "www.99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": true,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.3.817124116.1776926910",
+            "expires": "2027-05-28T06:48:30.234Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.3.1915246165.1776926910",
+            "expires": "2026-04-24T06:48:30.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.936Z",
+            "lastAccessed": "2026-04-23T06:48:40.936Z"
+          },
+          {
+            "key": "_gat",
+            "value": "1",
+            "expires": "2026-04-23T06:49:30.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "zsc8e7a7eab6ed9409dbf3bb91a34f8f406",
+            "value": "1776926910390zsc0.46285149878694887",
+            "expires": "2026-04-23T07:18:30.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "zft-sdc",
+            "value": "isef%3Dtrue-isfr%3Dtrue-source%3Ddirect",
+            "expires": "2026-04-23T23:59:59.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "zps-tgr-dts",
+            "value": "sc%3D1-expAppOnNewSession%3D%5B%5D-pc%3D1-sesst%3D1776926910397",
+            "expires": "2027-04-23T06:48:30.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "_uetsid",
+            "value": "7153d4f03ee011f190c9afc1b105edfe",
+            "expires": "2026-04-24T06:48:32.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "_uetvid",
+            "value": "715420f03ee011f19601bd1136d0cbea",
+            "expires": "2027-05-18T06:48:32.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.2.1776926912771.591198103959620178",
+            "expires": "2026-07-22T06:48:33.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "_clck",
+            "value": "clhwvq%5E2%5Eg5g%5E0%5E2304",
+            "expires": "2027-04-23T06:48:33.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "1ate0ql%5E1776926915218%5E1%5E1%5Eq.clarity.ms%2Fcollect",
+            "expires": "2026-04-24T06:48:35.000Z",
+            "domain": "99home.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-04-23T06:48:40.937Z",
+            "lastAccessed": "2026-04-23T06:48:40.937Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:38:14.932Z",
+      "createdAt": "2026-04-23T06:48:14.932Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

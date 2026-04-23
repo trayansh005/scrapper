@@ -60,14 +60,14 @@ const PROPERTY_TYPES = [
 	{
 		urlBase: "https://www.humberts.com/search/",
 		totalPages: 13,
-		isRental: true,
+		isRental: false,
 		label: "SALES",
 		suffix:
-			"?country=GB&department=residential-sales&tenure&address_keyword&radius=25&commercial_for_sale_to_rent&property_type&minimum_bedrooms&minimum_price&maximum_price&lat&lng",
+			"?country=GB&department=residential-sales&tenure=&address_keyword=&radius=25&commercial_for_sale_to_rent=&property_type=&minimum_bedrooms=&minimum_price=&maximum_price=&lat=&lng=",
 	},
 	{
 		urlBase: "https://www.humberts.com/search/",
-		totalPages: 3,
+		totalPages: 1,
 		isRental: true,
 		label: "LETTINGS",
 		suffix:
@@ -260,7 +260,7 @@ function createCrawler(browserWSEndpoint) {
 
 			const requests = [];
 			for (let pg = startPage; pg <= totalPages; pg++) {
-				const url = `${urlBase}${suffix}`;
+				const url = `${urlBase}${suffix}&page=${pg}`;
 				requests.push({
 					url,
 					userData: { pageNum: pg, totalPages, isRental, label },
