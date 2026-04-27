@@ -30,136 +30,198 @@ function blockNonEssentialResources(page) {
 	});
 }
 
-async function handleListingPage({ page, request }) {
-	const { pageNum, totalPages, isRental, label } = request.userData;
-	logger.page(pageNum, label, request.url, totalPages);
+async function autoScroll(page) {
+	await page.evaluate(async () => {
+		await new Promise((resolve) => {
+			let totalHeight = 0;
+			const distance = 800;
 
-	try {
-		await page.waitForSelector(".properties.clear li.property", { timeout: 15000 });
-	} catch (e) {
-		logger.error(`Listing container not found on page ${pageNum}`, e);
-	}
+			const timer = setInterval(() => {
+				const scrollHeight = document.body.scrollHeight;
+
+				window.scrollBy(0, distance);
+				totalHeight += distance;
+
+				// stop when reached bottom
+				if (totalHeight >= scrollHeight - window.innerHeight) {
+					clearInterval(timer);
+					resolve();
+				}
+			}, 400);
+		});
+	});
+}
+
+async function handleListingPage({ page, request }) {
+	logger.page(1, "SALES", request.url);
+
+	await page.waitForLoadState("domcontentloaded");
+
+	// 🔥 IMPORTANT: wait for JS rendering
+	await page.waitForTimeout(5000);
+
+	// 🔥 Scroll to load all properties
+	await autoScroll(page);
+
+	// wait again after scroll
+	await page.waitForTimeout(3000);
 
 	const properties = await page.evaluate(() => {
 		const results = [];
-		const cards = document.querySelectorAll(".properties.clear li.property");
+
+		const cards = document.querySelectorAll('a[href*="/property/"]');
+
 		cards.forEach((card) => {
-			const linkEl = card.querySelector('a[href*="/property/"]');
-			if (!linkEl) return;
+			const link = card.href;
+
+			const title =
+				card.querySelector("p")?.innerText?.trim() || "Property";
+
+			const priceRaw =
+				card.innerText.match(/£[\d,]+/)?.[0] || "";
+
+			const bedText =
+				card.innerText.match(/\d+\s*bed/i)?.[0] || "";
+
 			results.push({
-				link: linkEl.href,
-				title: card.querySelector("h3")?.innerText?.trim() || "Property",
-				priceRaw: card.querySelector(".price.fa247price")?.innerText?.trim() || "",
-				bedText: card.querySelector("span.bedrooms")?.innerText?.trim() || "",
-				statusText: card.querySelector(".flag")?.innerText?.trim() || "",
+				link,
+				title,
+				priceRaw,
+				bedText,
+				statusText: "",
 			});
 		});
+
 		return results;
 	});
 
-	logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+	console.log("🔥 Properties found:", properties.length);
 
-	for (const property of properties) {
-		if (!property.link || isSoldProperty(property.statusText || "")) continue;
-		if (processedUrls.has(property.link)) continue;
-		processedUrls.add(property.link);
+	const { label, isRental } = request.userData;
 
-		const price = parsePrice(property.priceRaw);
-		if (!price) {
-			logger.page(pageNum, label, `Skipping update (no price found): ${property.link}`, totalPages);
-			continue;
-		}
+for (const property of properties) {
+	if (!property.link) continue;
+	if (processedUrls.has(property.link)) continue;
 
-		let bedrooms = null;
-		const bedMatch = property.bedText.match(/\d+/);
-		if (bedMatch) bedrooms = parseInt(bedMatch[0], 10);
+	processedUrls.add(property.link);
 
-		const result = await updatePriceByPropertyURLOptimized(
+	const price = parsePrice(property.priceRaw);
+	if (!price) {
+		logger.page(1, label, `Skipping (no price): ${property.link}`);
+		continue;
+	}
+
+	let bedrooms = null;
+	const bedMatch = property.bedText.match(/\d+/);
+	if (bedMatch) bedrooms = parseInt(bedMatch[0], 10);
+
+	const result = await updatePriceByPropertyURLOptimized(
+		property.link,
+		price,
+		property.title,
+		bedrooms,
+		AGENT_ID,
+		isRental
+	);
+
+	let propertyAction = "UNCHANGED";
+
+	if (result.updated) {
+		counts.totalSaved++;
+		propertyAction = "UPDATED";
+	}
+
+	if (!result.isExisting && !result.error) {
+		const detail = await scrapePropertyDetail(page.context(), property.link);
+
+		await processPropertyWithCoordinates(
 			property.link,
 			price,
 			property.title,
 			bedrooms,
 			AGENT_ID,
 			isRental,
+			null,
+			detail?.coords?.latitude,
+			detail?.coords?.longitude
 		);
 
-		let propertyAction = "UNCHANGED";
-		if (result.updated) {
-			counts.totalSaved++;
-			propertyAction = "UPDATED";
-		}
+		counts.totalSaved++;
+		counts.totalScraped++;
 
-		if (!result.isExisting && !result.error) {
-			const detail = await scrapePropertyDetail(page.context(), property.link);
-			await processPropertyWithCoordinates(
-				property.link,
-				price,
-				property.title,
-				bedrooms,
-				AGENT_ID,
-				isRental,
-				null,
-				detail?.coords?.latitude,
-				detail?.coords?.longitude,
-			);
+		if (isRental) counts.savedRentals++;
+		else counts.savedSales++;
 
-			counts.totalSaved++;
-			counts.totalScraped++;
-			if (isRental) counts.savedRentals++;
-			else counts.savedSales++;
-			propertyAction = "CREATED";
-
-			logger.property(
-				pageNum,
-				label,
-				property.title.substring(0, 40),
-				formatPriceDisplay(price, isRental),
-				property.link,
-				isRental,
-				totalPages,
-				propertyAction,
-				detail?.coords?.latitude,
-				detail?.coords?.longitude,
-			);
-		} else {
-			if (result.error) propertyAction = "ERROR";
-			logger.property(
-				pageNum,
-				label,
-				property.title.substring(0, 40),
-				formatPriceDisplay(price, isRental),
-				property.link,
-				isRental,
-				totalPages,
-				propertyAction,
-			);
-		}
-
-		if (propertyAction !== "UNCHANGED") await sleep(500);
+		propertyAction = "CREATED";
 	}
+
+	logger.property(
+		1,
+		label,
+		property.title.substring(0, 40),
+		formatPriceDisplay(price, isRental),
+		property.link,
+		isRental,
+		1,
+		propertyAction
+	);
+
+	if (propertyAction !== "UNCHANGED") await sleep(300);
+}
 }
 
 async function scrapePropertyDetail(browserContext, url) {
 	logger.page(null, null, `[Detail] Scraping coordinates: ${url}`);
 	await sleep(700);
+
 	const detailPage = await browserContext.newPage();
+
 	try {
 		await blockNonEssentialResources(detailPage);
-		await detailPage.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-		await detailPage.waitForTimeout(800);
+
+		await detailPage.goto(url, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
+
+		// ✅ Wait for page to stabilize
+		await detailPage.waitForTimeout(1500);
+
+		// ✅ CLICK "More Details" button
+		try {
+			const moreDetailsBtn = await detailPage.locator("text=More Details");
+			if (await moreDetailsBtn.isVisible({ timeout: 3000 })) {
+				await moreDetailsBtn.click();
+				logger.page(null, null, `[Detail] Clicked More Details`);
+
+				// wait for dynamic content load
+				await detailPage.waitForTimeout(1500);
+			}
+		} catch (e) {
+			logger.page(null, null, `[Detail] More Details button not found`);
+		}
+
+		// ✅ Now get updated HTML
 		const html = await detailPage.content();
+
 		const coords = await extractCoordinatesFromHTML(html);
-		if (coords.latitude)
+
+		if (coords.latitude) {
 			logger.page(
 				null,
 				null,
-				`[Detail] Found coordinates: ${coords.latitude}, ${coords.longitude}`,
+				`[Detail] Found coordinates: ${coords.latitude}, ${coords.longitude}`
 			);
-		else logger.page(null, null, `[Detail] No coordinates found`);
+		} else {
+			logger.page(null, null, `[Detail] No coordinates found`);
+		}
+
 		return { coords };
+
 	} catch (err) {
 		logger.error(`Error scraping detail page ${url}: ${err.message}`);
 		return { coords: { latitude: null, longitude: null } };
+
 	} finally {
 		await detailPage.close();
 	}
@@ -176,18 +238,15 @@ async function run() {
 
 	const PROPERTY_TYPES = [
 		{
-			baseUrl: "https://freeagent247.com/buy-property/?department=residential-sales&availability=4",
-			totalPages: 10,
+			baseUrl: "https://freeagent247.com/buy?status=For+Sale",
 			isRental: false,
 			label: "SALES",
 		},
-		{
-			baseUrl:
-				"https://freeagent247.com/rent-property/?department=residential-lettings&availability=4",
-			totalPages: 8,
-			isRental: true,
-			label: "RENTALS",
-		},
+		// {
+		// 	baseUrl: "https://freeagent247.com/rent?status=To+Rent",
+		// 	isRental: true,
+		// 	label: "RENTALS",
+		// },
 	];
 
 	const crawler = new PlaywrightCrawler({
@@ -213,15 +272,14 @@ async function run() {
 	const allRequests = [];
 	for (const type of PROPERTY_TYPES) {
 		logger.step(`Queueing ${type.label} (${type.totalPages} pages)`);
-		for (let pg = Math.max(1, startPage); pg <= type.totalPages; pg++) {
-			// Insert /page/{pg}/ before the query string
-			const urlParts = type.baseUrl.split("?");
-			const pagedUrl = `${urlParts[0]}/page/${pg}/?${urlParts[1]}`;
+		for (const type of PROPERTY_TYPES) {
+			logger.step(`Queueing ${type.label}`);
+
 			allRequests.push({
-				url: pagedUrl,
+				url: type.baseUrl,
 				userData: {
-					pageNum: pg,
-					totalPages: type.totalPages,
+					pageNum: 1,
+					totalPages: 1,
 					isRental: type.isRental,
 					label: type.label,
 				},
@@ -243,6 +301,7 @@ async function run() {
 
 	logger.step(`Agent ${AGENT_ID} completed successfully`);
 }
+
 
 run().catch((err) => {
 	logger.error(`Fatal: ${err.message}`);

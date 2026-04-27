@@ -1,0 +1,71 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_EtwugWsqop",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-24T06:38:28.355Z",
+      "createdAt": "2026-04-24T05:48:28.355Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_sf96rZfvMW",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "PHPSESSID",
+            "value": "r3gpua14tgabcm0jagb0ulqm80",
+            "expires": "2026-04-24T06:38:34.724Z",
+            "domain": "avocadopropertyagents.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-24T05:48:34.724Z",
+            "lastAccessed": "2026-04-24T05:48:34.724Z"
+          },
+          {
+            "key": "_csrf",
+            "value": "84c86a8cdaaaa12af588b90e73e49734c981cbda9993e0000675feedb6b67e7da%3A2%3A%7Bi%3A0%3Bs%3A5%3A%22_csrf%22%3Bi%3A1%3Bs%3A32%3A%22Ohap3moIBPifywMlzDB65cqJ5Q44M1cs%22%3B%7D",
+            "expires": "2026-04-24T06:38:34.724Z",
+            "domain": "avocadopropertyagents.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-24T05:48:34.724Z",
+            "lastAccessed": "2026-04-24T05:48:34.724Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-24T06:38:28.373Z",
+      "createdAt": "2026-04-24T05:48:28.373Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "usableSessionsCount": 3,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_MhOr5EDCIN",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:42:57.396Z",
+      "createdAt": "2026-04-23T06:52:57.396Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_viNMn4Pntq",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_gatekeeper_session",
+            "value": "OuOJljk5xFCXB3SmVQzRQzL1MaD%2FzlXBmOa30OW824YWxiDicYVv5gJ3ovHGw2gFzyz%2BX2Hwm1sbbvSXfB5s9H1cNcbCPvFQfvzeq5YK7JwmhauiFTv%2FXIhfAt82IhQE%2BEUt%2FFVL5Th6VHQOfofL9rEQrt7%2BtPjX8wAzTzaBHV1W6T59uWrUJg%2BRAfBmHITMpeP4%2FvuZsoQq2%2B%2BtD4kEJ5dg4nJ2eMnnVNFYuR70sYCd5ArXBordidSHs1O79bycWnl2Bo6QXFbIjFmRBCAl57DnQqA97Y51wTy1cJsUAJiDzZfl%2B3l0Bm%2F%2BDV5WJsXTyl4uPGs9ka5r8bTjD5%2BYqLhzG5J7e6ahO3ak7Ap4D4zMdvG26k6a3qAbK0Gc%2BE4rj2h5dscZ9%2Bvv%2BmlUho5lm%2BLLb8DYzxQ%3D--CSR1gegtSdsqAINB--%2BYz1V2r9CvQkkB9AjzgOcA%3D%3D",
+            "expires": "2026-04-23T07:44:46.354Z",
+            "domain": "www.gatekeeper.co.uk",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-04-23T06:53:17.895Z",
+            "lastAccessed": "2026-04-23T06:54:46.355Z"
+          },
+          {
+            "key": "_ga_RFH65FR9XT",
+            "value": "GS2.1.s1776927185$o1$g1$t1776927283$j60$l0$h0",
+            "expires": "2027-05-28T06:54:43.601Z",
+            "domain": "gatekeeper.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T06:53:17.896Z",
+            "lastAccessed": "2026-04-23T06:54:46.356Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.848274451.1776927186",
+            "expires": "2027-05-28T06:53:05.776Z",
+            "domain": "gatekeeper.co.uk",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-04-23T06:53:17.903Z",
+            "lastAccessed": "2026-04-23T06:54:46.355Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:42:57.403Z",
+      "createdAt": "2026-04-23T06:52:57.403Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_OA4PITdhzs",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-04-23T07:44:42.107Z",
+      "createdAt": "2026-04-23T06:54:42.107Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

@@ -125,9 +125,9 @@ async function handleListingPage({ page, request, crawler }) {
 	logger.step(`Processing ${label} page: ${request.url}`);
 
 	try {
-		await page.waitForLoadState("networkidle", { timeout: 45000 }).catch(() => {});
+		await page.waitForLoadState("networkidle", { timeout: 45000 }).catch(() => { });
 		await page.waitForTimeout(3000);
-		await page.waitForSelector('article.property-item', { timeout: 25000 }).catch(() => {});
+		await page.waitForSelector('article.property-item', { timeout: 25000 }).catch(() => { });
 	} catch (e) {
 		logger.error(`Load timeout or no properties on ${label}`);
 	}
@@ -147,9 +147,24 @@ async function handleListingPage({ page, request, crawler }) {
 		if (totalPages > 1) {
 			logger.step(`Found ${totalPages} pages for ${label}. Queuing remaining pages...`);
 			for (let i = 2; i <= totalPages; i++) {
-				const nextUrl = request.url.includes('?') 
-					? `${request.url}&page=${i}` 
-					: `${request.url}?page=${i}`;
+				const PAGE_SIZE = 25; // based on your UI output
+
+				const baseUrl = request.url.split("&start=")[0].split("?start=")[0];
+
+				for (let i = 1; i < totalPages; i++) {
+					const offset = i * PAGE_SIZE;
+
+					const nextUrl = request.url.includes("?")
+						? `${baseUrl}&start=${offset}`
+						: `${baseUrl}?start=${offset}`;
+
+					await crawler.addRequests([
+						{
+							url: nextUrl,
+							userData: { isRental, label, isFirstPage: false },
+						},
+					]);
+				}
 				await crawler.addRequests([{
 					url: nextUrl,
 					userData: { isRental, label, isFirstPage: false }

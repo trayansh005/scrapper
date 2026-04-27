@@ -120,19 +120,19 @@ async function scrapeAvocado() {
 								// ================= TITLE (FIXED) =================
 								let title = "";
 
-								const heading =
-									card.querySelector("h2, h3, .card-title, .property-title");
-
-								if (heading && heading.textContent.trim()) {
-									title = heading.textContent.trim();
-								} else if (a.textContent) {
+								// ❌ REMOVE THIS
+								if (a && a.textContent) {
 									title = a.textContent.replace(/\s+/g, " ").trim();
 								}
 
 								if (!title) {
-									title = "Property Listing";
-								}
+									const lines = card.innerText
+										.split("\n")
+										.map((l) => l.trim())
+										.filter(Boolean);
 
+									title = lines[0] || "Property Listing";
+								}
 								// ================= PRICE =================
 								const priceEl = card.querySelector(
 									".price-value, .card-price, .price"
@@ -314,39 +314,62 @@ async function scrapePropertyDetail(
 ) {
 	await sleep(500);
 
+	// ✅ STEP 1: Create page FIRST
 	const detailPage = await browserContext.newPage();
 
 	try {
+		// ✅ STEP 2: Block heavy resources
 		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			const type = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(type)) {
 				route.abort();
 			} else {
 				route.continue();
 			}
 		});
 
+		// ✅ STEP 3: Open detail page
 		await detailPage.goto(property.link, {
 			waitUntil: "domcontentloaded",
 			timeout: 30000,
 		});
 
+		// ✅ STEP 4: WAIT for title (IMPORTANT)
+		await detailPage.waitForSelector("h1.displayname", {
+			timeout: 10000,
+		}).catch(() => { });
+
+		// ✅ STEP 5: EXTRACT REAL TITLE FROM DETAIL PAGE
+		const detailTitle = await detailPage.evaluate(() => {
+			const el = document.querySelector("h1.displayname");
+			return el ? el.textContent.trim() : null;
+		});
+
+		// ✅ STEP 6: Override title if found
+		if (detailTitle) {
+			property.title = detailTitle;
+		}
+
+		// ✅ STEP 7: Get HTML
 		const htmlContent = await detailPage.content();
 
+		// ✅ STEP 8: Save with CORRECT title
 		await processPropertyWithCoordinates(
 			property.link,
 			property.price,
-			property.title,
+			property.title, // now fixed ✅
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
 			htmlContent,
 		);
 
+		// ✅ STEP 9: Stats
 		stats.totalSaved++;
 		stats.totalScraped++;
 		if (isRental) stats.savedRentals++;
 		else stats.savedSales++;
+
 	} catch (error) {
 		logger.error(`Error scraping detail page`, error, pageNum, label);
 	} finally {
