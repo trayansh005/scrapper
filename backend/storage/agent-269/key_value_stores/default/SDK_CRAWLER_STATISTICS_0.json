@@ -1,52 +1,29 @@
 {
-  "requestsFinished": 38,
-  "requestsFailed": 2,
-  "requestsRetries": 2,
+  "requestsFinished": 40,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 4,
-  "requestMinDurationMillis": 5267,
-  "requestMaxDurationMillis": 30476,
-  "requestTotalFailedDurationMillis": 36557,
-  "requestTotalFinishedDurationMillis": 273925,
-  "crawlerStartedAt": "2026-04-28T11:13:52.310Z",
-  "crawlerFinishedAt": "2026-04-28T11:23:01.490Z",
-  "statsPersistedAt": "2026-04-28T11:23:01.490Z",
-  "crawlerRuntimeMillis": 549426,
-  "crawlerLastStartTimestamp": 1777374832064,
+  "requestsFinishedPerMinute": 9,
+  "requestMinDurationMillis": 4987,
+  "requestMaxDurationMillis": 30977,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 274141,
+  "crawlerStartedAt": "2026-05-02T06:47:55.853Z",
+  "crawlerFinishedAt": "2026-05-02T06:52:32.868Z",
+  "statsPersistedAt": "2026-05-02T06:52:32.868Z",
+  "crawlerRuntimeMillis": 277246,
+  "crawlerLastStartTimestamp": 1777704475622,
   "requestRetryHistogram": [
-    38,
-    null,
-    null,
-    2
+    40
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 18279,
-  "requestAvgFinishedDurationMillis": 7209,
-  "requestTotalDurationMillis": 310482,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 6854,
+  "requestTotalDurationMillis": 274141,
   "requestsTotal": 40,
   "requestsWithStatusCode": {
-    "200": 46
+    "200": 40
   },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\scraper-agent-269.js:169:11": {
-      "missing error code": {
-        "ReferenceError": {
-          "nextUrl is not defined": {
-            "count": 2
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\scraper-agent-269.js:169:11": {
-      "missing error code": {
-        "ReferenceError": {
-          "nextUrl is not defined": {
-            "count": 6
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }
