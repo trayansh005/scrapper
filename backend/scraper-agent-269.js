@@ -146,29 +146,23 @@ async function handleListingPage({ page, request, crawler }) {
 
 		if (totalPages > 1) {
 			logger.step(`Found ${totalPages} pages for ${label}. Queuing remaining pages...`);
-			for (let i = 2; i <= totalPages; i++) {
-				const PAGE_SIZE = 25; // based on your UI output
+			const PAGE_SIZE = 25; // based on UI output
 
-				const baseUrl = request.url.split("&start=")[0].split("?start=")[0];
+			const baseUrl = request.url.split("&start=")[0].split("?start=")[0];
 
-				for (let i = 1; i < totalPages; i++) {
-					const offset = i * PAGE_SIZE;
+			for (let i = 1; i < totalPages; i++) {
+				const offset = i * PAGE_SIZE;
 
-					const nextUrl = request.url.includes("?")
-						? `${baseUrl}&start=${offset}`
-						: `${baseUrl}?start=${offset}`;
+				const nextUrl = request.url.includes("?")
+					? `${baseUrl}&start=${offset}`
+					: `${baseUrl}?start=${offset}`;
 
-					await crawler.addRequests([
-						{
-							url: nextUrl,
-							userData: { isRental, label, isFirstPage: false },
-						},
-					]);
-				}
-				await crawler.addRequests([{
-					url: nextUrl,
-					userData: { isRental, label, isFirstPage: false }
-				}]);
+				await crawler.addRequests([
+					{
+						url: nextUrl,
+						userData: { isRental, label, isFirstPage: false },
+					},
+				]);
 			}
 		}
 	}

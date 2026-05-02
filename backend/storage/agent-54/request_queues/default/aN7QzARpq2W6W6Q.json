@@ -1,9 +1,9 @@
 {
 	"id": "aN7QzARpq2W6W6Q",
-	"json": "{\"id\":\"aN7QzARpq2W6W6Q\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-310/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-310/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-310\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":310,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-17T11:00:39.905Z\"}",
+	"json": "{\"id\":\"aN7QzARpq2W6W6Q\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-310/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-310/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-310\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: browserController.newPage() failed: SY3DJO77bIoF3Am02hHKq\\nCause:browserController.newPage() timed out..\\n    at BrowserPool._createPageForBrowser (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:405:19)\\n    at async D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:295:20\"],\"headers\":{},\"userData\":{\"pageNum\":310,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-29T13:07:30.631Z\"}",
 	"method": "GET",
 	"orderNo": null,
-	"retryCount": 0,
+	"retryCount": 1,
 	"uniqueKey": "https://www.leaders.co.uk/properties/to-rent/page-310",
 	"url": "https://www.leaders.co.uk/properties/to-rent/page-310/"
 }

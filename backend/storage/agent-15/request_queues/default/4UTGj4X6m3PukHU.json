@@ -1,8 +1,8 @@
 {
 	"id": "4UTGj4X6m3PukHU",
-	"json": "{\"id\":\"4UTGj4X6m3PukHU\",\"url\":\"https://www.sequencehome.co.uk/properties/lettings/\",\"uniqueKey\":\"https://www.sequencehome.co.uk/properties/lettings\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"channel\":\"lettings\",\"pageNum\":1,\"label\":\"LETTINGS\",\"isRental\":true}}",
+	"json": "{\"id\":\"4UTGj4X6m3PukHU\",\"url\":\"https://www.sequencehome.co.uk/properties/lettings/\",\"loadedUrl\":\"https://www.sequencehome.co.uk/properties/lettings/\",\"uniqueKey\":\"https://www.sequencehome.co.uk/properties/lettings\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"channel\":\"lettings\",\"pageNum\":1,\"label\":\"LETTINGS\",\"isRental\":true,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-02T11:22:42.732Z\"}",
 	"method": "GET",
-	"orderNo": 1776071042911,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.sequencehome.co.uk/properties/lettings",
 	"url": "https://www.sequencehome.co.uk/properties/lettings/"

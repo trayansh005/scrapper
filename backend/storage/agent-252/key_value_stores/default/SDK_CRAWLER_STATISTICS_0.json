@@ -1,30 +1,31 @@
 {
-  "requestsFinished": 33,
+  "requestsFinished": 5,
   "requestsFailed": 0,
   "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 13604,
-  "requestMaxDurationMillis": 259647,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": 23542,
+  "requestMaxDurationMillis": 197134,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1582296,
-  "crawlerStartedAt": "2026-04-09T10:31:06.933Z",
-  "crawlerFinishedAt": "2026-04-09T10:59:02.199Z",
-  "statsPersistedAt": "2026-04-09T10:59:02.199Z",
-  "crawlerRuntimeMillis": 1675737,
-  "crawlerLastStartTimestamp": 1775730666462,
+  "requestTotalFinishedDurationMillis": 550501,
+  "crawlerStartedAt": "2026-04-30T07:20:08.336Z",
+  "crawlerFinishedAt": "2026-04-30T07:30:51.103Z",
+  "statsPersistedAt": "2026-04-30T07:30:51.103Z",
+  "crawlerRuntimeMillis": 642917,
+  "crawlerLastStartTimestamp": 1777533608186,
   "requestRetryHistogram": [
-    32,
+    4,
+    null,
     1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 47948,
-  "requestTotalDurationMillis": 1582296,
-  "requestsTotal": 33,
+  "requestAvgFinishedDurationMillis": 110100,
+  "requestTotalDurationMillis": 550501,
+  "requestsTotal": 5,
   "requestsWithStatusCode": {
-    "200": 31,
-    "404": 2
+    "200": 4,
+    "404": 1
   },
   "errors": {},
   "retryErrors": {
@@ -32,6 +33,15 @@
       "missing error code": {
         "Error": {
           "Navigation timed out after 90 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at https://robsonsweb.com/search-results/page/5/?department=residential-lettings&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=14": {
             "count": 1
           }
         }

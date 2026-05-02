@@ -1,30 +1,42 @@
 {
   "requestsFinished": 7,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 24791,
-  "requestMaxDurationMillis": 73407,
+  "requestMinDurationMillis": 23982,
+  "requestMaxDurationMillis": 152394,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 387470,
-  "crawlerStartedAt": "2026-04-27T13:08:20.018Z",
-  "crawlerFinishedAt": "2026-04-27T13:14:48.936Z",
-  "statsPersistedAt": "2026-04-27T13:14:48.936Z",
-  "crawlerRuntimeMillis": 389080,
-  "crawlerLastStartTimestamp": 1777295299856,
+  "requestTotalFinishedDurationMillis": 666857,
+  "crawlerStartedAt": "2026-04-30T06:44:40.357Z",
+  "crawlerFinishedAt": "2026-04-30T06:55:54.343Z",
+  "statsPersistedAt": "2026-04-30T06:55:54.343Z",
+  "crawlerRuntimeMillis": 674417,
+  "crawlerLastStartTimestamp": 1777531479926,
   "requestRetryHistogram": [
-    7
+    6,
+    null,
+    1
   ],
   "statsId": 1,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 55353,
-  "requestTotalDurationMillis": 387470,
+  "requestAvgFinishedDurationMillis": 95265,
+  "requestTotalDurationMillis": 666857,
   "requestsTotal": 7,
   "requestsWithStatusCode": {
-    "200": 6,
-    "404": 1
+    "200": 5,
+    "404": 2
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: _ at https://abbeysalesandlettingsgroup.co.uk/search/page/7/?address_keyword=&department=residential-lettings&minimum_price=&maximum_price=&minimum_rent=&maximum_rent=&minimum_bedrooms=&property_type=&officeID=&availability=6": {
+            "count": 2
+          }
+        }
+      }
+    }
+  }
 }

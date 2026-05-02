@@ -1,9 +1,0 @@
-{
-	"id": "7w4jG8zTW9NdVnU",
-	"json": "{\"id\":\"7w4jG8zTW9NdVnU\",\"url\":\"https://robsonsweb.com/search-results/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=8\",\"loadedUrl\":\"https://robsonsweb.com/search-results/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=8\",\"uniqueKey\":\"https://robsonsweb.com/search-results?address_keyword=&availability=8&bedrooms=&department=residential-sales&maximum_price=&maximum_rent=&minimum_price=&minimum_rent=&radius=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":false,\"label\":\"SALES\",\"baseUrl\":\"https://robsonsweb.com/search-results/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=8\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-09T10:31:52.638Z\"}",
-	"method": "GET",
-	"orderNo": null,
-	"retryCount": 0,
-	"uniqueKey": "https://robsonsweb.com/search-results?address_keyword=&availability=8&bedrooms=&department=residential-sales&maximum_price=&maximum_rent=&minimum_price=&minimum_rent=&radius=",
-	"url": "https://robsonsweb.com/search-results/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=8"
-}
