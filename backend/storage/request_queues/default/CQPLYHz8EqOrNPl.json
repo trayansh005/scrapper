@@ -1,9 +1,0 @@
-{
-	"id": "CQPLYHz8EqOrNPl",
-	"json": "{\"id\":\"CQPLYHz8EqOrNPl\",\"url\":\"https://www.haybrook.com/search/?Location=Sheffield%2C+UK&Latitude=53.38112899999999&Longitude=-1.470085&SearchDistance=50&MinPrice=&MaxPrice=&MinimumBeds=&Stc=False&MinEfficiency=&CreatedWithinDays=&IsPurchase=True&CustomFacet=&SortBy=price%7Cdesc&NumberOfResults=20&NumberOfResults=20&Page=20\",\"uniqueKey\":\"https://www.haybrook.com/search?CreatedWithinDays=&CustomFacet=&IsPurchase=True&Latitude=53.38112899999999&Location=Sheffield%2C+UK&Longitude=-1.470085&MaxPrice=&MinEfficiency=&MinPrice=&MinimumBeds=&NumberOfResults=20&NumberOfResults=20&Page=20&SearchDistance=50&SortBy=price%7Cdesc&Stc=False\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":20,\"totalPages\":50}}",
-	"method": "GET",
-	"orderNo": 1778051585682,
-	"retryCount": 0,
-	"uniqueKey": "https://www.haybrook.com/search?CreatedWithinDays=&CustomFacet=&IsPurchase=True&Latitude=53.38112899999999&Location=Sheffield%2C+UK&Longitude=-1.470085&MaxPrice=&MinEfficiency=&MinPrice=&MinimumBeds=&NumberOfResults=20&NumberOfResults=20&Page=20&SearchDistance=50&SortBy=price%7Cdesc&Stc=False",
-	"url": "https://www.haybrook.com/search/?Location=Sheffield%2C+UK&Latitude=53.38112899999999&Longitude=-1.470085&SearchDistance=50&MinPrice=&MaxPrice=&MinimumBeds=&Stc=False&MinEfficiency=&CreatedWithinDays=&IsPurchase=True&CustomFacet=&SortBy=price%7Cdesc&NumberOfResults=20&NumberOfResults=20&Page=20"
-}
