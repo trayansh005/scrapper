@@ -144,55 +144,128 @@ async function extractCoordinatesFromDetailPage(page, title) {
 }
 
 // ============================================================================
-// REQUEST HANDLER
+// IMPROVED REQUEST HANDLER - FIXED
 // ============================================================================
 async function handleListingPage({ page, request, crawler }) {
     const { pageNum, label, totalPages = 1 } = request.userData;
     logger.page(pageNum, label, request.url, totalPages);
 
+    let allProperties = [];
+
     try {
-        await page.waitForTimeout(5000);
+        // Initial load
         await page.waitForSelector('a[href*="/properties/"]', { timeout: 20000 }).catch(() => {});
+        await page.waitForTimeout(2000);
 
-        const properties = await page.evaluate(() => {
-            const props = [];
-            const cards = document.querySelectorAll('a[href*="/properties/"]');
-            const seen = new Set(); // ✅ Deduplicate
+        // === ACCEPT COOKIES ===
+        try {
+            const acceptBtn = await page.getByText('Accept', { exact: true }).first();
+            if (await acceptBtn.isVisible()) {
+                logger.step("Accepting cookies...");
+                await acceptBtn.click();
+                await page.waitForTimeout(2000);
+            }
+        } catch (e) {
+            // Ignore if not found
+        }
 
-            cards.forEach(card => {
-                const href = card.getAttribute('href');
-                if (!href || href === '/properties') return;
+        let previousCount = 0;
+        let attempts = 0;
+        const maxAttempts = 25; // Increased to ensure we get all 41 results
 
-                const link = href.startsWith('http')
-                    ? href
-                    : `https://jacksonsproperty.co.uk${href}`;
+        logger.step(`Starting Load More loop (max ${maxAttempts} attempts)...`);
 
-                if (seen.has(link)) return; // ✅ Skip duplicates
-                seen.add(link);
+        while (attempts < maxAttempts) {
+            attempts++;
 
-                const h5s = card.querySelectorAll('h5');
-                if (h5s.length < 2) return;
+            const properties = await page.evaluate(() => {
+                const props = [];
+                const seen = new Set();
 
-                const title = h5s[0].innerText.trim();
-                const priceText = h5s[1].innerText.trim();
-                const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
-                if (!price || !title) return;
+                document.querySelectorAll('a[href*="/properties/"]').forEach(card => {
+                    const href = card.getAttribute('href');
+                    if (!href || href === '/properties' || seen.has(href)) return;
+                    seen.add(href);
 
-                const addressEl = card.querySelector('p');
-                const address = addressEl ? addressEl.innerText.trim() : '';
-                const bedroomsMatch = card.innerText.match(/^(\d+)/m);
-                const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1]) : null;
+                    const h5s = card.querySelectorAll('h5');
+                    if (h5s.length < 2) return;
 
-                props.push({ title, link, price, bedrooms, address });
+                    const title = h5s[0].innerText.trim();
+                    const priceText = h5s[1].innerText.trim();
+                    const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
+
+                    if (!title || !price) return;
+
+                    const addressEl = card.querySelector('p, .address, .location, .property-address, .text-gray');
+                    const address = addressEl ? addressEl.innerText.trim() : '';
+
+                    const bedroomsMatch = card.innerText.match(/(\d+)\s*(?:bed|bedroom|bedrooms)/i);
+                    const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1]) : null;
+
+                    const link = href.startsWith('http') 
+                        ? href 
+                        : `https://jacksonsproperty.co.uk${href}`;
+
+                    props.push({ title, link, price, bedrooms, address });
+                });
+
+                return props;
             });
 
-            return props;
-        });
+            const currentCount = properties.length;
+            logger.page(pageNum, label, `Attempt ${attempts}: Found ${currentCount} properties`);
 
-        logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
+            // Add to collection
+            allProperties = [...allProperties, ...properties];
 
-        for (let i = 0; i < properties.length; i++) {
-            const prop = properties[i];
+            // Stop if no new properties are loading and we have a reasonable amount
+            if (currentCount === previousCount && currentCount >= 40) {
+                logger.step(`✅ Stopping - No more properties loading. Total: ${currentCount}`);
+                break;
+            }
+
+            previousCount = currentCount;
+
+            // === CLICK "LOAD MORE" BUTTON (Improved) ===
+            let loadMoreClicked = false;
+            try {
+                const possibleTexts = ["LOAD MORE", "Load More", "load more", "Show More", "View More", "LOAD MORE PROPERTIES"];
+                
+                for (const text of possibleTexts) {
+                    const btn = page.locator(`button:has-text("${text}"), a:has-text("${text}"), div:has-text("${text}")`).last();
+                    
+                    if (await btn.isVisible()) {
+                        await btn.scrollIntoViewIfNeeded();
+                        await btn.click({ force: true });
+                        loadMoreClicked = true;
+                        break;
+                    }
+                }
+            } catch (err) {
+                logger.step(`Load More click failed: ${err.message}`);
+            }
+
+            if (loadMoreClicked) {
+                logger.step(`Clicked "Load More" button (attempt ${attempts})`);
+            } else {
+                // Fallback: Scroll to bottom
+                await page.evaluate(() => {
+                    window.scrollBy(0, window.innerHeight * 1.5);
+                });
+                await page.waitForTimeout(1000);
+            }
+
+            await page.waitForTimeout(3500); // Wait for new content
+        }
+
+        // Remove duplicates
+        const uniqueProps = [...new Map(allProperties.map(p => [p.link, p])).values()];
+
+        logger.step(`✅ Final unique properties collected: ${uniqueProps.length}`);
+
+        // Process properties
+        for (let i = 0; i < uniqueProps.length; i++) {
+            const prop = uniqueProps[i];
 
             const result = await updatePriceByPropertyURLOptimized(
                 prop.link, prop.price, prop.title, prop.bedrooms, AGENT_ID, false
@@ -202,14 +275,17 @@ async function handleListingPage({ page, request, crawler }) {
             let latitude = null;
             let longitude = null;
 
-            // ✅ Fetch coordinates for ALL properties (new + existing)
             try {
-                logger.step(`Fetching detail page for coords: ${prop.link}`);
+                logger.step(`Fetching coords: ${prop.title.substring(0, 45)}...`);
                 const detailPage = await page.context().newPage();
 
                 try {
-                    await detailPage.goto(prop.link, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                    await detailPage.waitForTimeout(2000);
+                    await detailPage.goto(prop.link, { 
+                        waitUntil: 'domcontentloaded', 
+                        timeout: 30000 
+                    });
+                    await detailPage.waitForTimeout(2500);
+
                     const coords = await extractCoordinatesFromDetailPage(detailPage, prop.title);
                     latitude = coords.latitude;
                     longitude = coords.longitude;
@@ -217,41 +293,25 @@ async function handleListingPage({ page, request, crawler }) {
                     await detailPage.close().catch(() => {});
                 }
             } catch (err) {
-                logger.error(`Detail page failed for ${prop.title}: ${err.message}`);
-                // Geocode fallback
+                logger.error(`Detail page failed: ${err.message}`);
                 const coords = await geocodeAddress(prop.address || prop.title);
                 latitude = coords.latitude;
                 longitude = coords.longitude;
             }
 
-            const coordStatus = (latitude && longitude)
-                ? `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`
-                : "⚠️ No coords";
-            logger.step(`📍 ${prop.title.substring(0, 40)} → ${coordStatus}`);
-
+            // Save logic (unchanged)
             if (!result.isExisting && !result.error) {
                 action = "CREATED";
-                await processPropertyWithCoordinates(
-                    prop.link, prop.price, prop.title, prop.bedrooms,
-                    AGENT_ID, false, null, latitude, longitude  // ✅ pass coords
-                );
+                await processPropertyWithCoordinates(prop.link, prop.price, prop.title, prop.bedrooms, AGENT_ID, false, null, latitude, longitude);
                 stats.totalSaved++;
                 stats.totalScraped++;
             } else if (result.updated) {
                 action = "UPDATED";
-                // ✅ Update coords for existing properties too
-                await processPropertyWithCoordinates(
-                    prop.link, prop.price, prop.title, prop.bedrooms,
-                    AGENT_ID, false, null, latitude, longitude
-                );
+                await processPropertyWithCoordinates(prop.link, prop.price, prop.title, prop.bedrooms, AGENT_ID, false, null, latitude, longitude);
                 stats.totalSaved++;
                 stats.totalScraped++;
             } else if (result.isExisting) {
-                // ✅ Update coords even for unchanged properties
-                await processPropertyWithCoordinates(
-                    prop.link, prop.price, prop.title, prop.bedrooms,
-                    AGENT_ID, false, null, latitude, longitude
-                );
+                await processPropertyWithCoordinates(prop.link, prop.price, prop.title, prop.bedrooms, AGENT_ID, false, null, latitude, longitude);
                 stats.totalScraped++;
             }
 
@@ -261,23 +321,11 @@ async function handleListingPage({ page, request, crawler }) {
                 prop.link, false, totalPages, action
             );
 
-            await sleep(500); // Be polite between detail page visits
+            await sleep(700);
         }
 
-        // Handle Load More pagination
-        try {
-            const loadMoreBtn = await page.$('button:has-text("LOAD MORE"), a:has-text("LOAD MORE")');
-            if (loadMoreBtn) {
-                logger.page(pageNum, label, `Clicking "Load More"...`, totalPages);
-                await loadMoreBtn.click();
-                await page.waitForTimeout(3000);
-                // Re-run handler on same page with updated content
-                await handleListingPage({ page, request: { ...request, userData: { ...request.userData, pageNum: pageNum + 1 } }, crawler });
-            }
-        } catch (_) {}
-
     } catch (error) {
-        logger.error(`Error processing ${label} page ${pageNum}`, error);
+        logger.error(`Error processing listing page ${pageNum}`, error);
     }
 }
 

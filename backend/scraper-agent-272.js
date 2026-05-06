@@ -26,16 +26,16 @@ const logger = createAgentLogger(AGENT_ID);
 
 const PROPERTY_TYPES = [
 	{
-		baseUrl: 'https://www.simonbrien.com/search/815078',
+		baseUrl: 'https://www.simonbrien.com/search/815078?includeagreed=1',
 		isRental: false,
 		label: 'SALES',
 		totalPages: 20,
 	},
 	{
-		baseUrl: 'https://www.simonbrien.com/search/815086',
+		baseUrl: 'https://www.simonbrien.com/search/815086?includeagreed=1',
 		isRental: true,
 		label: 'RENTALS',
-		totalPages: 4,
+		totalPages: 20,
 	},
 ];
 
@@ -103,12 +103,16 @@ async function handleListingPage({ page, request }) {
 	}
 
 	const properties = await page.evaluate(() => {
-		const anchors = Array.from(document.querySelectorAll('a[href*="/buy/house/"], a[href*="/rent/house/"]'));
+		const anchors = Array.from(document.querySelectorAll('a[href*="/buy/"], a[href*="/rent/"]'));
 		const seen = new Map();
 
 		for (const a of anchors) {
 			const href = a.getAttribute('href');
 			if (!href) continue;
+
+			// Filter out main category pages and non-property links
+			if (href.split('/').length < 4) continue;
+			if (href.includes('/property-for-') || href.includes('/search/')) continue;
 
 			const link = new URL(href, window.location.origin).href;
 			const cardRoot = a.closest('div, li, article') || a.parentElement;
@@ -247,7 +251,11 @@ async function run() {
 		for (let p = startPage; p <= type.totalPages; p++) {
 			let url = type.baseUrl;
 			if (p > 1) {
-				url = url.endsWith('/') ? `${url}page${p}/` : `${url}/page${p}/`;
+				const urlObj = new URL(url);
+				urlObj.pathname = urlObj.pathname.endsWith('/') 
+					? `${urlObj.pathname}page${p}/` 
+					: `${urlObj.pathname}/page${p}/`;
+				url = urlObj.href;
 			}
 
 			allRequests.push({
