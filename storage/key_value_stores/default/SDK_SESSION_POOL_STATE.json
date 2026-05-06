@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 2,
-  "retiredSessionsCount": 0,
+  "usableSessionsCount": 5,
+  "retiredSessionsCount": 1,
   "sessions": [
     {
-      "id": "session_eLpQI8Cp4X",
+      "id": "session_IuUa4HAhN7",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-05-06T12:03:23.900Z",
-      "createdAt": "2026-05-06T11:13:23.900Z",
+      "expiresAt": "2026-05-06T13:07:07.098Z",
+      "createdAt": "2026-05-06T12:17:07.098Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_o8iUhBphzZ",
+      "id": "session_Az1c3pUVik",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -34,26 +34,189 @@
         "cookies": [
           {
             "key": "neuron-touch",
-            "value": "Fe26.2**994d722cec064dc9fe380620d886726e884c5a1a1c88548b9b8846094096387d*qMIdzV8LgCC7xv2l8mGPJg*fHxnLzpeaa2_JcE9KdF8xIFr9pD-LgQt4Quj9c-bgdMC_gm20rYdaTxEwIGDb3kK8U2a3K7eKgcExPXk_RHLzgB1PzHnKbpBBANIgNl0nWhNR-6Wc3y8NPI8jrKCpOnL**a140811a26aa4be7430f2de205388e667c3b8ad9ffd31b6494658f9e3b1518d9*ayzVguaPiSUPV45OE-Gmb1VduIqmJfyX4d8c38rvW94",
-            "expires": "2026-05-07T03:53:27.199Z",
+            "value": "Fe26.2**3e5253242c7ce83901e835257dc22d0b342dac2eea7dd3e4b8ec28177aa28dbf*pjQP0mUDo10rLfuLWxmuZA*VBiys3lkPG1yDiZ950ELfI8LxbzjFz6kOXPRX-p-UgJL-NOnr7Ce_regnB3uaPxq9HOaPQQjJ58sJkNoHMcQG6ZubwSy9XgyikkWCiuhQVP8ukNTmMzLEHhaB0POd7uR**9d40bcf31d6dc98f876cf0483d742bc267e1820354debeabcf80bf4d1331821e*jI0tP57_l0XlJBUrIJEXbklRJYwofgmjQGFHykkisB4",
+            "expires": "2026-05-07T04:57:09.560Z",
             "domain": "jacksonsproperty.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-05-06T11:13:29.983Z",
-            "lastAccessed": "2026-05-06T11:13:29.983Z"
+            "creation": "2026-05-06T12:18:18.388Z",
+            "lastAccessed": "2026-05-06T12:28:27.695Z"
+          },
+          {
+            "key": "__fc_confirmed",
+            "value": "2026%2F05%2F06%2017%3A48%3A20",
+            "expires": "2027-05-06T12:28:27.000Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-05-06T12:23:23.382Z",
+            "lastAccessed": "2026-05-06T12:28:27.699Z"
+          },
+          {
+            "key": "_clck",
+            "value": "r0ezjo%5E2%5Eg5t%5E0%5E2317",
+            "expires": "2027-05-06T12:18:21.000Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T12:23:23.382Z",
+            "lastAccessed": "2026-05-06T12:28:27.700Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1029114370.1778069902",
+            "expires": "2027-06-10T12:18:21.784Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T12:23:23.383Z",
+            "lastAccessed": "2026-05-06T12:28:27.711Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.2.1778069902388.340213258383789514",
+            "expires": "2026-08-04T12:23:20.000Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T12:23:23.388Z",
+            "lastAccessed": "2026-05-06T12:28:27.716Z"
+          },
+          {
+            "key": "_ga_NEMBDRVQQ5",
+            "value": "GS2.1.s1778069902$o1$g1$t1778070201$j33$l0$h142810490",
+            "expires": "2027-06-10T12:23:21.737Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T12:23:23.394Z",
+            "lastAccessed": "2026-05-06T12:28:27.716Z"
+          },
+          {
+            "key": "_ga_QKVCDW7QCW",
+            "value": "GS2.1.s1778069901$o1$g1$t1778070201$j33$l0$h0",
+            "expires": "2027-06-10T12:23:21.799Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T12:23:23.395Z",
+            "lastAccessed": "2026-05-06T12:28:27.716Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "11u69ge%5E1778070202152%5E12%5E1%5El.clarity.ms%2Fcollect",
+            "expires": "2026-05-07T12:23:22.000Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T12:23:23.395Z",
+            "lastAccessed": "2026-05-06T12:28:27.716Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-05-06T12:03:23.912Z",
-      "createdAt": "2026-05-06T11:13:23.912Z",
+      "expiresAt": "2026-05-06T13:07:07.110Z",
+      "createdAt": "2026-05-06T12:17:07.110Z",
+      "usageCount": 4,
+      "maxUsageCount": 50,
+      "errorScore": 6
+    },
+    {
+      "id": "session_4s3PgUUNf7",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T13:13:18.734Z",
+      "createdAt": "2026-05-06T12:23:18.734Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
+    },
+    {
+      "id": "session_wxcgMyfDkO",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T13:18:23.602Z",
+      "createdAt": "2026-05-06T12:28:23.602Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_IqwOksFzvT",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T13:23:27.785Z",
+      "createdAt": "2026-05-06T12:33:27.785Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_EgD2rmp09i",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "neuron-touch",
+            "value": "Fe26.2**aceb97d145717efcb97209aab8e85beb0c56a981cf3d39a2ee32f3e4df370dcb*_bvmimlz7FYhJDa05fpUUw*eAmfazY3NOmVncG7DcihpQgtDP4eVeqtKGibDWW1E3X_b8sbLDvA8xAqTAuhfxi31KBjqRe9iXafON88khSu1Zt7-aGNCvQ3EIQQneH5uJe9uKXn4JooNT0Gpk5FEPyt**8ae645f9c1107341dac3d645050c6caabf3f2098b9903a6954b62c4ff62ce309*8SeaOUqxMnZa0TJhje5beVR3-dEgAfwC5jgJnvf8B9M",
+            "expires": "2026-05-07T05:13:29.173Z",
+            "domain": "jacksonsproperty.co.uk",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-05-06T12:33:36.748Z",
+            "lastAccessed": "2026-05-06T12:33:36.748Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T13:23:27.792Z",
+      "createdAt": "2026-05-06T12:33:27.792Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 1
     }
   ]
 }

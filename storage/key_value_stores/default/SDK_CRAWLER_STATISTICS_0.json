@@ -1,27 +1,52 @@
 {
   "requestsFinished": 0,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 0,
   "requestMinDurationMillis": null,
   "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 308975,
   "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-05-06T11:13:17.340Z",
-  "crawlerFinishedAt": null,
-  "statsPersistedAt": "2026-05-06T11:17:17.851Z",
-  "crawlerRuntimeMillis": 241195,
-  "crawlerLastStartTimestamp": 1778065996656,
-  "requestRetryHistogram": [],
+  "crawlerStartedAt": "2026-05-06T12:17:02.953Z",
+  "crawlerFinishedAt": "2026-05-06T12:38:47.246Z",
+  "statsPersistedAt": "2026-05-06T12:38:47.247Z",
+  "crawlerRuntimeMillis": 1304937,
+  "crawlerLastStartTimestamp": 1778069822310,
+  "requestRetryHistogram": [
+    null,
+    null,
+    null,
+    1
+  ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
+  "requestAvgFailedDurationMillis": 308975,
   "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 0,
-  "requestsTotal": 0,
+  "requestTotalDurationMillis": 308975,
+  "requestsTotal": 1,
   "requestsWithStatusCode": {
-    "200": 1
+    "200": 4
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 3
+          }
+        }
+      }
+    }
+  }
 }

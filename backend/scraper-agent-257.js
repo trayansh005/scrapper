@@ -300,7 +300,7 @@ async function handleListingPage({ page, request, crawler }) {
             }
 
             // Save logic (unchanged)
-            if (!result.isExisting && !result.error) {
+            if (!result.isExisting) {
                 action = "CREATED";
                 await processPropertyWithCoordinates(prop.link, prop.price, prop.title, prop.bedrooms, AGENT_ID, false, null, latitude, longitude);
                 stats.totalSaved++;
