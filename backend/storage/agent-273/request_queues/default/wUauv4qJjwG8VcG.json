@@ -1,9 +1,9 @@
 {
 	"id": "wUauv4qJjwG8VcG",
-	"json": "{\"id\":\"wUauv4qJjwG8VcG\",\"url\":\"https://cps-property.com/search/510678/10\",\"uniqueKey\":\"https://cps-property.com/search/510678/10\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":10,\"totalPages\":14}}",
+	"json": "{\"id\":\"wUauv4qJjwG8VcG\",\"url\":\"https://cps-property.com/search/510678/10\",\"loadedUrl\":\"https://cps-property.com/search/510678/10\",\"uniqueKey\":\"https://cps-property.com/search/510678/10\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"browserContext.newPage: Target page, context or browser has been closed\\n    at scrapePropertyDetail (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\scraper-agent-273.js:66:42)\\n    at PlaywrightCrawler.handleListingPage (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\scraper-agent-273.js:177:26)\\n    at async wrap (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@apify\\\\timeout\\\\cjs\\\\index.cjs:54:21)\"],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":10,\"totalPages\":14,\"__crawlee\":{\"state\":5}}}",
 	"method": "GET",
-	"orderNo": 1778049856856,
-	"retryCount": 0,
+	"orderNo": 1778050347641,
+	"retryCount": 1,
 	"uniqueKey": "https://cps-property.com/search/510678/10",
 	"url": "https://cps-property.com/search/510678/10"
 }

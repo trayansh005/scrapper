@@ -1,8 +1,8 @@
 {
 	"id": "sSpX8fLx7Ag94fp",
-	"json": "{\"id\":\"sSpX8fLx7Ag94fp\",\"url\":\"https://cps-property.com/search/510678/8\",\"uniqueKey\":\"https://cps-property.com/search/510678/8\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":8,\"totalPages\":14}}",
+	"json": "{\"id\":\"sSpX8fLx7Ag94fp\",\"url\":\"https://cps-property.com/search/510678/8\",\"loadedUrl\":\"https://cps-property.com/search/510678/8\",\"uniqueKey\":\"https://cps-property.com/search/510678/8\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":8,\"totalPages\":14,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-06T06:50:14.721Z\"}",
 	"method": "GET",
-	"orderNo": 1778049856856,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://cps-property.com/search/510678/8",
 	"url": "https://cps-property.com/search/510678/8"

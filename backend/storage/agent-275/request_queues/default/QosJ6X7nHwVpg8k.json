@@ -1,0 +1,9 @@
+{
+	"id": "QosJ6X7nHwVpg8k",
+	"json": "{\"id\":\"QosJ6X7nHwVpg8k\",\"url\":\"https://www.haybrook.com/search/?IsPurchase=False&Location=Sheffield%2C+UK&SearchDistance=50&Latitude=53.38112899999999&Longitude=-1.470085&lettingCalc=monthly&MinPrice=&MaxPrice=&MinimumBeds=&Furnished=1&Furnished=0&SortBy=&Page=50&NumberOfResults=0\",\"uniqueKey\":\"https://www.haybrook.com/search?Furnished=1&Furnished=0&IsPurchase=False&Latitude=53.38112899999999&Location=Sheffield%2C+UK&Longitude=-1.470085&MaxPrice=&MinPrice=&MinimumBeds=&NumberOfResults=0&Page=50&SearchDistance=50&SortBy=&lettingCalc=monthly\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"RENTALS\",\"pageNum\":50,\"totalPages\":50}}",
+	"method": "GET",
+	"orderNo": 1778051696691,
+	"retryCount": 0,
+	"uniqueKey": "https://www.haybrook.com/search?Furnished=1&Furnished=0&IsPurchase=False&Latitude=53.38112899999999&Location=Sheffield%2C+UK&Longitude=-1.470085&MaxPrice=&MinPrice=&MinimumBeds=&NumberOfResults=0&Page=50&SearchDistance=50&SortBy=&lettingCalc=monthly",
+	"url": "https://www.haybrook.com/search/?IsPurchase=False&Location=Sheffield%2C+UK&SearchDistance=50&Latitude=53.38112899999999&Longitude=-1.470085&lettingCalc=monthly&MinPrice=&MaxPrice=&MinimumBeds=&Furnished=1&Furnished=0&SortBy=&Page=50&NumberOfResults=0"
+}

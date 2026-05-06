@@ -248,8 +248,10 @@ async function run() {
 
 	for (const type of PROPERTY_TYPES) {
 		for (let p = startPage; p <= type.totalPages; p++) {
-			// Provided baseUrl already includes the search id; append /<page>
-			const url = `${type.baseUrl}${p}`;
+// For Haybrook-style CPS templates, paging is done via query param "Page".
+			const urlObj = new URL(type.baseUrl);
+			urlObj.searchParams.set('Page', String(p));
+			const url = urlObj.toString();
 
 			allRequests.push({
 				url,
