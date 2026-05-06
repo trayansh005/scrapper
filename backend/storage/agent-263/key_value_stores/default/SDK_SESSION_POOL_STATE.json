@@ -3,7 +3,7 @@
   "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_9ehaKbN2T8",
+      "id": "session_5qpRQwiKCp",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-05-02T06:03:57.513Z",
-      "createdAt": "2026-05-02T05:13:57.513Z",
+      "expiresAt": "2026-05-05T12:51:41.871Z",
+      "createdAt": "2026-05-05T12:01:41.871Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_tGrGHoLyg9",
+      "id": "session_5Ubz9JAcfm",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -34,29 +34,29 @@
         "cookies": [
           {
             "key": "PHPSESSID",
-            "value": "2a6aac78aa14fce28b4e9bceaca1d7b0",
-            "expires": "2026-05-02T06:04:05.904Z",
+            "value": "7c6c19de9ba7f32e081cb634b57ff2c1",
+            "expires": "2026-05-05T12:51:46.839Z",
             "domain": "www.sallyhatcher.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-05-02T05:14:05.907Z",
-            "lastAccessed": "2026-05-02T05:14:22.531Z"
+            "creation": "2026-05-05T12:01:46.843Z",
+            "lastAccessed": "2026-05-05T12:02:01.269Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-05-02T06:03:57.521Z",
-      "createdAt": "2026-05-02T05:13:57.521Z",
+      "expiresAt": "2026-05-05T12:51:41.880Z",
+      "createdAt": "2026-05-05T12:01:41.880Z",
       "usageCount": 2,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_7GIPD99AX8",
+      "id": "session_ijgGJcPref",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -69,8 +69,8 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-05-02T06:04:18.590Z",
-      "createdAt": "2026-05-02T05:14:18.590Z",
+      "expiresAt": "2026-05-05T12:51:59.405Z",
+      "createdAt": "2026-05-05T12:01:59.405Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

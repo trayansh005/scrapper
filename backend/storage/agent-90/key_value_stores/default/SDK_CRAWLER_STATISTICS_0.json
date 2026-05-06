@@ -1,64 +1,29 @@
 {
-  "requestsFinished": 200,
-  "requestsFailed": 150,
-  "requestsRetries": 159,
-  "requestsFailedPerMinute": 1,
+  "requestsFinished": 350,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
+  "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 2,
-  "requestMinDurationMillis": 20950,
-  "requestMaxDurationMillis": 65771,
-  "requestTotalFailedDurationMillis": 39886,
-  "requestTotalFinishedDurationMillis": 5504952,
-  "crawlerStartedAt": "2026-04-29T09:27:05.530Z",
-  "crawlerFinishedAt": "2026-04-29T11:02:57.176Z",
-  "statsPersistedAt": "2026-04-29T11:02:57.176Z",
-  "crawlerRuntimeMillis": 5752110,
-  "crawlerLastStartTimestamp": 1777454825066,
+  "requestMinDurationMillis": 21561,
+  "requestMaxDurationMillis": 175441,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 12528562,
+  "crawlerStartedAt": "2026-05-04T04:36:10.009Z",
+  "crawlerFinishedAt": "2026-05-04T08:05:15.704Z",
+  "statsPersistedAt": "2026-05-04T08:05:15.704Z",
+  "crawlerRuntimeMillis": 12546732,
+  "crawlerLastStartTimestamp": 1777869368972,
   "requestRetryHistogram": [
-    191,
-    5,
-    3,
-    151
+    350
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 266,
-  "requestAvgFinishedDurationMillis": 27525,
-  "requestTotalDurationMillis": 5544838,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 35796,
+  "requestTotalDurationMillis": 12528562,
   "requestsTotal": 350,
   "requestsWithStatusCode": {
-    "200": 200
+    "200": 350
   },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
-            "count": 150
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
-            "count": 461
-          },
-          "page.goto: net::ERR_NETWORK_CHANGED at _": {
-            "count": 2
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }
