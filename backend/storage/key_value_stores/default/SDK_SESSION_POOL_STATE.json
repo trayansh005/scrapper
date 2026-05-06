@@ -1,9 +1,9 @@
 {
-  "usableSessionsCount": 3,
+  "usableSessionsCount": 2,
   "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_MhOr5EDCIN",
+      "id": "session_h9osbLEnpc",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-23T07:42:57.396Z",
-      "createdAt": "2026-04-23T06:52:57.396Z",
+      "expiresAt": "2026-05-06T08:00:05.807Z",
+      "createdAt": "2026-05-06T07:10:05.807Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_viNMn4Pntq",
+      "id": "session_bwM3GtVo1t",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -33,65 +33,88 @@
         "prefixSecurity": "silent",
         "cookies": [
           {
-            "key": "_gatekeeper_session",
-            "value": "OuOJljk5xFCXB3SmVQzRQzL1MaD%2FzlXBmOa30OW824YWxiDicYVv5gJ3ovHGw2gFzyz%2BX2Hwm1sbbvSXfB5s9H1cNcbCPvFQfvzeq5YK7JwmhauiFTv%2FXIhfAt82IhQE%2BEUt%2FFVL5Th6VHQOfofL9rEQrt7%2BtPjX8wAzTzaBHV1W6T59uWrUJg%2BRAfBmHITMpeP4%2FvuZsoQq2%2B%2BtD4kEJ5dg4nJ2eMnnVNFYuR70sYCd5ArXBordidSHs1O79bycWnl2Bo6QXFbIjFmRBCAl57DnQqA97Y51wTy1cJsUAJiDzZfl%2B3l0Bm%2F%2BDV5WJsXTyl4uPGs9ka5r8bTjD5%2BYqLhzG5J7e6ahO3ak7Ap4D4zMdvG26k6a3qAbK0Gc%2BE4rj2h5dscZ9%2Bvv%2BmlUho5lm%2BLLb8DYzxQ%3D--CSR1gegtSdsqAINB--%2BYz1V2r9CvQkkB9AjzgOcA%3D%3D",
-            "expires": "2026-04-23T07:44:46.354Z",
-            "domain": "www.gatekeeper.co.uk",
+            "key": "SHSessionID",
+            "value": "dm11aey3melhoidmwxj1cylu",
+            "expires": "2026-05-06T08:00:17.000Z",
+            "domain": "www.haybrook.com",
             "path": "/",
+            "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-04-23T06:53:17.895Z",
-            "lastAccessed": "2026-04-23T06:54:46.355Z"
+            "creation": "2026-05-06T07:10:17.005Z",
+            "lastAccessed": "2026-05-06T07:10:17.005Z"
           },
           {
-            "key": "_ga_RFH65FR9XT",
-            "value": "GS2.1.s1776927185$o1$g1$t1776927283$j60$l0$h0",
-            "expires": "2027-05-28T06:54:43.601Z",
-            "domain": "gatekeeper.co.uk",
+            "key": "ARRAffinity",
+            "value": "d58ede47ffbe966f6d03ab39fbeb307cb81640f1e68b331ecaab91ef9cd6118f",
+            "expires": "2026-05-06T08:00:17.000Z",
+            "domain": "www.haybrook.com",
             "path": "/",
             "secure": true,
+            "httpOnly": true,
             "hostOnly": false,
-            "creation": "2026-04-23T06:53:17.896Z",
-            "lastAccessed": "2026-04-23T06:54:46.356Z"
+            "creation": "2026-05-06T07:10:17.006Z",
+            "lastAccessed": "2026-05-06T07:10:17.006Z"
           },
           {
-            "key": "_ga",
-            "value": "GA1.1.848274451.1776927186",
-            "expires": "2027-05-28T06:53:05.776Z",
-            "domain": "gatekeeper.co.uk",
+            "key": "ARRAffinitySameSite",
+            "value": "d58ede47ffbe966f6d03ab39fbeb307cb81640f1e68b331ecaab91ef9cd6118f",
+            "expires": "2026-05-06T08:00:17.000Z",
+            "domain": "www.haybrook.com",
             "path": "/",
             "secure": true,
+            "httpOnly": true,
             "hostOnly": false,
-            "creation": "2026-04-23T06:53:17.903Z",
-            "lastAccessed": "2026-04-23T06:54:46.355Z"
+            "creation": "2026-05-06T07:10:17.006Z",
+            "lastAccessed": "2026-05-06T07:10:17.006Z"
+          },
+          {
+            "key": "__utmzz",
+            "value": "utmcsr=(direct)|utmcmd=(none)|utmccn=(not set)",
+            "expires": "2026-11-02T07:10:10.000Z",
+            "domain": "haybrook.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T07:10:17.006Z",
+            "lastAccessed": "2026-05-06T07:10:17.006Z"
+          },
+          {
+            "key": "__utmzzses",
+            "value": "1",
+            "expires": "2026-05-06T08:00:17.000Z",
+            "domain": "haybrook.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T07:10:17.014Z",
+            "lastAccessed": "2026-05-06T07:10:17.014Z"
+          },
+          {
+            "key": "4653a707_f24_autoId",
+            "value": "8be32222-df29-4d47-9353-4d1677c25eee",
+            "expires": "2027-05-06T07:10:11.000Z",
+            "domain": "haybrook.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-06T07:10:17.015Z",
+            "lastAccessed": "2026-05-06T07:10:17.015Z"
+          },
+          {
+            "key": "branchId",
+            "value": "0304",
+            "expires": "2026-05-06T08:00:17.000Z",
+            "domain": "www.haybrook.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-05-06T07:10:17.015Z",
+            "lastAccessed": "2026-05-06T07:10:17.015Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-23T07:42:57.403Z",
-      "createdAt": "2026-04-23T06:52:57.403Z",
-      "usageCount": 2,
-      "maxUsageCount": 50,
-      "errorScore": 0
-    },
-    {
-      "id": "session_OA4PITdhzs",
-      "cookieJar": {
-        "version": "tough-cookie@6.0.0",
-        "storeType": "MemoryCookieStore",
-        "rejectPublicSuffixes": true,
-        "enableLooseMode": false,
-        "allowSpecialUseDomain": true,
-        "prefixSecurity": "silent",
-        "cookies": []
-      },
-      "userData": {},
-      "maxErrorScore": 3,
-      "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-23T07:44:42.107Z",
-      "createdAt": "2026-04-23T06:54:42.107Z",
+      "expiresAt": "2026-05-06T08:00:05.814Z",
+      "createdAt": "2026-05-06T07:10:05.814Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0

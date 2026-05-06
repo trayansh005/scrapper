@@ -1,9 +1,9 @@
 {
 	"id": "L3LBWVsm0AdgiCn",
-	"json": "{\"id\":\"L3LBWVsm0AdgiCn\",\"url\":\"https://cps-property.com/search/510678/11\",\"uniqueKey\":\"https://cps-property.com/search/510678/11\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":11,\"totalPages\":14}}",
+	"json": "{\"id\":\"L3LBWVsm0AdgiCn\",\"url\":\"https://cps-property.com/search/510678/11\",\"uniqueKey\":\"https://cps-property.com/search/510678/11\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: browserController.newPage() failed: GxfwgGMsLdK16lwsFCnOd\\nCause:browserContext.newPage: Target page, context or browser has been closed.\\n    at BrowserPool._createPageForBrowser (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:405:19)\\n    at async D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:295:20\"],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":11,\"totalPages\":14,\"__crawlee\":{\"state\":5}}}",
 	"method": "GET",
-	"orderNo": 1778049856856,
-	"retryCount": 0,
+	"orderNo": 1778050347649,
+	"retryCount": 1,
 	"uniqueKey": "https://cps-property.com/search/510678/11",
 	"url": "https://cps-property.com/search/510678/11"
 }

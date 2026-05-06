@@ -246,9 +246,10 @@ async function run() {
 	for (const type of PROPERTY_TYPES) {
 		for (let p = startPage; p <= type.totalPages; p++) {
 			// The provided sales/rent links are already search result pages.
-			// For pagination we append /<page> when required.
-			// If site uses different param style, agent still may work because selector logic is resilient.
-			const url = `${type.baseUrl}/${p}`;
+// For Haybrook-style CPS templates, paging is done via query param "Page".
+			const urlObj = new URL(type.baseUrl);
+			urlObj.searchParams.set('Page', String(p));
+			const url = urlObj.toString();
 
 			allRequests.push({
 				url,
