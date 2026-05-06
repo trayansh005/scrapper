@@ -1,6 +1,6 @@
-// Simon Brien (NI) Scraper
-// Agent ID: 272
-// Agent Name: Simon Brien (NI)
+// Butters John Bee Scraper
+// Agent ID: 276
+// Agent Name: butters john bee
 // Created: 06 May 2026
 
 'use strict';
@@ -15,27 +15,28 @@ const {
 	parsePrice,
 	formatPriceDisplay,
 	extractCoordinatesFromHTML,
-	extractBedroomsFromHTML,
 } = require('./lib/property-helpers.js');
 const { createAgentLogger } = require('./lib/logger-helpers.js');
 
 log.setLevel(log.LEVELS.ERROR);
 
-const AGENT_ID = 272;
+const AGENT_ID = 276;
 const logger = createAgentLogger(AGENT_ID);
 
 const PROPERTY_TYPES = [
 	{
-		baseUrl: 'https://www.simonbrien.com/search/815078',
+		baseUrl:
+			'https://buttersjohnbee.com/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available',
 		isRental: false,
 		label: 'SALES',
-		totalPages: 20,
+		totalPages: 50,
 	},
 	{
-		baseUrl: 'https://www.simonbrien.com/search/815086',
+		baseUrl:
+			'https://buttersjohnbee.com/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Rental&rental_period=week&status=available',
 		isRental: true,
 		label: 'RENTALS',
-		totalPages: 4,
+		totalPages: 50,
 	},
 ];
 
@@ -66,22 +67,29 @@ async function scrapePropertyDetail(browserContext, property) {
 	const detailPage = await browserContext.newPage();
 	try {
 		await blockNonEssentialResources(detailPage);
+
 		await detailPage.goto(property.link, {
 			waitUntil: 'domcontentloaded',
 			timeout: 60000,
 		});
-
 		await detailPage.waitForTimeout(1500);
 
-		const detailInfo = await detailPage.evaluate(() => {
-			const html = document.documentElement.innerHTML;
-			return { html };
+		const detailHtml = await detailPage.evaluate(() => document.documentElement.innerHTML);
+
+		const fallbackCoords = await extractCoordinatesFromHTML(detailHtml);
+
+		// Beds are rendered in the DOM with data-testid attributes.
+		const bedrooms = await detailPage.evaluate(() => {
+			const bedText = document.querySelector('[data-testid="stats-bed"] p')?.innerText || '';
+			const m = bedText.match(/(\d+)\s*bed/i);
+			return m ? parseInt(m[1], 10) : null;
 		});
 
-		const { latitude, longitude } = await extractCoordinatesFromHTML(detailInfo.html);
-		const bedrooms = extractBedroomsFromHTML(detailInfo.html.replace(/<[^>]+>/g, ' '));
-
-		return { bedrooms, latitude, longitude };
+		return {
+			bedrooms,
+			latitude: fallbackCoords.latitude ?? null,
+			longitude: fallbackCoords.longitude ?? null,
+		};
 	} catch (error) {
 		logger.error(`Detail page error ${property.link}: ${error.message}`);
 		return { bedrooms: null, latitude: null, longitude: null };
@@ -103,29 +111,45 @@ async function handleListingPage({ page, request }) {
 	}
 
 	const properties = await page.evaluate(() => {
-		const anchors = Array.from(document.querySelectorAll('a[href*="/buy/house/"], a[href*="/rent/house/"]'));
+		// Listing cards contain links to detail pages.
+		// Detail pages here look like: /listings/residential_sale-... or /listings/residential_rental-...
+		const anchors = Array.from(document.querySelectorAll('a[href]'));
 		const seen = new Map();
 
 		for (const a of anchors) {
-			const href = a.getAttribute('href');
+			const href = a.getAttribute('href') || '';
 			if (!href) continue;
+			if (!href.includes('/listings/')) continue;
+			if (href.endsWith('/')) continue;
 
-			const link = new URL(href, window.location.origin).href;
+			const fullLink = new URL(href, window.location.origin).href;
+
 			const cardRoot = a.closest('div, li, article') || a.parentElement;
 			const titleEl = cardRoot?.querySelector('h1, h2, h3, h4') || a;
-			const title = (titleEl?.innerText || titleEl?.textContent || a.textContent || a.getAttribute('title') || '')
-					.trim()
-					.replace(/\s{2,}/g, ' ');
+			const title = (
+				titleEl?.innerText ||
+				titleEl?.textContent ||
+				a.getAttribute('title') ||
+				a.textContent ||
+				''
+			)
+				.trim()
+				.replace(/\s{2,}/g, ' ');
 
-			const cardText = cardRoot ? cardRoot.innerText : '';
-			const priceMatch = cardText.match(/£\s*[\d,]+\s*(pm)?/i);
+			const cardText = cardRoot ? cardRoot.innerText : a.textContent || '';
+			const priceMatch = cardText.match(/\u00a3\s*[\d,]+\s*(pm)?/i);
 			const priceRaw = priceMatch ? priceMatch[0] : '';
 
 			let bedrooms = null;
 			const bedMatch = cardText.match(/(\d+)\s*(?:bed|bedroom|bedrooms|beds)\b/i);
 			if (bedMatch) bedrooms = parseInt(bedMatch[1], 10);
 
-			seen.set(link, { link, title: title || 'Property', priceRaw, bedrooms });
+			seen.set(fullLink, {
+				link: fullLink,
+				title: title || 'Property',
+				priceRaw,
+				bedrooms,
+			});
 		}
 
 		return Array.from(seen.values());
@@ -147,12 +171,12 @@ async function handleListingPage({ page, request }) {
 				property.link,
 				isRental,
 				1,
-				'SKIPPED (No Price)',
+				'SKIPPED (No Price)'
 			);
 			continue;
 		}
 
-		let bedrooms = property.bedrooms;
+		const bedrooms = property.bedrooms;
 
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
@@ -167,9 +191,7 @@ async function handleListingPage({ page, request }) {
 		let lat = null;
 		let lng = null;
 
-		if (result.updated) {
-			action = 'UPDATED';
-		}
+		if (result.updated) action = 'UPDATED';
 
 		if (!result.isExisting && !result.error) {
 			const details = await scrapePropertyDetail(page.context(), property);
@@ -217,7 +239,7 @@ async function run() {
 	const isPartialRun = startPage > 1;
 	const scrapeStartTime = new Date();
 
-	logger.step(`Starting Agent ${AGENT_ID} - Simon Brien (NI)`);
+	logger.step(`Starting Agent ${AGENT_ID} - butters john bee`);
 	logger.step(`Start Page: ${startPage}`);
 
 	const crawler = new PlaywrightCrawler({
@@ -229,7 +251,7 @@ async function run() {
 			launchOptions: {
 				browserWSEndpoint:
 					process.env.BROWSERLESS_WS_ENDPOINT ||
-					`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
+						`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
 				args: ['--no-sandbox', '--disable-setuid-sandbox'],
 				viewport: { width: 1920, height: 1080 },
 			},
@@ -243,15 +265,17 @@ async function run() {
 	});
 
 	const allRequests = [];
+
+	// Butters John Bee uses status/saleOrRental params; paging is not specified.
+	// Baseline rule: keep same template but append &page=<n> if supported.
 	for (const type of PROPERTY_TYPES) {
 		for (let p = startPage; p <= type.totalPages; p++) {
-			let url = type.baseUrl;
-			if (p > 1) {
-				url = url.endsWith('/') ? `${url}page${p}/` : `${url}/page${p}/`;
-			}
+			const url = new URL(type.baseUrl);
+			// Try common pagination query.
+			url.searchParams.set('page', String(p));
 
 			allRequests.push({
-				url,
+				url: url.toString(),
 				userData: {
 					isRental: type.isRental,
 					label: type.label,
@@ -264,7 +288,9 @@ async function run() {
 
 	await crawler.run(allRequests);
 
-	logger.step(`Completed - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`);
+	logger.step(
+		`Completed - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}`
+	);
 	logger.step(`Breakdown - SALES: ${counts.savedSales}, RENTALS: ${counts.savedRentals}`);
 
 	await updateRemoveStatus(AGENT_ID, scrapeStartTime);

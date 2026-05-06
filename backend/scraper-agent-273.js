@@ -248,10 +248,10 @@ async function run() {
 
 	for (const type of PROPERTY_TYPES) {
 		for (let p = startPage; p <= type.totalPages; p++) {
-// For Haybrook-style CPS templates, paging is done via query param "Page".
-			const urlObj = new URL(type.baseUrl);
-			urlObj.searchParams.set('Page', String(p));
-			const url = urlObj.toString();
+			let url = type.baseUrl;
+			if (p > 1) {
+				url = url.endsWith('/') ? `${url}Page${p}/` : `${url}/Page${p}/`;
+			}
 
 			allRequests.push({
 				url,

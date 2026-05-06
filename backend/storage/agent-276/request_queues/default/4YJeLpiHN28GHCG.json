@@ -1,0 +1,9 @@
+{
+	"id": "4YJeLpiHN28GHCG",
+	"json": "{\"id\":\"4YJeLpiHN28GHCG\",\"url\":\"https://buttersjohnbee.com/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available&page=50\",\"uniqueKey\":\"https://buttersjohnbee.com/listings?page=50&rental_period=week&saleOrRental=Sale&sortby=dateListed-desc&status=available&viewType=gallery\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"pageNum\":50,\"totalPages\":50}}",
+	"method": "GET",
+	"orderNo": 1778053218443,
+	"retryCount": 0,
+	"uniqueKey": "https://buttersjohnbee.com/listings?page=50&rental_period=week&saleOrRental=Sale&sortby=dateListed-desc&status=available&viewType=gallery",
+	"url": "https://buttersjohnbee.com/listings?viewType=gallery&sortby=dateListed-desc&saleOrRental=Sale&rental_period=week&status=available&page=50"
+}
