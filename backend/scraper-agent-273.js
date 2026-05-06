@@ -26,13 +26,13 @@ const logger = createAgentLogger(AGENT_ID);
 
 const PROPERTY_TYPES = [
 	{
-		baseUrl: 'https://cps-property.com/search/510678/',
+		baseUrl: 'https://cps-property.com/search/510678/?includeagreed=1',
 		isRental: false,
 		label: 'SALES',
 		totalPages: 14,
 	},
 	{
-		baseUrl: 'https://cps-property.com/search/510680/',
+		baseUrl: 'https://cps-property.com/search/510680/?includeagreed=1',
 		isRental: true,
 		label: 'RENTALS',
 		totalPages: 4,
@@ -96,44 +96,63 @@ async function handleListingPage({ page, request }) {
 	logger.step(`Processing ${label} page ${pageNum}/${totalPages}: ${request.url}`);
 
 	try {
-		await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+		await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => { });
 		await page.waitForTimeout(2000);
 	} catch (e) {
 		logger.error(`Load timeout or network idle failure on ${label}`);
 	}
 
 	const properties = await page.evaluate(() => {
-		const anchors = Array.from(document.querySelectorAll('a[href*="/property/"]'));
-		const seen = new Map();
+    const seen = new Map();
+    
+    // Target ALL links that go to /property/
+    const linkElements = document.querySelectorAll('a[href*="/property/"]');
+    
+    linkElements.forEach(a => {
+        let href = a.getAttribute('href');
+        if (!href) return;
 
-		for (const a of anchors) {
-			const href = a.getAttribute('href');
-			if (!href) continue;
+        const fullLink = new URL(href, window.location.origin).href;
+        const pathname = new URL(fullLink).pathname;
 
-			// Only keep property detail links
-			if (!href.startsWith('/property/')) continue;
+        if (!pathname.startsWith('/property/')) return;
 
-			const link = new URL(href, window.location.origin).href;
-			const cardRoot = a.closest('div, li, article') || a.parentElement;
+        // Get the closest container that likely holds the full card info
+        const cardRoot = a.closest('li, div, article, section') || 
+                        a.parentElement?.parentElement || 
+                        a.parentElement;
 
-			const titleEl = cardRoot?.querySelector('h1, h2, h3, h4') || a;
-			const title = (titleEl?.innerText || titleEl?.textContent || a.textContent || a.getAttribute('title') || '')
-				.trim()
-				.replace(/\s{2,}/g, ' ');
+        // Title - try multiple strategies
+        let title = a.innerText.trim() || 
+                   (cardRoot ? cardRoot.querySelector('h1, h2, h3, strong')?.innerText.trim() : '') ||
+                   'Property';
 
-			const cardText = cardRoot ? cardRoot.innerText : a.textContent || '';
-			const priceMatch = cardText.match(/\u00a3\s*[\d,]+\s*(pm)?/i);
-			const priceRaw = priceMatch ? priceMatch[0] : '';
+        // Clean title
+        title = title.replace(/\s{2,}/g, ' ').trim();
 
-			let bedrooms = null;
-			const bedMatch = cardText.match(/(\d+)\s*(?:bed|bedroom|bedrooms|beds)\b/i);
-			if (bedMatch) bedrooms = parseInt(bedMatch[1], 10);
+        const cardText = cardRoot ? cardRoot.innerText : a.parentElement?.innerText || document.body.innerText;
 
-			seen.set(link, { link, title: title || 'Property', priceRaw, bedrooms });
-		}
+        // Price
+        const priceMatch = cardText.match(/£\s*[\d,]+(\s*pm)?/i);
+        const priceRaw = priceMatch ? priceMatch[0] : '';
 
-		return Array.from(seen.values());
-	});
+        // Bedrooms
+        let bedrooms = null;
+        const bedMatch = cardText.match(/(\d+)\s*(?:bed|bedroom|beds)/i);
+        if (bedMatch) bedrooms = parseInt(bedMatch[1], 10);
+
+        if (!seen.has(fullLink)) {
+            seen.set(fullLink, {
+                link: fullLink,
+                title,
+                priceRaw,
+                bedrooms
+            });
+        }
+    });
+
+    return Array.from(seen.values());
+});
 
 	logger.step(`Found ${properties.length} ${label} properties on page ${pageNum}.`);
 
@@ -231,7 +250,7 @@ async function run() {
 			launchOptions: {
 				browserWSEndpoint:
 					process.env.BROWSERLESS_WS_ENDPOINT ||
-						`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
+					`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`,
 				args: ['--no-sandbox', '--disable-setuid-sandbox'],
 				viewport: { width: 1920, height: 1080 },
 			},
@@ -250,7 +269,11 @@ async function run() {
 		for (let p = startPage; p <= type.totalPages; p++) {
 			let url = type.baseUrl;
 			if (p > 1) {
-				url = url.endsWith('/') ? `${url}Page${p}/` : `${url}/Page${p}/`;
+				const urlObj = new URL(url);
+				urlObj.pathname = urlObj.pathname.endsWith('/') 
+					? `${urlObj.pathname}Page${p}/` 
+					: `${urlObj.pathname}/Page${p}/`;
+				url = urlObj.href;
 			}
 
 			allRequests.push({

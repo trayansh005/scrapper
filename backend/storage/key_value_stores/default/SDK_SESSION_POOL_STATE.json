@@ -1,0 +1,117 @@
+{
+  "usableSessionsCount": 4,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_F0ztTK77dc",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T10:53:42.423Z",
+      "createdAt": "2026-05-06T10:03:42.423Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_bK72dvTPUx",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "searchType",
+            "value": "Full",
+            "expires": "2026-05-06T10:53:46.719Z",
+            "domain": "www.simonbrien.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-05-06T10:03:46.721Z",
+            "lastAccessed": "2026-05-06T10:04:25.400Z"
+          },
+          {
+            "key": "ASPSESSIONIDQATACADT",
+            "value": "ALGBAJNAKNLKGIDMCAAHIFPL",
+            "expires": "2026-05-06T10:53:46.719Z",
+            "domain": "www.simonbrien.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-05-06T10:03:46.722Z",
+            "lastAccessed": "2026-05-06T10:04:25.401Z"
+          },
+          {
+            "key": "ASPSESSIONIDQARADBBR",
+            "value": "JBLBHDPABDDONBCFGLPFKJNN",
+            "expires": "2026-05-06T10:54:05.854Z",
+            "domain": "www.simonbrien.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-05-06T10:04:05.856Z",
+            "lastAccessed": "2026-05-06T10:04:25.401Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T10:53:42.425Z",
+      "createdAt": "2026-05-06T10:03:42.425Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_ebesBCmekV",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T10:54:03.490Z",
+      "createdAt": "2026-05-06T10:04:03.490Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_9snJIB4e2L",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-06T10:54:21.361Z",
+      "createdAt": "2026-05-06T10:04:21.361Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

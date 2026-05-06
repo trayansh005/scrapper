@@ -3,7 +3,7 @@
   "retiredSessionsCount": 0,
   "sessions": [
     {
-      "id": "session_iGmG6g2fJO",
+      "id": "session_JyyoSxMFQ3",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -16,14 +16,14 @@
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-09T12:48:08.403Z",
-      "createdAt": "2026-04-09T11:58:08.403Z",
+      "expiresAt": "2026-05-06T11:41:25.172Z",
+      "createdAt": "2026-05-06T10:51:25.172Z",
       "usageCount": 0,
       "maxUsageCount": 50,
       "errorScore": 0
     },
     {
-      "id": "session_6xP63HskfU",
+      "id": "session_awa0cwyeyt",
       "cookieJar": {
         "version": "tough-cookie@6.0.0",
         "storeType": "MemoryCookieStore",
@@ -34,23 +34,23 @@
         "cookies": [
           {
             "key": "neuron-touch",
-            "value": "Fe26.2**8c62153572ad107f73d50d7c5fa918fa06997221d267cd3429ed47930b56fea1*mtJNs4P7aiJqxwwruJGE9g*f4w_etS3EL1ivrf2DRM5WYiZQtt1dTMAYDEBHzfLJ0krbpfUdtIvA_4MlEykbH6F2kh6cxhKD-AlAXBSnuiR13Nh5fpyf_ROBv-rhUkcF7XMXrWwJlbaqoyv9lwuFJY_**99d3c698450d508aedc6ef8bcf91d7b94f29998a9be1880f953acf00b0bead4b*AvkJqkAE_UHP1FD7iyx8ZFqLdGKLz7oeXe99m5Y7MmE",
-            "expires": "2026-04-10T04:38:12.725Z",
+            "value": "Fe26.2**c112f5de5049bd42f37515316b7e968aa990493a2d597434aad3605bf976229a*3K4GcTKZ1KIK34TQWDZZIA*x0F8mWS4gN4UB6dWOkpVXSnh0A9f07bwiN5GUSj3kG0mzRxj9xMVa317SToHfsGhHhHCX759pUv_QM73OgSmdCM5kVFZ9FEPfJ5YH98uCIHCfId27fSxLvCECyDK4y2a**ea9da1ea1c7946e5a650c0bbfa0c80c5b3bba35e91c9a75a578ac5451910b692*1Kc5CpYvVQw6fxd8tKVWMOEaLI9aFAE3KhVyF7-EyFE",
+            "expires": "2026-05-07T03:31:27.440Z",
             "domain": "jacksonsproperty.co.uk",
             "path": "/",
             "secure": true,
             "httpOnly": true,
             "hostOnly": true,
-            "creation": "2026-04-09T11:58:16.937Z",
-            "lastAccessed": "2026-04-09T11:58:16.937Z"
+            "creation": "2026-05-06T10:51:30.735Z",
+            "lastAccessed": "2026-05-06T10:51:30.735Z"
           }
         ]
       },
       "userData": {},
       "maxErrorScore": 3,
       "errorScoreDecrement": 0.5,
-      "expiresAt": "2026-04-09T12:48:08.406Z",
-      "createdAt": "2026-04-09T11:58:08.406Z",
+      "expiresAt": "2026-05-06T11:41:25.178Z",
+      "createdAt": "2026-05-06T10:51:25.178Z",
       "usageCount": 1,
       "maxUsageCount": 50,
       "errorScore": 0
