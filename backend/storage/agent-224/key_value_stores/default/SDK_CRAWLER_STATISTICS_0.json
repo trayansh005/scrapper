@@ -1,64 +1,30 @@
 {
-  "requestsFinished": 23,
-  "requestsFailed": 2,
-  "requestsRetries": 3,
+  "requestsFinished": 25,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 2,
-  "requestMinDurationMillis": 14320,
-  "requestMaxDurationMillis": 44603,
-  "requestTotalFailedDurationMillis": 61724,
-  "requestTotalFinishedDurationMillis": 675747,
-  "crawlerStartedAt": "2026-04-08T07:08:49.805Z",
-  "crawlerFinishedAt": "2026-04-08T07:22:25.009Z",
-  "statsPersistedAt": "2026-04-08T07:22:25.009Z",
-  "crawlerRuntimeMillis": 815487,
-  "crawlerLastStartTimestamp": 1775632129522,
+  "requestMinDurationMillis": 10757,
+  "requestMaxDurationMillis": 48590,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 779144,
+  "crawlerStartedAt": "2026-05-08T08:37:14.650Z",
+  "crawlerFinishedAt": "2026-05-08T08:50:16.194Z",
+  "statsPersistedAt": "2026-05-08T08:50:16.194Z",
+  "crawlerRuntimeMillis": 781852,
+  "crawlerLastStartTimestamp": 1778229434342,
   "requestRetryHistogram": [
-    22,
-    1,
-    2
+    25
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 30862,
-  "requestAvgFinishedDurationMillis": 29380,
-  "requestTotalDurationMillis": 737471,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 31166,
+  "requestTotalDurationMillis": 779144,
   "requestsTotal": 25,
   "requestsWithStatusCode": {
-    "200": 10,
+    "200": 12,
     "404": 13
   },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_NETWORK_CHANGED at https://mistoriaestateagents.co.uk/property-search/page/2/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms": {
-            "count": 1
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at https://mistoriaestateagents.co.uk/property-search/page/1/?address_keyword&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&department=residential-sales&availability&maximum_bedrooms": {
-            "count": 1
-          },
-          "page.goto: net::ERR_NETWORK_CHANGED at _": {
-            "count": 4
-          }
-        }
-      }
-    }
-  }
+  "errors": {},
+  "retryErrors": {}
 }

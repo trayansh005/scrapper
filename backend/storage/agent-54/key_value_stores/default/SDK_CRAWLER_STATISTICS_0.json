@@ -1,62 +1,29 @@
 {
   "requestsFinished": 555,
   "requestsFailed": 0,
-  "requestsRetries": 23,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 4,
-  "requestMinDurationMillis": 4726,
-  "requestMaxDurationMillis": 90760,
+  "requestMinDurationMillis": 6701,
+  "requestMaxDurationMillis": 49533,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 7361212,
-  "crawlerStartedAt": "2026-04-29T11:15:01.730Z",
-  "crawlerFinishedAt": "2026-04-29T13:21:31.832Z",
-  "statsPersistedAt": "2026-04-29T13:21:31.832Z",
-  "crawlerRuntimeMillis": 7591214,
-  "crawlerLastStartTimestamp": 1777461300618,
+  "requestTotalFinishedDurationMillis": 8782040,
+  "crawlerStartedAt": "2026-05-13T04:34:24.654Z",
+  "crawlerFinishedAt": "2026-05-13T07:01:15.888Z",
+  "statsPersistedAt": "2026-05-13T07:01:15.888Z",
+  "crawlerRuntimeMillis": 8812039,
+  "crawlerLastStartTimestamp": 1778646863849,
   "requestRetryHistogram": [
-    532,
-    22,
-    1
+    555
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 13263,
-  "requestTotalDurationMillis": 7361212,
+  "requestAvgFinishedDurationMillis": 15823,
+  "requestTotalDurationMillis": 8782040,
   "requestsTotal": 555,
   "requestsWithStatusCode": {
     "200": 555
   },
   "errors": {},
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 120 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_NETWORK_CHANGED at https://www.leaders.co.uk/properties/to-rent/page-318/": {
-            "count": 1
-          },
-          "page.goto: net::ERR_EMPTY_RESPONSE at _": {
-            "count": 21
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
-      "missing error code": {
-        "Error": {
-          "browserController.newPage() failed: SY3DJO77bIoF3Am02hHKq": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "retryErrors": {}
 }

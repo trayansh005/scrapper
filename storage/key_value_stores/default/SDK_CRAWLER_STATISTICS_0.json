@@ -1,52 +1,27 @@
 {
-  "requestsFinished": 0,
-  "requestsFailed": 1,
-  "requestsRetries": 1,
+  "requestsFinished": 572,
+  "requestsFailed": 0,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": null,
-  "requestMaxDurationMillis": 0,
-  "requestTotalFailedDurationMillis": 308975,
-  "requestTotalFinishedDurationMillis": 0,
-  "crawlerStartedAt": "2026-05-06T12:17:02.953Z",
-  "crawlerFinishedAt": "2026-05-06T12:38:47.246Z",
-  "statsPersistedAt": "2026-05-06T12:38:47.247Z",
-  "crawlerRuntimeMillis": 1304937,
-  "crawlerLastStartTimestamp": 1778069822310,
+  "requestsFinishedPerMinute": 61,
+  "requestMinDurationMillis": 767,
+  "requestMaxDurationMillis": 7503,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 1100390,
+  "crawlerStartedAt": "2026-05-13T12:30:37.928Z",
+  "crawlerFinishedAt": "2026-05-13T12:39:59.027Z",
+  "statsPersistedAt": "2026-05-13T12:39:59.028Z",
+  "crawlerRuntimeMillis": 561986,
+  "crawlerLastStartTimestamp": 1778675437042,
   "requestRetryHistogram": [
-    null,
-    null,
-    null,
-    1
+    572
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 308975,
-  "requestAvgFinishedDurationMillis": null,
-  "requestTotalDurationMillis": 308975,
-  "requestsTotal": 1,
-  "requestsWithStatusCode": {
-    "200": 4
-  },
-  "errors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
-      "missing error code": {
-        "Error": {
-          "requestHandler timed out after 300 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    }
-  },
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
-      "missing error code": {
-        "Error": {
-          "requestHandler timed out after 300 seconds.": {
-            "count": 3
-          }
-        }
-      }
-    }
-  }
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 1924,
+  "requestTotalDurationMillis": 1100390,
+  "requestsTotal": 572,
+  "requestsWithStatusCode": {},
+  "errors": {},
+  "retryErrors": {}
 }

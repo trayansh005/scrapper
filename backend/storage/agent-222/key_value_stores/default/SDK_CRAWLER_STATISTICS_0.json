@@ -1,36 +1,36 @@
 {
-  "requestsFinished": 114,
+  "requestsFinished": 25,
   "requestsFailed": 1,
   "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 23007,
-  "requestMaxDurationMillis": 225818,
-  "requestTotalFailedDurationMillis": 30156,
-  "requestTotalFinishedDurationMillis": 5428315,
-  "crawlerStartedAt": "2026-04-08T05:34:48.646Z",
-  "crawlerFinishedAt": "2026-04-08T07:06:43.883Z",
-  "statsPersistedAt": "2026-04-08T07:06:43.883Z",
-  "crawlerRuntimeMillis": 5515403,
-  "crawlerLastStartTimestamp": 1775626488480,
+  "requestMinDurationMillis": 28955,
+  "requestMaxDurationMillis": 41010,
+  "requestTotalFailedDurationMillis": 259,
+  "requestTotalFinishedDurationMillis": 861346,
+  "crawlerStartedAt": "2026-05-08T08:03:45.039Z",
+  "crawlerFinishedAt": "2026-05-08T08:33:29.334Z",
+  "statsPersistedAt": "2026-05-08T08:33:29.334Z",
+  "crawlerRuntimeMillis": 1784448,
+  "crawlerLastStartTimestamp": 1778227424886,
   "requestRetryHistogram": [
-    114,
+    25,
     null,
     1
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": 30156,
-  "requestAvgFinishedDurationMillis": 47617,
-  "requestTotalDurationMillis": 5458471,
-  "requestsTotal": 115,
+  "requestAvgFailedDurationMillis": 259,
+  "requestAvgFinishedDurationMillis": 34454,
+  "requestTotalDurationMillis": 861605,
+  "requestsTotal": 26,
   "requestsWithStatusCode": {
-    "200": 114
+    "200": 25
   },
   "errors": {
     "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
       "missing error code": {
         "Error": {
-          "page.goto: net::ERR_TIMED_OUT at https://espc.com/properties?p=115": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at https://espc.com/properties?p=26": {
             "count": 1
           }
         }
@@ -41,7 +41,7 @@
     "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
       "missing error code": {
         "Error": {
-          "page.goto: _ at https://espc.com/properties?p=115": {
+          "page.goto: net::ERR_EMPTY_RESPONSE at https://espc.com/properties?p=26": {
             "count": 2
           }
         }
