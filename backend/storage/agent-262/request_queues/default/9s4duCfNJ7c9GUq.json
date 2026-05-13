@@ -1,8 +1,8 @@
 {
 	"id": "9s4duCfNJ7c9GUq",
-	"json": "{\"id\":\"9s4duCfNJ7c9GUq\",\"url\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"uniqueKey\":\"https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":true,\"label\":\"RENTALS\",\"baseUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"totalPages\":12}}",
+	"json": "{\"id\":\"9s4duCfNJ7c9GUq\",\"url\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"loadedUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"uniqueKey\":\"https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&type=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"isRental\":true,\"label\":\"RENTALS\",\"baseUrl\":\"https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true\",\"totalPages\":20,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-06T12:21:55.221Z\"}",
 	"method": "GET",
-	"orderNo": 1778066227938,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://redacstrattons.com/property-to-rent?exclude_let=true&location=&max_price=&min_beds=&min_price=&office=&type=",
 	"url": "https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true"

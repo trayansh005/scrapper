@@ -1,5 +1,6 @@
 const mysql = require("mysql2"); // Use mysql2 for better performance
-require("dotenv").config({ override: true }); // Load environment variables from .env file (override: true ensures .env wins over system vars like USER)
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env"), override: true });
 
 // Create a connection pool
 const pool = mysql.createPool({
@@ -9,7 +10,7 @@ const pool = mysql.createPool({
 	password: process.env.PASSWORD,
 	database: process.env.DATABASE,
 	waitForConnections: true,
-	connectionLimit: 20,
+	connectionLimit: 10,
 	queueLimit: 0,
 	enableKeepAlive: true,
 	keepAliveInitialDelay: 10000,
@@ -144,10 +145,8 @@ async function updateRemoveStatus(agent_id, scrapeStartTime = null) {
 
 		const removedCount = (saleResult?.affectedRows || 0) + (rentResult?.affectedRows || 0);
 		console.log(
-			`🧹 Removed old properties for agent ${agent_id} (sale: ${
-				saleResult?.affectedRows || 0
-			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount}) using window: ${
-				scrapeStartTime ? scrapeStartTime : "1 DAY"
+			`🧹 Removed old properties for agent ${agent_id} (sale: ${saleResult?.affectedRows || 0
+			}, rent: ${rentResult?.affectedRows || 0}, total: ${removedCount}) using window: ${scrapeStartTime ? scrapeStartTime : "1 DAY"
 			}`,
 		);
 	} catch (error) {

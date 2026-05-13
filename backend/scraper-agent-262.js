@@ -178,10 +178,12 @@ async function handleListingPage({ page, request, crawler }) {
 		if (!prop.link || processedUrls.has(normalizedUrl)) continue;
 		processedUrls.add(normalizedUrl);
 
+		/* Skip logic removed to ensure all properties are collected
 		if (isSkippableProperty(prop.statusText)) {
 			logger.property(pageNum, label, prop.title.substring(0, 50), "N/A", prop.link, isRental, totalPages, "SKIPPED");
 			continue;
 		}
+		*/
 
 		const price = parsePrice(prop.priceRaw);
 		if (!price) continue;
@@ -207,7 +209,7 @@ async function handleListingPage({ page, request, crawler }) {
 		if (result.updated) action = "UPDATED";
 		else if (!result.isExisting) action = "CREATED";
 
-		if (!result.isExisting && !result.error) {
+		if (!result.isExisting) {
 			try {
 				const detailPage = await page.context().newPage();
 				await blockNonEssentialResources(detailPage);
@@ -227,28 +229,42 @@ async function handleListingPage({ page, request, crawler }) {
 
 		logger.property(
 			pageNum, label,
-			prop.title.substring(0, 50),
+			prop.title.substring(0, 50) + (bedrooms !== null ? ` (${bedrooms} bed)` : ""),
 			formatPriceDisplay(price, isRental),
 			prop.link,
 			isRental,
 			totalPages,
-			action,
-			bedrooms !== null ? `${bedrooms} bed` : "NULL"
+			action
 		);
 
-		await sleep(action === "CREATED" || action === "UPDATED" ? 800 : 300);
+		await sleep(action === "CREATED" || action === "UPDATED" ? 2000 : 1000);
+	}
+
+	// Extract total properties to calculate pages if on page 1
+	let calculatedTotalPages = totalPages;
+	if (pageNum === 1) {
+		const totalFound = await page.evaluate(() => {
+			const text = document.body.innerText;
+			const match = text.match(/(\d+)\s+properties\s+found/i);
+			return match ? parseInt(match[1]) : null;
+		});
+
+		if (totalFound) {
+			calculatedTotalPages = Math.ceil(totalFound / 20); // Conservatively assume 20 per page
+			logger.step(`Found ${totalFound} total properties, calculated ${calculatedTotalPages} pages`);
+		}
 	}
 
 	// Pagination
-	const hasNext = await page.evaluate(() => !!document.querySelector("a[rel='next'], a.next, .pagination a:last-of-type"));
-	if (hasNext && pageNum < totalPages) {
+	const hasNext = await page.evaluate(() => !!document.querySelector("a[rel='next'], a.next, .pagination a:last-of-type, .next-page"));
+	if ((hasNext || pageNum < calculatedTotalPages) && pageNum < calculatedTotalPages) {
 		const nextPageNum = pageNum + 1;
 		const nextUrl = baseUrl.includes("?")
 			? `${baseUrl}&page=${nextPageNum}`
 			: `${baseUrl}?page=${nextPageNum}`;
 		await crawler.addRequests([{
 			url: nextUrl,
-			userData: { ...request.userData, pageNum: nextPageNum }
+			userData: { ...request.userData, pageNum: nextPageNum, totalPages: calculatedTotalPages }
 		}]);
 	}
 }
@@ -289,20 +305,17 @@ async function scrapeRedacStrattons() {
 	const estimatedPages = 12;
 
 	for (const type of PROPERTY_TYPES) {
-		logger.step(`Queueing ${type.label} listings`);
-		for (let p = Math.max(1, startPage); p <= estimatedPages; p++) {
-			const pageParam = p > 1 ? `&page=${p}` : "";
-			allRequests.push({
-				url: type.baseUrl + pageParam,
-				userData: {
-					pageNum: p,
-					isRental: type.isRental,
-					label: type.label,
-					baseUrl: type.baseUrl,
-					totalPages: estimatedPages
-				}
-			});
-		}
+		logger.step(`Queueing ${type.label} start page`);
+		allRequests.push({
+			url: type.baseUrl + (startPage > 1 ? `&page=${startPage}` : ""),
+			userData: {
+				pageNum: startPage,
+				isRental: type.isRental,
+				label: type.label,
+				baseUrl: type.baseUrl,
+				totalPages: 20 // Initial guess, will be updated dynamically
+			}
+		});
 	}
 
 	await crawler.run(allRequests);
