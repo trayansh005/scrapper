@@ -1,9 +1,0 @@
-{
-	"id": "rsOpIivAbNKGccW",
-	"json": "{\"id\":\"rsOpIivAbNKGccW\",\"url\":\"https://www.99home.co.uk/property_search/ForRent/?min_price=0&max_price=10000&start=25\",\"loadedUrl\":\"https://www.99home.co.uk/property_search/ForRent/?min_price=0&max_price=10000&start=25\",\"uniqueKey\":\"https://www.99home.co.uk/property_search/ForRent?max_price=10000&min_price=0&start=25\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: browserController.newPage() failed: aKtqrqeddOk-buuz15Gym\\nCause:browserController.newPage() timed out..\\n    at BrowserPool._createPageForBrowser (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:405:19)\\n    at async D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:295:20\"],\"headers\":{},\"userData\":{\"isRental\":true,\"label\":\"RENTALS\",\"isFirstPage\":false,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-05T12:21:19.875Z\"}",
-	"method": "GET",
-	"orderNo": null,
-	"retryCount": 1,
-	"uniqueKey": "https://www.99home.co.uk/property_search/ForRent?max_price=10000&min_price=0&start=25",
-	"url": "https://www.99home.co.uk/property_search/ForRent/?min_price=0&max_price=10000&start=25"
-}

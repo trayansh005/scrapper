@@ -1,40 +1,29 @@
 {
-  "requestsFinished": 41,
+  "requestsFinished": 42,
   "requestsFailed": 0,
-  "requestsRetries": 1,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 6,
-  "requestMinDurationMillis": 5173,
-  "requestMaxDurationMillis": 43140,
+  "requestsFinishedPerMinute": 2,
+  "requestMinDurationMillis": 8315,
+  "requestMaxDurationMillis": 109752,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 361812,
-  "crawlerStartedAt": "2026-05-05T12:14:58.418Z",
-  "crawlerFinishedAt": "2026-05-05T12:21:34.801Z",
-  "statsPersistedAt": "2026-05-05T12:21:34.801Z",
-  "crawlerRuntimeMillis": 396556,
-  "crawlerLastStartTimestamp": 1777983298245,
+  "requestTotalFinishedDurationMillis": 1341819,
+  "crawlerStartedAt": "2026-05-14T11:08:29.449Z",
+  "crawlerFinishedAt": "2026-05-14T11:31:02.404Z",
+  "statsPersistedAt": "2026-05-14T11:31:02.404Z",
+  "crawlerRuntimeMillis": 1353259,
+  "crawlerLastStartTimestamp": 1778756909145,
   "requestRetryHistogram": [
-    40,
-    1
+    42
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 8825,
-  "requestTotalDurationMillis": 361812,
-  "requestsTotal": 41,
+  "requestAvgFinishedDurationMillis": 31948,
+  "requestTotalDurationMillis": 1341819,
+  "requestsTotal": 42,
   "requestsWithStatusCode": {
-    "200": 41
+    "200": 42
   },
   "errors": {},
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
-      "missing error code": {
-        "Error": {
-          "browserController.newPage() failed: aKtqrqeddOk-buuz15Gym": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "retryErrors": {}
 }
