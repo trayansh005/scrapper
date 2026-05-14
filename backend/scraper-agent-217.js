@@ -1,7 +1,6 @@
 // Homesea scraper using Playwright with Crawlee
-// Agent ID: 217
-// Usage:
-// node backend/scraper-agent-217.js
+// Agent ID: 217 - FIXED VERSION
+// Usage: node backend/scraper-agent-217.js
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
@@ -39,22 +38,20 @@ function getBrowserlessEndpoint() {
 		process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
 	);
-}
+};
 
-// Homesea: 167 properties, 9 per page => 19 pages
+// Updated Property Types with clean URL
 const PROPERTY_TYPES = [
 	{
-		urlBase: "https://homesea.co.uk/property-search/page",
-		totalRecords: 167,
-		totalPages: 19,
-		recordsPerPage: 9,
+		urlBase: "https://homesea.co.uk/property-search/in-hampshire/page",
+		totalPages: 25,
 		isRental: false,
 		label: "SALES",
 	},
 ];
 
 // ============================================================================
-// REQUEST HANDLER
+// REQUEST HANDLER - FIXED
 // ============================================================================
 
 async function handleListingPage({ page, request }) {
@@ -62,51 +59,86 @@ async function handleListingPage({ page, request }) {
 
 	logger.page(pageNum, label, request.url);
 
-	await page.waitForTimeout(2000);
-	await page.waitForSelector("li.type-property", { timeout: 15000 }).catch(() => {
-		logger.warn(`No listing container found on page ${pageNum}`);
-	});
+	await page.waitForTimeout(3000);
+
+	// Optional: Take screenshot for debugging
+	// await page.screenshot({ path: `debug/homesea-page-${pageNum}.png` });
 
 	const properties = await page.evaluate(() => {
-		try {
-			const items = Array.from(document.querySelectorAll("li.type-property"));
-			return items
-				.map((li) => {
-					try {
-						const anchor = li.querySelector("a[href]");
-						const link = anchor ? anchor.href : null;
+		const items = [];
 
-						const title = li.querySelector("h2 a")?.textContent?.trim() || "";
-						const priceRaw = li.querySelector(".price")?.textContent?.trim() || "";
+		// Multiple possible selectors for property cards
+		const cardSelectors = [
+			'article',
+			'div[class*="property"]',
+			'div[class*="listing"]',
+			'section',
+			'.card',
+			'a[href*="/properties-for-sale/"]'
+		];
 
-						// Bedrooms: look for 'Bedrooms:' text in rooms list
-						let bedrooms = null;
-						const rooms = li.querySelectorAll("ul.rooms li");
-						for (const r of rooms) {
-							const txt = r.textContent || "";
-							if (txt.toLowerCase().includes("bedrooms")) {
-								const m = txt.match(/(\d+)/);
-								if (m) bedrooms = m[1];
-								break;
-							}
-						}
+		let propertyCards = [];
 
-						if (link) return { link, title, priceRaw, bedrooms };
-						return null;
-					} catch (e) {
-						return null;
-					}
-				})
-				.filter((p) => p !== null);
-		} catch (err) {
-			return [];
+		for (const selector of cardSelectors) {
+			const found = document.querySelectorAll(selector);
+			if (found.length > 0) {
+				propertyCards = Array.from(found);
+				break;
+			}
 		}
+
+		propertyCards.forEach(el => {
+			try {
+				// Find property link
+				let linkEl = el.querySelector('a[href*="/properties-for-sale/"]') ||
+					el.closest('a[href*="/properties-for-sale/"]');
+
+				if (!linkEl) return;
+
+				const link = linkEl.href;
+				if (!link.includes('/properties-for-sale/')) return;
+
+				// Title
+				const titleEl = el.querySelector('h1, h2, h3, h4, strong, .title, .property-title');
+				const title = titleEl ? titleEl.textContent.trim() : '';
+
+				// Price
+				let priceRaw = '';
+				const priceSelectors = ['h5', '.price', '[class*="price"]', 'strong', '.text-price', '.cost'];
+				for (const sel of priceSelectors) {
+					const p = el.querySelector(sel);
+					if (p && p.textContent.trim()) {
+						priceRaw = p.textContent.trim();
+						break;
+					}
+				}
+
+				// Bedrooms
+				let bedrooms = null;
+				const fullText = (el.textContent || '').toLowerCase();
+				const bedMatch = fullText.match(/(\d+)\s*(?:bed|bedroom|bdr)/i);
+				if (bedMatch) bedrooms = bedMatch[1];
+
+				if (link) {
+					items.push({ link, title, priceRaw, bedrooms });
+				}
+			} catch (e) { }
+		});
+
+		return items;
 	});
 
 	logger.page(pageNum, label, `Found ${properties.length} properties`);
 
+	// Process each property
 	for (const property of properties) {
 		if (!property.link) continue;
+
+		const status = (property.title + " " + (property.priceRaw || "")).toLowerCase();
+		if (status.includes("sold") || status.includes("stc") || status.includes("let") || status.includes("agreed")) {
+			logger.warn(`Skipping sold property: ${property.link}`);
+			continue;
+		}
 		if (isSoldProperty(property.priceRaw || "")) continue;
 
 		const price = parsePrice(property.priceRaw);
@@ -115,7 +147,6 @@ async function handleListingPage({ page, request }) {
 			continue;
 		}
 
-		// --- Agent 39 base pattern: check existing → update or create ---
 		const result = await updatePriceByPropertyURLOptimized(
 			property.link,
 			price,
@@ -140,7 +171,6 @@ async function handleListingPage({ page, request }) {
 		if (!result.isExisting && !result.error) {
 			propertyAction = "CREATED";
 
-			// Fetch detail page ONLY for new properties to extract coords
 			const detailPage = await page.context().newPage();
 			let html = null;
 			let latitude = null;
@@ -157,12 +187,9 @@ async function handleListingPage({ page, request }) {
 				const coords = await extractCoordinatesFromHTML(html);
 				latitude = coords?.latitude || null;
 				longitude = coords?.longitude || null;
-
-				logger.step(`Coords: ${latitude || "No Lat"}, ${longitude || "No Lng"}`);
 			} catch (err) {
 				logger.error(`Detail page failed: ${property.link}`);
 			} finally {
-				// Single close in finally — prevents the double-close bug
 				await detailPage.close();
 			}
 
@@ -238,13 +265,11 @@ async function scrapeHomesea() {
 	const crawler = createCrawler(browserWSEndpoint);
 
 	for (const propertyType of PROPERTY_TYPES) {
-		logger.step(
-			`Processing ${propertyType.label} (${propertyType.totalPages} pages, ${propertyType.recordsPerPage} per page)`,
-		);
+		logger.step(`Processing ${propertyType.label} (${propertyType.totalPages} pages)`);
 
 		const requests = [];
 		for (let pg = 1; pg <= propertyType.totalPages; pg++) {
-			const url = `${propertyType.urlBase}/${pg}/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&availability=2`;
+			const url = `${propertyType.urlBase}/${pg}/`;   // ← Clean URL
 			requests.push({
 				url,
 				userData: { pageNum: pg, isRental: propertyType.isRental, label: propertyType.label },
@@ -256,7 +281,7 @@ async function scrapeHomesea() {
 	}
 
 	logger.step(
-		`Completed Homesea - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}, New rentals: ${counts.savedRentals}`,
+		`Completed Homesea - Total scraped: ${counts.totalScraped}, Total saved: ${counts.totalSaved}, New sales: ${counts.savedSales}`
 	);
 }
 

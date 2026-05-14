@@ -1,0 +1,9 @@
+{
+	"id": "2qLnNAShHiQk2eQ",
+	"json": "{\"id\":\"2qLnNAShHiQk2eQ\",\"url\":\"https://www.99home.co.uk/property_search/ForSale/?min_price=0&max_price=10000000&page=30\",\"loadedUrl\":\"https://www.99home.co.uk/property_search/ForSale/?min_price=0&max_price=10000000&page=30\",\"uniqueKey\":\"https://www.99home.co.uk/property_search/ForSale?max_price=10000000&min_price=0&page=30\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isRental\":false,\"label\":\"SALES\",\"isFirstPage\":false,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-14T11:24:13.639Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.99home.co.uk/property_search/ForSale?max_price=10000000&min_price=0&page=30",
+	"url": "https://www.99home.co.uk/property_search/ForSale/?min_price=0&max_price=10000000&page=30"
+}

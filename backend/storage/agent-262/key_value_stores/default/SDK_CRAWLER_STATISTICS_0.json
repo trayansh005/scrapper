@@ -1,29 +1,50 @@
 {
-  "requestsFinished": 12,
+  "requestsFinished": 31,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 2,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 3,
-  "requestMinDurationMillis": 7044,
-  "requestMaxDurationMillis": 85614,
+  "requestsFinishedPerMinute": 2,
+  "requestMinDurationMillis": 4163,
+  "requestMaxDurationMillis": 126697,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 266206,
-  "crawlerStartedAt": "2026-05-06T12:19:27.402Z",
-  "crawlerFinishedAt": "2026-05-06T12:23:57.625Z",
-  "statsPersistedAt": "2026-05-06T12:23:57.625Z",
-  "crawlerRuntimeMillis": 270551,
-  "crawlerLastStartTimestamp": 1778069967074,
+  "requestTotalFinishedDurationMillis": 424279,
+  "crawlerStartedAt": "2026-05-14T09:51:39.684Z",
+  "crawlerFinishedAt": "2026-05-14T10:07:37.813Z",
+  "statsPersistedAt": "2026-05-14T10:07:37.813Z",
+  "crawlerRuntimeMillis": 958532,
+  "crawlerLastStartTimestamp": 1778752299281,
   "requestRetryHistogram": [
-    12
+    29,
+    1,
+    1
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 22184,
-  "requestTotalDurationMillis": 266206,
-  "requestsTotal": 12,
+  "requestAvgFinishedDurationMillis": 13686,
+  "requestTotalDurationMillis": 424279,
+  "requestsTotal": 31,
   "requestsWithStatusCode": {
-    "200": 12
+    "200": 33
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 240 seconds.": {
+            "count": 2
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
+      "missing error code": {
+        "Error": {
+          "browserController.newPage() failed: NhO_OW3IxscUrVzeAR5Km": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }

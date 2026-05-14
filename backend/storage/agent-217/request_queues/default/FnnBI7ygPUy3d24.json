@@ -1,9 +1,0 @@
-{
-	"id": "FnnBI7ygPUy3d24",
-	"json": "{\"id\":\"FnnBI7ygPUy3d24\",\"url\":\"https://homesea.co.uk/property-search/page/7/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&availability=2\",\"loadedUrl\":\"https://homesea.co.uk/property-search/in-hampshire/?department=residential-sales&availability=2\",\"uniqueKey\":\"https://homesea.co.uk/property-search/page/7?address_keyword=&availability=2&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&property_type=&radius=\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":7,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-04-07T10:44:59.941Z\"}",
-	"method": "GET",
-	"orderNo": null,
-	"retryCount": 0,
-	"uniqueKey": "https://homesea.co.uk/property-search/page/7?address_keyword=&availability=2&department=residential-sales&maximum_price=&maximum_rent=&minimum_bedrooms=&minimum_price=&minimum_rent=&property_type=&radius=",
-	"url": "https://homesea.co.uk/property-search/page/7/?department=residential-sales&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&minimum_bedrooms&property_type&availability=2"
-}
