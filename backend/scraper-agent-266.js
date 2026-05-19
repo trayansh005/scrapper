@@ -144,21 +144,20 @@ async function scrapeASTLettings() {
 		for (let i = 0; i < properties.length; i++) {
 			const prop = $(properties[i]);
 
-			// Extract property reference
+			// Extract actual property URL from XML
 			// Extract property reference
 			const propRef =
 				getText(prop, "PROPERTY_REF") ||
 				getText(prop, "AGENT_REF") ||
 				`prop-${i}`;
 
-			// Extract actual property URL from XML
+			// Use brochure URL as property link
 			const link =
-				getText(prop, "DETAILS_URL") ||
-				getText(prop, "URL") ||
-				getText(prop, "PROPERTY_URL");
+				getText(prop, "MEDIA_DOCUMENT_00") ||
+				getText(prop, "MEDIA_IMAGE_00");
 
 			if (!link) {
-				logger.error(`Missing property URL for ${propRef}`);
+				logger.error(`Missing URL for ${propRef}`);
 				continue;
 			}
 			// Skip if already processed in this batch
