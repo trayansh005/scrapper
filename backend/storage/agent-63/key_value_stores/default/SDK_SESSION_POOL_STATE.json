@@ -1,0 +1,138 @@
+{
+  "usableSessionsCount": 3,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_2AXgbgBS4r",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-18T07:40:55.260Z",
+      "createdAt": "2026-05-18T06:50:55.260Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_KTrmWFzVl1",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "application_session",
+            "value": "g8ylpWRlnoHbFXY3pdaEaRf1TWKHHxCYjERerHpV",
+            "expires": "2026-05-18T08:55:06.324Z",
+            "domain": "www.kayandco.com",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-05-18T06:51:09.863Z",
+            "lastAccessed": "2026-05-18T06:55:11.498Z"
+          },
+          {
+            "key": "cookieyes-consent",
+            "value": "consentid:YklDSFNFRGlBdTA2dHdkRXlBSEo2Q3U3NE1YcjlZb3E,consent:no,action:,necessary:yes,functional:no,analytics:no,performance:no,advertisement:no",
+            "expires": "2027-05-18T06:55:07.000Z",
+            "domain": "www.kayandco.com",
+            "path": "/",
+            "hostOnly": true,
+            "creation": "2026-05-18T06:51:09.864Z",
+            "lastAccessed": "2026-05-18T06:55:11.498Z"
+          },
+          {
+            "key": "_ga_GZPF1VHLPL",
+            "value": "GS2.1.s1779087068$o1$g1$t1779087306$j56$l0$h0",
+            "expires": "2027-06-22T06:55:06.851Z",
+            "domain": "kayandco.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-18T06:51:09.865Z",
+            "lastAccessed": "2026-05-18T06:55:11.506Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1995180068.1779087069",
+            "expires": "2027-06-22T06:55:06.851Z",
+            "domain": "kayandco.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-18T06:51:09.874Z",
+            "lastAccessed": "2026-05-18T06:55:11.499Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1779087069322.513552932862297688",
+            "expires": "2026-08-16T06:55:10.000Z",
+            "domain": "kayandco.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-18T06:51:09.878Z",
+            "lastAccessed": "2026-05-18T06:55:11.499Z"
+          },
+          {
+            "key": "_clck",
+            "value": "hugg14%5E2%5Eg65%5E0%5E2329",
+            "expires": "2027-05-18T06:51:09.000Z",
+            "domain": "kayandco.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-18T06:51:09.878Z",
+            "lastAccessed": "2026-05-18T06:55:11.499Z"
+          },
+          {
+            "key": "_clsk",
+            "value": "yg9ri6%5E1779087070700%5E1%5E1%5Ee.clarity.ms%2Fcollect",
+            "expires": "2026-05-19T06:51:10.000Z",
+            "domain": "kayandco.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-05-18T06:55:11.500Z",
+            "lastAccessed": "2026-05-18T06:55:11.500Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-18T07:40:55.263Z",
+      "createdAt": "2026-05-18T06:50:55.263Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_Ic92NAe4Nr",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-05-18T07:45:02.501Z",
+      "createdAt": "2026-05-18T06:55:02.501Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 {
 	"id": "sWseaJY8t7pnryX",
-	"json": "{\"id\":\"sWseaJY8t7pnryX\",\"url\":\"https://www.bhhslondonproperties.com/properties-for-sale?location=&page=1\",\"uniqueKey\":\"https://www.bhhslondonproperties.com/properties-for-sale?location=&page=1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isDetailPage\":false,\"pageNum\":1,\"totalPages\":6,\"isRental\":false,\"label\":\"SALES\"}}",
+	"json": "{\"id\":\"sWseaJY8t7pnryX\",\"url\":\"https://www.bhhslondonproperties.com/properties-for-sale?location=&page=1\",\"loadedUrl\":\"https://www.kayandco.com/properties-for-sale?location=&page=1\",\"uniqueKey\":\"https://www.bhhslondonproperties.com/properties-for-sale?location=&page=1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"isDetailPage\":false,\"pageNum\":1,\"totalPages\":6,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-18T06:55:02.411Z\"}",
 	"method": "GET",
-	"orderNo": 1779086760083,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.bhhslondonproperties.com/properties-for-sale?location=&page=1",
 	"url": "https://www.bhhslondonproperties.com/properties-for-sale?location=&page=1"

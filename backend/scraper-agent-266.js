@@ -145,14 +145,22 @@ async function scrapeASTLettings() {
 			const prop = $(properties[i]);
 
 			// Extract property reference
+			// Extract property reference
 			const propRef =
 				getText(prop, "PROPERTY_REF") ||
 				getText(prop, "AGENT_REF") ||
 				`prop-${i}`;
 
-			// Build property URL from reference
-			const link = `https://astlettings.10ninety.co.uk/property/${propRef}`;
+			// Extract actual property URL from XML
+			const link =
+				getText(prop, "DETAILS_URL") ||
+				getText(prop, "URL") ||
+				getText(prop, "PROPERTY_URL");
 
+			if (!link) {
+				logger.error(`Missing property URL for ${propRef}`);
+				continue;
+			}
 			// Skip if already processed in this batch
 			if (processedUrls.has(link)) continue;
 			processedUrls.add(link);
