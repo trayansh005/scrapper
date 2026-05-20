@@ -1,4 +1,4 @@
-﻿// OpenRent scraper using Playwright with Crawlee
+// OpenRent scraper using Playwright with Crawlee
 // Agent ID: 90
 // Website: openrent.co.uk
 // Usage:
@@ -37,69 +37,108 @@ function getBrowserlessEndpoint() {
 // DETAIL PAGE SCRAPING
 // ============================================================================
 
-async function scrapePropertyDetail(browserContext, property, isRental) {
-	const detailPage = await browserContext.newPage();
-
-	try {
-		// Block unnecessary resources
-		await detailPage.route("**/*", (route) => {
-			const resourceType = route.request().resourceType();
-			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-				route.abort();
-			} else {
-				route.continue();
-			}
+async function autoScroll(page) {
+	// Scrolls the page incrementally to trigger lazy-loaded property cards.
+	await page.evaluate(async () => {
+		await new Promise((resolve) => {
+			let totalHeight = 0;
+			const distance = 1000;
+			const timer = setInterval(() => {
+				const scrollHeight = document.body.scrollHeight;
+				window.scrollBy(0, distance);
+				totalHeight += distance;
+				if (totalHeight >= scrollHeight) {
+					clearInterval(timer);
+					resolve();
+				}
+			}, 500);
 		});
-
-		await detailPage.goto(property.link, {
-			waitUntil: "domcontentloaded",
-			timeout: 60000,
-		});
-
-		// OpenRent is very strict; small delay to look more human
-		await detailPage.waitForTimeout(1500);
-
-		// Extract coordinates from #map[data-lat]
-		const detailData = await detailPage.evaluate(() => {
-			let lat = null;
-			let lng = null;
-
-			const mapDiv =
-				document.querySelector("#map[data-lat][data-lng]") ||
-				document.querySelector("div[data-lat][data-lng]");
-			if (mapDiv) {
-				lat = parseFloat(mapDiv.getAttribute("data-lat"));
-				lng = parseFloat(mapDiv.getAttribute("data-lng"));
-			}
-
-			return {
-				lat,
-				lng,
-				html: document.documentElement.innerHTML,
-			};
-		});
-
-		// Save property to database
-		await processPropertyWithCoordinates(
-			property.link,
-			property.price,
-			property.title,
-			property.bedrooms || null,
-			AGENT_ID,
-			isRental,
-			detailData.html,
-			detailData.lat,
-			detailData.lng,
-		);
-
-		stats.totalScraped++;
-		stats.totalSaved++;
-	} catch (error) {
-		console.error(` Error scraping detail page ${property.link}:`, error.message);
-	} finally {
-		await detailPage.close();
-	}
+	});
 }
+
+
+const detailPage = await browserContext.newPage();
+
+try {
+	// Block unnecessary resources
+	await detailPage.route("**/*", (route) => {
+		const resourceType = route.request().resourceType();
+		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+			route.abort();
+		} else {
+			route.continue();
+		}
+	});
+
+	await detailPage.goto(property.link, {
+		waitUntil: "domcontentloaded",
+		timeout: 60000,
+	});
+
+	// OpenRent is very strict; small delay to look more human
+	await detailPage.waitForTimeout(1500);
+
+	// Extract coordinates from #map[data-lat]
+	const detailData = await detailPage.evaluate(() => {
+		let lat = null;
+		let lng = null;
+
+		const mapDiv =
+			document.querySelector("#map[data-lat][data-lng]") ||
+			document.querySelector("div[data-lat][data-lng]");
+		if (mapDiv) {
+			lat = parseFloat(mapDiv.getAttribute("data-lat"));
+			lng = parseFloat(mapDiv.getAttribute("data-lng"));
+		}
+
+		return {
+			lat,
+			lng,
+			html: document.documentElement.innerHTML,
+		};
+	});
+
+	// Save property to database
+	await processPropertyWithCoordinates(
+		property.link,
+		property.price,
+		property.title,
+		property.bedrooms || null,
+		AGENT_ID,
+		isRental,
+		detailData.html,
+		detailData.lat,
+		detailData.lng,
+	);
+
+	stats.totalScraped++;
+	stats.totalSaved++;
+} catch (error) {
+	console.error(` Error scraping detail page ${property.link}:`, error.message);
+} finally {
+	await detailPage.close();
+}
+
+
+// Auto-scroll to load lazy-loaded properties
+async function autoScroll(page) {
+	await page.evaluate(async () => {
+		await new Promise((resolve) => {
+			let totalHeight = 0;
+			const distance = 1000;
+			const timer = setInterval(() => {
+				const scrollHeight = document.body.scrollHeight;
+				window.scrollBy(0, distance);
+				totalHeight += distance;
+				if (totalHeight >= scrollHeight) {
+					clearInterval(timer);
+					resolve();
+				}
+			}, 500);
+		});
+	});
+}
+
 
 // ============================================================================
 // REQUEST HANDLER
