@@ -167,10 +167,21 @@ async function fetchAllListings(listingtype, label) {
 // ============================================================================
 
 async function processListings(listings, baseUrl, label, isRental) {
-	for (const item of listings) {
+		for (const item of listings) {
 		if (!item.slug) continue;
 
-		const propertyUrl = `${baseUrl}/${item.slug}`;
+		// === FIXED URL GENERATION ===
+		const prefix = isRental ? "rent" : "buy";
+		const propId = item.reference_number || item.id;
+		
+		let propertyUrl = `https://sothebysrealty.co.uk/properties/${prefix}/${item.slug}`;
+		
+		// Ensure the URL ends with the property ID (as requested by client)
+		if (!propertyUrl.endsWith(`-${propId}/`) && !propertyUrl.endsWith(`-${propId}`)) {
+			propertyUrl = propertyUrl.replace(/\/$/, '') + `-${propId}/`;
+		}
+		// =============================
+
 		const price = item.listingprice ? parseFloat(item.listingprice) : null;
 		const bedrooms = item.bedrooms ? parseInt(item.bedrooms) : null;
 		const title = buildTitle(item);

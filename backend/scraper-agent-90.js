@@ -56,67 +56,69 @@ async function autoScroll(page) {
 	});
 }
 
+// DETAIL PAGE SCRAPING FUNCTION
 
-const detailPage = await browserContext.newPage();
+async function scrapePropertyDetail(browserContext, property, isRental) {
+	const detailPage = await browserContext.newPage();
 
-try {
-	// Block unnecessary resources
-	await detailPage.route("**/*", (route) => {
-		const resourceType = route.request().resourceType();
-		if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
-			route.abort();
-		} else {
-			route.continue();
-		}
-	});
+	try {
+		// Block unnecessary resources
+		await detailPage.route("**/*", (route) => {
+			const resourceType = route.request().resourceType();
+			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
+				route.abort();
+			} else {
+				route.continue();
+			}
+		});
 
-	await detailPage.goto(property.link, {
-		waitUntil: "domcontentloaded",
-		timeout: 60000,
-	});
+		await detailPage.goto(property.link, {
+			waitUntil: "domcontentloaded",
+			timeout: 60000,
+		});
 
-	// OpenRent is very strict; small delay to look more human
-	await detailPage.waitForTimeout(1500);
+		// Small human-like delay
+		await detailPage.waitForTimeout(1500);
 
-	// Extract coordinates from #map[data-lat]
-	const detailData = await detailPage.evaluate(() => {
-		let lat = null;
-		let lng = null;
+		// Extract coordinates from map
+		const detailData = await detailPage.evaluate(() => {
+			let lat = null;
+			let lng = null;
 
-		const mapDiv =
-			document.querySelector("#map[data-lat][data-lng]") ||
-			document.querySelector("div[data-lat][data-lng]");
-		if (mapDiv) {
-			lat = parseFloat(mapDiv.getAttribute("data-lat"));
-			lng = parseFloat(mapDiv.getAttribute("data-lng"));
-		}
+			const mapDiv =
+				document.querySelector("#map[data-lat][data-lng]") ||
+				document.querySelector("div[data-lat][data-lng]");
 
-		return {
-			lat,
-			lng,
-			html: document.documentElement.innerHTML,
-		};
-	});
+			if (mapDiv) {
+				lat = parseFloat(mapDiv.getAttribute("data-lat"));
+				lng = parseFloat(mapDiv.getAttribute("data-lng"));
+			}
 
-	// Save property to database
-	await processPropertyWithCoordinates(
-		property.link,
-		property.price,
-		property.title,
-		property.bedrooms || null,
-		AGENT_ID,
-		isRental,
-		detailData.html,
-		detailData.lat,
-		detailData.lng,
-	);
+			return { lat, lng };
+		});
 
-	stats.totalScraped++;
-	stats.totalSaved++;
-} catch (error) {
-	console.error(` Error scraping detail page ${property.link}:`, error.message);
-} finally {
-	await detailPage.close();
+		// Save to database
+		await processPropertyWithCoordinates(
+			property.link,
+			property.price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+			null,                    // html (optional)
+			detailData.lat,
+			detailData.lng,
+		);
+
+		stats.totalScraped++;
+		stats.totalSaved++;
+
+		console.log(`    ✅ Detail scraped: ${property.title}`);
+	} catch (error) {
+		console.error(`    ❌ Error scraping detail page ${property.link}:`, error.message);
+	} finally {
+		await detailPage.close();
+	}
 }
 
 
