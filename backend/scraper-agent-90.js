@@ -123,9 +123,9 @@ async function handleListingPage({ page, request, crawler }) {
 	console.log(`\n Loading [${label}] ${area} Page ${pageNumber}: ${request.url}`);
 
 	try {
-		await page.goto(request.url, { 
-			waitUntil: "networkidle", 
-			timeout: 90000 
+		await page.goto(request.url, {
+			waitUntil: "networkidle",
+			timeout: 90000
 		});
 
 		// Extra time for heavy JS
@@ -140,12 +140,12 @@ async function handleListingPage({ page, request, crawler }) {
 		// === DEBUG + EXTRACTION ===
 		const result = await page.evaluate(() => {
 			const links = Array.from(document.querySelectorAll('a[href*="/property-to-rent/"]'));
-			
+
 			const items = [];
 			links.forEach(link => {
 				const href = link.getAttribute('href');
 				const fullText = (link.textContent || '').trim();
-				
+
 				if (!href || !fullText) return;
 
 				let priceText = (fullText.match(/£[0-9,]+/) || [''])[0];
@@ -174,21 +174,67 @@ async function handleListingPage({ page, request, crawler }) {
 			console.log("    Sample:", result.sample);
 		}
 
-		// Use the extracted properties
+		// Use the extracted properties (same logic as above, but return full array)
 		const properties = result.count > 0 ? await page.evaluate(() => {
-			// Same logic as above but return full array
 			const items = [];
-			document.querySelectorAll('a[href*="/property-to-rent/"]').forEach(card => {
-				// ... (copy the push logic from above if needed)
+			document.querySelectorAll('a[href*="/property-to-rent/"]').forEach(linkEl => {
+				const href = linkEl.getAttribute('href');
+				const fullText = (linkEl.textContent || '').trim();
+
+				if (!href || !fullText) return;
+
+				const priceText = (fullText.match(/\u00a3[0-9,]+/) || [''])[0];
+				const title = fullText.split('\n')[0] || "Property";
+
+				let bedrooms = null;
+				const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
+				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
+
+				items.push({
+					link: href.startsWith('http') ? href : 'https://www.openrent.co.uk' + href,
+					title: title.substring(0, 150),
+					priceText,
+					bedrooms,
+					statusText: fullText.toLowerCase(),
+				});
 			});
+
 			return items;
 		}) : [];
 
 		if (properties.length === 0) {
 			console.log("    ⚠️ Still no properties. Page may be blocked or heavily protected.");
+			return;
 		}
 
-		// ... (your deduplication + batch processing code can stay the same)
+		// Deduplication + batch processing
+		const seen = new Set();
+		const deduped = [];
+		for (const p of properties) {
+			if (!p?.link) continue;
+			const key = p.link.trim();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			deduped.push(p);
+		}
+
+		const batch = deduped.slice(0, 50);
+		console.log(`    Processing ${batch.length} properties (deduped) on Page ${pageNumber}`);
+
+		for (const property of batch) {
+			const isSold = isSoldProperty(property.statusText || "");
+			if (isSold) continue;
+
+			const price = parsePrice(property.priceText);
+			if (!price) {
+				console.log(`    ⚠️ Skipping (bad price) ${property.link}`);
+				continue;
+			}
+
+			// Detail scraping (coords from detail page)
+			await scrapePropertyDetail(page.context(), property, isRental);
+		}
+
 
 	} catch (error) {
 		console.error(` Error in handleListingPage: ${error.message}`);
