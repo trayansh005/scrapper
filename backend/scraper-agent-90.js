@@ -138,17 +138,25 @@ async function handleListingPage({ page, request, crawler }) {
 		}
 
 		// === DEBUG + EXTRACTION ===
+		// OpenRent listing cards can be rendered lazily; sometimes anchor text isn't present immediately.
+		await page.waitForSelector('a[href*="/property-to-rent/"]', { timeout: 15000 }).catch(() => {});
+
 		const result = await page.evaluate(() => {
 			const links = Array.from(document.querySelectorAll('a[href*="/property-to-rent/"]'));
 
 			const items = [];
 			links.forEach(link => {
 				const href = link.getAttribute('href');
-				const fullText = (link.textContent || '').trim();
+				const cardText = [
+						(link.textContent || '').trim(),
+						(link.parentElement?.textContent || '').trim(),
+					].join(' ');
 
-				if (!href || !fullText) return;
+				if (!href) return;
 
-				let priceText = (fullText.match(/£[0-9,]+/) || [''])[0];
+
+						let priceText = (cardText.match(/£[0-9,]+/) || [''])[0];
+
 				let title = fullText.split('\n')[0] || "Property";
 				let bedrooms = null;
 				const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
