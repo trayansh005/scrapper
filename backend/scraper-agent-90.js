@@ -128,63 +128,67 @@ async function handleListingPage({ page, request, crawler }) {
 			timeout: 60000 
 		});
 
-		// Anti-block check
 		const title = await page.title();
 		if (title.includes("Access Denied") || title.includes("Too Many Requests")) {
-			console.error(` BLOCKED by OpenRent on ${area} Page ${pageNumber}. Cooling down...`);
+			console.error(` BLOCKED...`);
 			await page.waitForTimeout(60000);
 			return;
 		}
 
-		await page.waitForTimeout(4000);
+		await page.waitForTimeout(5000);
 		await autoScroll(page);
-		await page.waitForTimeout(2500);
+		await page.waitForTimeout(3000);
 
-		// === MAIN PROPERTY EXTRACTION ===
+		// === DEBUG: Get all possible property links ===
+		const debugInfo = await page.evaluate(() => {
+			const allLinks = Array.from(document.querySelectorAll('a[href*="property-to-rent"]'));
+			const items = [];
+
+			allLinks.forEach(link => {
+				const href = link.getAttribute('href');
+				const text = (link.textContent || '').substring(0, 100);
+				items.push({ href, text: text.replace(/\s+/g, ' ') });
+			});
+
+			return {
+				totalLinks: allLinks.length,
+				sample: items.slice(0, 3)
+			};
+		});
+
+		console.log(`    🔍 Debug - Found ${debugInfo.totalLinks} potential property links`);
+		if (debugInfo.sample.length > 0) {
+			console.log(`    Sample:`, debugInfo.sample);
+		}
+
+		// Main extraction
 		const properties = await page.evaluate(() => {
 			const items = [];
-			let cards = Array.from(document.querySelectorAll('a[href^="/property-to-rent/"]'));
-
-			if (cards.length < 5) {
-				cards = Array.from(document.querySelectorAll('a[href*="/properties-to-rent/"]'));
-			}
+			const cards = Array.from(document.querySelectorAll('a[href*="/property-to-rent/"]'));
 
 			for (const card of cards) {
 				let link = card.href || card.getAttribute('href');
-				if (!link || !link.includes('/property-to-rent/')) continue;
+				if (!link) continue;
 
 				const fullText = card.textContent || '';
 
 				let priceText = '';
-				const priceMatch = fullText.match(/£[0-9,]+(\s*(?:pcm|p\/w|pw|per month|week))?/i);
-				if (priceMatch) {
-					priceText = priceMatch[0];
-				} else {
-					const priceEl = Array.from(card.querySelectorAll('*')).find(el => 
-						/£[0-9,]+/.test(el.textContent)
-					);
-					if (priceEl) priceText = priceEl.textContent.trim();
-				}
+				const priceMatch = fullText.match(/£[0-9,]+/);
+				if (priceMatch) priceText = priceMatch[0];
 
-				let title = "OpenRent Property";
-				const titleEl = card.querySelector('h2, h3, strong, [class*="title"], [class*="address"]');
-				if (titleEl) {
-					title = titleEl.textContent.trim().split('\n')[0];
-				}
+				let title = fullText.split('\n')[0] || "OpenRent Property";
 
 				let bedrooms = null;
-				const bedMatch = fullText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+				const bedMatch = fullText.match(/(\d+)\s*(?:bed|beds|bedroom)/i);
 				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-
-				const statusText = fullText.toLowerCase();
 
 				if (link) {
 					items.push({
 						link: link.startsWith('http') ? link : 'https://www.openrent.co.uk' + link,
-						title: title.substring(0, 150),
+						title: title.trim().substring(0, 150),
 						priceText,
 						bedrooms,
-						statusText
+						statusText: fullText.toLowerCase()
 					});
 				}
 			}
@@ -192,6 +196,8 @@ async function handleListingPage({ page, request, crawler }) {
 		});
 
 		console.log(`    Found ${properties.length} properties on [${area}] Page ${pageNumber}`);
+
+		// ... rest of your deduplication and batch processing code remains the same ...
 
 		const uniqueProperties = [];
 		const seenLinks = new Set();
@@ -202,51 +208,41 @@ async function handleListingPage({ page, request, crawler }) {
 			}
 		}
 
+		// (Keep your existing batch processing from here onward)
 		const batchSize = 8;
 		for (let i = 0; i < uniqueProperties.length; i += batchSize) {
 			const batch = uniqueProperties.slice(i, i + batchSize);
-			console.log(`    🚀 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(uniqueProperties.length / batchSize)}...`);
+			console.log(`    🚀 Processing batch ${Math.floor(i / batchSize) + 1}...`);
 
 			await Promise.all(
 				batch.map(async (property) => {
 					if (isSoldProperty(property.statusText || "") || 
-						property.statusText.toLowerCase().includes("let agreed")) {
-						return;
-					}
+						property.statusText.includes("let agreed")) return;
 
 					let price = null;
-					if (property.priceText.includes("pw") || property.priceText.toLowerCase().includes("week")) {
-						const weeklyPrice = parsePrice(property.priceText.replace(/pw|week/i, ""));
-						if (weeklyPrice) price = Math.round((weeklyPrice * 52) / 12);
-					} else {
+					if (property.priceText) {
 						price = parsePrice(property.priceText);
 					}
-
 					if (!price) return;
 
 					const updateResult = await updatePriceByPropertyURLOptimized(
-						property.link,
-						price,
-						property.title,
-						property.bedrooms,
-						AGENT_ID,
-						isRental,
+						property.link, price, property.title, property.bedrooms, AGENT_ID, isRental
 					);
 
 					if (updateResult.updated) stats.totalSaved++;
 
 					if (!updateResult.isExisting && !updateResult.error) {
-						console.log(`    🆕 New property: ${property.title} - £${price}`);
-						await new Promise(r => setTimeout(r, Math.random() * 2000));
+						console.log(`    🆕 New: ${property.title} - £${price}`);
+						await new Promise(r => setTimeout(r, Math.random() * 1500));
 						await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
 					}
 				})
 			);
-
-			await new Promise(r => setTimeout(r, 5000));
+			await new Promise(r => setTimeout(r, 4000));
 		}
 
-		await new Promise(r => setTimeout(r, 7000));
+		await new Promise(r => setTimeout(r, 6000));
+
 	} catch (error) {
 		console.error(` Error in handleListingPage: ${error.message}`);
 	}
