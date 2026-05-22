@@ -168,46 +168,94 @@ async function handleListingPage({ page, request, crawler }) {
 			console.log(`    No properties found on [${area}] Page ${pageNumber}`);
 		});
 
-		// Extract properties
+		// Extract properties old html struture 
+		// const properties = await page.evaluate(() => {
+		// 	const containers = Array.from(document.querySelectorAll("a.pli.search-property-card"));
+		// 	const items = [];
+
+		// 	for (const container of containers) {
+		// 		const link = container.href;
+		// 		const priceMonthlyEl = container.querySelector(".pim .fs-4");
+		// 		const priceWeeklyEl = container.querySelector(".piw .fs-4");
+
+		// 		let priceText = "";
+		// 		if (priceMonthlyEl) {
+		// 			priceText = priceMonthlyEl.textContent.trim();
+		// 		} else if (priceWeeklyEl) {
+		// 			priceText = priceWeeklyEl.textContent.trim() + " pw";
+		// 		}
+
+		// 		const title = container.querySelector(".fs-3")?.textContent?.trim() || "OpenRent Property";
+		// 		const statusText = container.innerText || "";
+
+		// 		let bedrooms = null;
+		// 		const featuresEl = container.querySelector("ul.inline-list-divide");
+		// 		if (featuresEl) {
+		// 			const text = featuresEl.textContent;
+		// 			const bedMatch = text.match(/(\d+)\s*(beds?|bedrooms?)/i);
+		// 			const roomMatch = text.match(/(\d+)\s*(rooms?)/i);
+		// 			if (bedMatch) bedrooms = parseInt(bedMatch[1]);
+		// 			else if (roomMatch) bedrooms = parseInt(roomMatch[1]);
+		// 		}
+
+		// 		if (link && priceText) {
+		// 			items.push({ link, title, priceText, bedrooms, statusText });
+		// 		}
+		// 	}
+		// 	return items;
+		// });
+
+
+		// new html struture 
 		const properties = await page.evaluate(() => {
-			const containers = Array.from(document.querySelectorAll("a.pli.search-property-card"));
+
+			const cards = Array.from(document.querySelectorAll('a[href^="/properties-to-rent/"]'));
+
 			const items = [];
 
-			for (const container of containers) {
-				const link = container.href;
+			for (const card of cards) {
+				const link = card.href;
+				if (!link || !link.includes('/properties-to-rent/')) continue;
 
-				// Monthly price is usually in .pim .fs-4
-				// Weekly price is usually in .piw .fs-4
-				const priceMonthlyEl = container.querySelector(".pim .fs-4");
-				const priceWeeklyEl = container.querySelector(".piw .fs-4");
-
-				let priceText = "";
-				if (priceMonthlyEl) {
-					priceText = priceMonthlyEl.textContent.trim();
-				} else if (priceWeeklyEl) {
-					priceText = priceWeeklyEl.textContent.trim() + " pw";
+				// Price - multiple possible locations
+				let priceText = '';
+				const priceEls = card.querySelectorAll('text, strong, div, span');
+				for (const el of priceEls) {
+					const text = el.textContent.trim();
+					if (text.includes('£') && (text.includes('month') || text.includes('week') || text.match(/per\s*(month|week)/i))) {
+						priceText = text;
+						break;
+					}
 				}
 
-				const title = container.querySelector(".fs-3")?.textContent?.trim() || "OpenRent Property";
-				const statusText = container.innerText || "";
+				const titleEl = card.querySelector('h2, h3, .title, [class*="title"]') ||
+					Array.from(card.querySelectorAll('*')).find(el =>
+						el.textContent && el.textContent.includes('Bed') && el.textContent.length < 100
+					);
 
+				const title = titleEl ? titleEl.textContent.trim() : "OpenRent Property";
+
+				// Bedrooms
 				let bedrooms = null;
-				const featuresEl = container.querySelector("ul.inline-list-divide");
-				if (featuresEl) {
-					const text = featuresEl.textContent;
-					const bedMatch = text.match(/(\d+)\s*(beds?|bedrooms?)/i);
-					const roomMatch = text.match(/(\d+)\s*(rooms?)/i);
-					if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-					else if (roomMatch) bedrooms = parseInt(roomMatch[1]);
-				}
+				const bedText = card.textContent;
+				const bedMatch = bedText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
 
-				if (link && priceText) {
-					items.push({ link, title, priceText, bedrooms, statusText });
+				const statusText = card.textContent.toLowerCase();
+
+				if (link && (priceText || title)) {
+					items.push({
+						link,
+						title,
+						priceText,
+						bedrooms,
+						statusText
+					});
 				}
 			}
+
 			return items;
 		});
-
 
 		// quick debug
 		// === REPLACE your existing properties = await page.evaluate(() => { ... }) block with this ===
