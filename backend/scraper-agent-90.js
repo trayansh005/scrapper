@@ -124,7 +124,7 @@ async function handleListingPage({ page, request, crawler }) {
 
 	try {
 		await page.goto(request.url, { 
-			waitUntil: "networkidle2", 
+			waitUntil: "networkidle", 
 			timeout: 60000 
 		});
 
@@ -155,7 +155,6 @@ async function handleListingPage({ page, request, crawler }) {
 
 				const fullText = card.textContent || '';
 
-				// Price extraction
 				let priceText = '';
 				const priceMatch = fullText.match(/£[0-9,]+(\s*(?:pcm|p\/w|pw|per month|week))?/i);
 				if (priceMatch) {
@@ -167,14 +166,12 @@ async function handleListingPage({ page, request, crawler }) {
 					if (priceEl) priceText = priceEl.textContent.trim();
 				}
 
-				// Title
 				let title = "OpenRent Property";
 				const titleEl = card.querySelector('h2, h3, strong, [class*="title"], [class*="address"]');
 				if (titleEl) {
 					title = titleEl.textContent.trim().split('\n')[0];
 				}
 
-				// Bedrooms
 				let bedrooms = null;
 				const bedMatch = fullText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
 				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
@@ -196,7 +193,6 @@ async function handleListingPage({ page, request, crawler }) {
 
 		console.log(`    Found ${properties.length} properties on [${area}] Page ${pageNumber}`);
 
-		// De-duplicate
 		const uniqueProperties = [];
 		const seenLinks = new Set();
 		for (const p of properties) {
@@ -209,16 +205,12 @@ async function handleListingPage({ page, request, crawler }) {
 		const batchSize = 8;
 		for (let i = 0; i < uniqueProperties.length; i += batchSize) {
 			const batch = uniqueProperties.slice(i, i + batchSize);
-			console.log(
-				`    🚀 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(uniqueProperties.length / batchSize)} for [${area}] p${pageNumber}...`,
-			);
+			console.log(`    🚀 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(uniqueProperties.length / batchSize)}...`);
 
 			await Promise.all(
 				batch.map(async (property) => {
-					if (
-						isSoldProperty(property.statusText || "") ||
-						property.statusText.toLowerCase().includes("let agreed")
-					) {
+					if (isSoldProperty(property.statusText || "") || 
+						property.statusText.toLowerCase().includes("let agreed")) {
 						return;
 					}
 
@@ -241,22 +233,20 @@ async function handleListingPage({ page, request, crawler }) {
 						isRental,
 					);
 
-					if (updateResult.updated) {
-						stats.totalSaved++;
-					}
+					if (updateResult.updated) stats.totalSaved++;
 
 					if (!updateResult.isExisting && !updateResult.error) {
 						console.log(`    🆕 New property: ${property.title} - £${price}`);
-						await new Promise((r) => setTimeout(r, Math.random() * 2000));
+						await new Promise(r => setTimeout(r, Math.random() * 2000));
 						await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
 					}
-				}),
+				})
 			);
 
-			await new Promise((r) => setTimeout(r, 5000));
+			await new Promise(r => setTimeout(r, 5000));
 		}
 
-		await new Promise((r) => setTimeout(r, 7000));
+		await new Promise(r => setTimeout(r, 7000));
 	} catch (error) {
 		console.error(` Error in handleListingPage: ${error.message}`);
 	}
