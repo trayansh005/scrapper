@@ -80,7 +80,7 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
-			null,                    // html (optional)
+			null, // html (optional)
 			detailData.lat,
 			detailData.lng,
 		);
@@ -95,7 +95,6 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 		await detailPage.close();
 	}
 }
-
 
 // Auto-scroll to load lazy-loaded properties
 async function autoScroll(page) {
@@ -115,17 +114,16 @@ async function autoScroll(page) {
 	});
 }
 
-
 // REQUEST HANDLER
 
-async function handleListingPage({ page, request, crawler }) {
+async function handleListingPage({ page, request }) {
 	const { isRental, label, pageNumber, area } = request.userData;
 	console.log(`\n Loading [${label}] ${area} Page ${pageNumber}: ${request.url}`);
 
 	try {
 		await page.goto(request.url, {
 			waitUntil: "networkidle",
-			timeout: 90000
+			timeout: 90000,
 		});
 
 		// Extra time for heavy JS
@@ -137,78 +135,79 @@ async function handleListingPage({ page, request, crawler }) {
 			await page.waitForTimeout(2000);
 		}
 
-		// === DEBUG + EXTRACTION ===
 		// OpenRent listing cards can be rendered lazily; sometimes anchor text isn't present immediately.
-		await page.waitForSelector('a[href*="/property-to-rent/"]', { timeout: 15000 }).catch(() => {});
+		await page
+			.waitForSelector('a[href*="/property-to-rent/"]', { timeout: 15000 })
+			.catch(() => {});
 
 		const result = await page.evaluate(() => {
 			const links = Array.from(document.querySelectorAll('a[href*="/property-to-rent/"]'));
 
 			const items = [];
-			links.forEach(link => {
-				const href = link.getAttribute('href');
-				const cardText = [
-						(link.textContent || '').trim(),
-						(link.parentElement?.textContent || '').trim(),
-					].join(' ');
-
+			links.forEach((linkEl) => {
+				const href = linkEl.getAttribute("href");
 				if (!href) return;
 
+				const cardText = [
+					(linkEl.textContent || "").trim(),
+					(linkEl.parentElement?.textContent || "").trim(),
+				].join(" ");
 
-						let priceText = (cardText.match(/£[0-9,]+/) || [''])[0];
+				const priceText = (cardText.match(/£[0-9,]+/) || [""])[0];
+				const title = (cardText.split("\n")[0] || "Property").substring(0, 150);
 
-				let title = fullText.split('\n')[0] || "Property";
 				let bedrooms = null;
-				const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
+				const bedMatch = cardText.match(/(\d+)\s*(bed|beds)/i);
 				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
 
 				items.push({
-					link: href.startsWith('http') ? href : 'https://www.openrent.co.uk' + href,
-					title: title.substring(0, 150),
+					link: href.startsWith("http") ? href : "https://www.openrent.co.uk" + href,
+					title,
 					priceText,
 					bedrooms,
-					statusText: fullText.toLowerCase()
+					statusText: cardText.toLowerCase(),
 				});
 			});
 
 			return {
 				count: items.length,
-				sample: items.slice(0, 2)
+				sample: items.slice(0, 2),
 			};
 		});
 
 		console.log(`    🔍 Found ${result.count} property links on Page ${pageNumber}`);
-		if (result.sample.length > 0) {
-			console.log("    Sample:", result.sample);
-		}
+		if (result.sample.length > 0) console.log("    Sample:", result.sample);
 
-		// Use the extracted properties (same logic as above, but return full array)
-		const properties = result.count > 0 ? await page.evaluate(() => {
-			const items = [];
-			document.querySelectorAll('a[href*="/property-to-rent/"]').forEach(linkEl => {
-				const href = linkEl.getAttribute('href');
-				const fullText = (linkEl.textContent || '').trim();
+		const properties =
+			result.count > 0
+				? await page.evaluate(() => {
+					const items = [];
+					document
+							.querySelectorAll('a[href*="/property-to-rent/"]')
+							.forEach((linkEl) => {
+								const href = linkEl.getAttribute("href");
+								const fullText = (linkEl.textContent || "").trim();
+								if (!href || !fullText) return;
 
-				if (!href || !fullText) return;
+								const priceText = (fullText.match(/\u00a3[0-9,]+/) || [""])[0];
+								const title = (fullText.split("\n")[0] || "Property").substring(0, 150);
 
-				const priceText = (fullText.match(/\u00a3[0-9,]+/) || [''])[0];
-				const title = fullText.split('\n')[0] || "Property";
+								let bedrooms = null;
+								const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
+								if (bedMatch) bedrooms = parseInt(bedMatch[1]);
 
-				let bedrooms = null;
-				const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
-				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-
-				items.push({
-					link: href.startsWith('http') ? href : 'https://www.openrent.co.uk' + href,
-					title: title.substring(0, 150),
-					priceText,
-					bedrooms,
-					statusText: fullText.toLowerCase(),
-				});
-			});
-
-			return items;
-		}) : [];
+								items.push({
+									link: href.startsWith("http") ? href : "https://www.openrent.co.uk" + href,
+									title,
+									priceText,
+									bedrooms,
+									statusText: fullText.toLowerCase(),
+								});
+							});
+					return items;
+				}
+				)
+				: [];
 
 		if (properties.length === 0) {
 			console.log("    ⚠️ Still no properties. Page may be blocked or heavily protected.");
@@ -242,8 +241,6 @@ async function handleListingPage({ page, request, crawler }) {
 			// Detail scraping (coords from detail page)
 			await scrapePropertyDetail(page.context(), property, isRental);
 		}
-
-
 	} catch (error) {
 		console.error(` Error in handleListingPage: ${error.message}`);
 	}
@@ -271,7 +268,6 @@ function createCrawler(browserWSEndpoint) {
 }
 
 // MAIN SCRAPER LOGIC
-
 
 async function scrapeOpenRent() {
 	console.log(` Starting OpenRent Scraper (Agent ${AGENT_ID})...`);
@@ -314,7 +310,6 @@ async function scrapeOpenRent() {
 
 (async () => {
 	try {
-		// Start from a random starting area to distribute load if multiple agents run
 		await scrapeOpenRent();
 		await updateRemoveStatus(AGENT_ID);
 		process.exit(0);
@@ -323,3 +318,4 @@ async function scrapeOpenRent() {
 		process.exit(1);
 	}
 })();
+
