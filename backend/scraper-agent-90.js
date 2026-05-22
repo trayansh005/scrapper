@@ -22,38 +22,13 @@ const stats = {
 	totalSaved: 0,
 };
 
-// ============================================================================
 // BROWSERLESS SETUP
-// ============================================================================
 
 function getBrowserlessEndpoint() {
 	return (
 		process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
 	);
-}
-
-// ============================================================================
-// DETAIL PAGE SCRAPING
-// ============================================================================
-
-async function autoScroll(page) {
-	// Scrolls the page incrementally to trigger lazy-loaded property cards.
-	await page.evaluate(async () => {
-		await new Promise((resolve) => {
-			let totalHeight = 0;
-			const distance = 1000;
-			const timer = setInterval(() => {
-				const scrollHeight = document.body.scrollHeight;
-				window.scrollBy(0, distance);
-				totalHeight += distance;
-				if (totalHeight >= scrollHeight) {
-					clearInterval(timer);
-					resolve();
-				}
-			}, 500);
-		});
-	});
 }
 
 // DETAIL PAGE SCRAPING FUNCTION
@@ -127,33 +102,33 @@ async function autoScroll(page) {
 	await page.evaluate(async () => {
 		await new Promise((resolve) => {
 			let totalHeight = 0;
-			const distance = 1000;
+			const distance = 700;
 			const timer = setInterval(() => {
-				const scrollHeight = document.body.scrollHeight;
 				window.scrollBy(0, distance);
 				totalHeight += distance;
-				if (totalHeight >= scrollHeight) {
+				if (totalHeight >= document.body.scrollHeight - 1200) {
 					clearInterval(timer);
 					resolve();
 				}
-			}, 500);
+			}, 380);
 		});
 	});
 }
 
 
-// ============================================================================
 // REQUEST HANDLER
-// ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
 	const { isRental, label, pageNumber, area } = request.userData;
 	console.log(`\n Loading [${label}] ${area} Page ${pageNumber}: ${request.url}`);
 
 	try {
-		await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+		await page.goto(request.url, { 
+			waitUntil: "networkidle2", 
+			timeout: 60000 
+		});
 
-		// Look for 429
+		// Anti-block check
 		const title = await page.title();
 		if (title.includes("Access Denied") || title.includes("Too Many Requests")) {
 			console.error(` BLOCKED by OpenRent on ${area} Page ${pageNumber}. Cooling down...`);
@@ -161,106 +136,67 @@ async function handleListingPage({ page, request, crawler }) {
 			return;
 		}
 
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(4000);
+		await autoScroll(page);
+		await page.waitForTimeout(2500);
 
-		// Wait for property cards
-		await page.waitForSelector("a.pli.search-property-card", { timeout: 30000 }).catch(() => {
-			console.log(`    No properties found on [${area}] Page ${pageNumber}`);
-		});
-
-		// Extract properties old html struture 
-		// const properties = await page.evaluate(() => {
-		// 	const containers = Array.from(document.querySelectorAll("a.pli.search-property-card"));
-		// 	const items = [];
-
-		// 	for (const container of containers) {
-		// 		const link = container.href;
-		// 		const priceMonthlyEl = container.querySelector(".pim .fs-4");
-		// 		const priceWeeklyEl = container.querySelector(".piw .fs-4");
-
-		// 		let priceText = "";
-		// 		if (priceMonthlyEl) {
-		// 			priceText = priceMonthlyEl.textContent.trim();
-		// 		} else if (priceWeeklyEl) {
-		// 			priceText = priceWeeklyEl.textContent.trim() + " pw";
-		// 		}
-
-		// 		const title = container.querySelector(".fs-3")?.textContent?.trim() || "OpenRent Property";
-		// 		const statusText = container.innerText || "";
-
-		// 		let bedrooms = null;
-		// 		const featuresEl = container.querySelector("ul.inline-list-divide");
-		// 		if (featuresEl) {
-		// 			const text = featuresEl.textContent;
-		// 			const bedMatch = text.match(/(\d+)\s*(beds?|bedrooms?)/i);
-		// 			const roomMatch = text.match(/(\d+)\s*(rooms?)/i);
-		// 			if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-		// 			else if (roomMatch) bedrooms = parseInt(roomMatch[1]);
-		// 		}
-
-		// 		if (link && priceText) {
-		// 			items.push({ link, title, priceText, bedrooms, statusText });
-		// 		}
-		// 	}
-		// 	return items;
-		// });
-
-
-		// new html struture 
+		// === MAIN PROPERTY EXTRACTION ===
 		const properties = await page.evaluate(() => {
-
-			const cards = Array.from(document.querySelectorAll('a[href^="/properties-to-rent/"]'));
-
 			const items = [];
+			let cards = Array.from(document.querySelectorAll('a[href^="/property-to-rent/"]'));
+
+			if (cards.length < 5) {
+				cards = Array.from(document.querySelectorAll('a[href*="/properties-to-rent/"]'));
+			}
 
 			for (const card of cards) {
-				const link = card.href;
-				if (!link || !link.includes('/properties-to-rent/')) continue;
+				let link = card.href || card.getAttribute('href');
+				if (!link || !link.includes('/property-to-rent/')) continue;
 
-				// Price - multiple possible locations
+				const fullText = card.textContent || '';
+
+				// Price extraction
 				let priceText = '';
-				const priceEls = card.querySelectorAll('text, strong, div, span');
-				for (const el of priceEls) {
-					const text = el.textContent.trim();
-					if (text.includes('£') && (text.includes('month') || text.includes('week') || text.match(/per\s*(month|week)/i))) {
-						priceText = text;
-						break;
-					}
+				const priceMatch = fullText.match(/£[0-9,]+(\s*(?:pcm|p\/w|pw|per month|week))?/i);
+				if (priceMatch) {
+					priceText = priceMatch[0];
+				} else {
+					const priceEl = Array.from(card.querySelectorAll('*')).find(el => 
+						/£[0-9,]+/.test(el.textContent)
+					);
+					if (priceEl) priceText = priceEl.textContent.trim();
 				}
 
-				const titleEl = card.querySelector('h2, h3, .title, [class*="title"]') ||
-					Array.from(card.querySelectorAll('*')).find(el =>
-						el.textContent && el.textContent.includes('Bed') && el.textContent.length < 100
-					);
-
-				const title = titleEl ? titleEl.textContent.trim() : "OpenRent Property";
+				// Title
+				let title = "OpenRent Property";
+				const titleEl = card.querySelector('h2, h3, strong, [class*="title"], [class*="address"]');
+				if (titleEl) {
+					title = titleEl.textContent.trim().split('\n')[0];
+				}
 
 				// Bedrooms
 				let bedrooms = null;
-				const bedText = card.textContent;
-				const bedMatch = bedText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+				const bedMatch = fullText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
 				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
 
-				const statusText = card.textContent.toLowerCase();
+				const statusText = fullText.toLowerCase();
 
-				if (link && (priceText || title)) {
+				if (link) {
 					items.push({
-						link,
-						title,
+						link: link.startsWith('http') ? link : 'https://www.openrent.co.uk' + link,
+						title: title.substring(0, 150),
 						priceText,
 						bedrooms,
 						statusText
 					});
 				}
 			}
-
 			return items;
 		});
 
-		// quick debug
-		// === REPLACE your existing properties = await page.evaluate(() => { ... }) block with this ===
+		console.log(`    Found ${properties.length} properties on [${area}] Page ${pageNumber}`);
 
-		// De-duplicate properties on the same page
+		// De-duplicate
 		const uniqueProperties = [];
 		const seenLinks = new Set();
 		for (const p of properties) {
@@ -270,11 +206,7 @@ async function handleListingPage({ page, request, crawler }) {
 			}
 		}
 
-		console.log(
-			`    Found ${uniqueProperties.length} unique properties on [${area}] Page ${pageNumber}`,
-		);
-
-		const batchSize = 10;
+		const batchSize = 8;
 		for (let i = 0; i < uniqueProperties.length; i += batchSize) {
 			const batch = uniqueProperties.slice(i, i + batchSize);
 			console.log(
@@ -287,22 +219,18 @@ async function handleListingPage({ page, request, crawler }) {
 						isSoldProperty(property.statusText || "") ||
 						property.statusText.toLowerCase().includes("let agreed")
 					) {
-						// console.log(`    ⏭️ Skipping let agreed: ${property.title}`);
 						return;
 					}
 
-					// OpenRent specific price parsing for weekly
 					let price = null;
-					if (property.priceText.includes("pw")) {
-						const weeklyPrice = parsePrice(property.priceText.replace("pw", ""));
+					if (property.priceText.includes("pw") || property.priceText.toLowerCase().includes("week")) {
+						const weeklyPrice = parsePrice(property.priceText.replace(/pw|week/i, ""));
 						if (weeklyPrice) price = Math.round((weeklyPrice * 52) / 12);
 					} else {
 						price = parsePrice(property.priceText);
 					}
 
-					if (!price) {
-						return;
-					}
+					if (!price) return;
 
 					const updateResult = await updatePriceByPropertyURLOptimized(
 						property.link,
@@ -319,27 +247,22 @@ async function handleListingPage({ page, request, crawler }) {
 
 					if (!updateResult.isExisting && !updateResult.error) {
 						console.log(`    🆕 New property: ${property.title} - £${price}`);
-						// Small jittered delay to avoid hitting detail pages at the exact same millisecond
 						await new Promise((r) => setTimeout(r, Math.random() * 2000));
 						await scrapePropertyDetail(page.context(), { ...property, price }, isRental);
 					}
 				}),
 			);
 
-			// Increased delay after each batch of 10 to cool down
 			await new Promise((r) => setTimeout(r, 5000));
 		}
 
-		// Wait between listing pages
-		await new Promise((r) => setTimeout(r, 6000));
+		await new Promise((r) => setTimeout(r, 7000));
 	} catch (error) {
 		console.error(` Error in handleListingPage: ${error.message}`);
 	}
 }
 
-// ============================================================================
 // CRAWLER SETUP
-// ============================================================================
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
@@ -360,9 +283,8 @@ function createCrawler(browserWSEndpoint) {
 	});
 }
 
-// ============================================================================
 // MAIN SCRAPER LOGIC
-// ============================================================================
+
 
 async function scrapeOpenRent() {
 	console.log(` Starting OpenRent Scraper (Agent ${AGENT_ID})...`);
@@ -401,9 +323,7 @@ async function scrapeOpenRent() {
 	);
 }
 
-// ============================================================================
 // MAIN EXECUTION
-// ============================================================================
 
 (async () => {
 	try {
