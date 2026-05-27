@@ -135,10 +135,21 @@ async function handleListingPage({ page, request }) {
 			await page.waitForTimeout(2000);
 		}
 
+		// Debug: log page title to detect bot blocks or challenges
+		const pageTitle = await page.title();
+		console.log(`    📄 Page title: "${pageTitle}"`);
+
 		// OpenRent listing cards: selector is now `a.search-property-card` with numeric hrefs (e.g. /2889736)
 		await page
 			.waitForSelector("a.search-property-card", { timeout: 15000 })
 			.catch(() => { });
+
+		// Debug: dump a portion of the HTML if no cards found
+		const cardCount = await page.$$eval("a.search-property-card", els => els.length).catch(() => 0);
+		if (cardCount === 0) {
+			const bodySnippet = await page.evaluate(() => document.body?.innerHTML?.substring(0, 800) || "EMPTY BODY").catch(() => "EVAL ERROR");
+			console.log(`    🐛 HTML snippet (first 800 chars):\n${bodySnippet}`);
+		}
 
 		const properties = await page.evaluate(() => {
 			const cards = Array.from(document.querySelectorAll("a.search-property-card"));
