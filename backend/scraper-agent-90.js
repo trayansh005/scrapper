@@ -240,15 +240,64 @@ function createCrawler(browserWSEndpoint) {
 			launcher: undefined,
 			launchOptions: {
 				browserWSEndpoint,
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				args: [
+					"--no-sandbox",
+					"--disable-setuid-sandbox",
+					"--disable-blink-features=AutomationControlled",
+				],
 			},
 		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				// Override automation fingerprints to bypass AWS WAF
+				await page.addInitScript(() => {
+					// Hide webdriver flag
+					Object.defineProperty(navigator, "webdriver", {
+						get: () => undefined,
+					});
+					// Fake plugins list (real browsers have plugins)
+					Object.defineProperty(navigator, "plugins", {
+						get: () => [
+							{ name: "Chrome PDF Plugin" },
+							{ name: "Chrome PDF Viewer" },
+							{ name: "Native Client" },
+						],
+					});
+					// Set realistic languages
+					Object.defineProperty(navigator, "languages", {
+						get: () => ["en-GB", "en"],
+					});
+					// Remove Chrome automation property
+					delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+					delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+					delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+				});
+
+				// Set a real browser user-agent
+				await page.setExtraHTTPHeaders({
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+					"Accept-Language": "en-GB,en;q=0.9",
+					Accept:
+						"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+					"Sec-Fetch-Site": "none",
+					"Sec-Fetch-Mode": "navigate",
+					"Sec-Fetch-User": "?1",
+					"Sec-Fetch-Dest": "document",
+					"Upgrade-Insecure-Requests": "1",
+				});
+
+				// Set realistic viewport
+				await page.setViewportSize({ width: 1366, height: 768 });
+			},
+		],
 		requestHandler: handleListingPage,
 		failedRequestHandler({ request }) {
 			console.error(` Failed listing page: ${request.url}`);
 		},
 	});
 }
+
 
 // MAIN SCRAPER LOGIC
 
