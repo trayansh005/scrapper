@@ -135,29 +135,35 @@ async function handleListingPage({ page, request }) {
 			await page.waitForTimeout(2000);
 		}
 
-		// OpenRent listing cards can be rendered lazily; sometimes anchor text isn't present immediately.
+		// OpenRent listing cards: selector is now `a.search-property-card` with numeric hrefs (e.g. /2889736)
 		await page
-			.waitForSelector('a[href*="/property-to-rent/"]', { timeout: 15000 })
-			.catch(() => {});
+			.waitForSelector("a.search-property-card", { timeout: 15000 })
+			.catch(() => { });
 
-		const result = await page.evaluate(() => {
-			const links = Array.from(document.querySelectorAll('a[href*="/property-to-rent/"]'));
-
+		const properties = await page.evaluate(() => {
+			const cards = Array.from(document.querySelectorAll("a.search-property-card"));
 			const items = [];
-			links.forEach((linkEl) => {
-				const href = linkEl.getAttribute("href");
+
+			cards.forEach((card) => {
+				const href = card.getAttribute("href");
 				if (!href) return;
 
-				const cardText = [
-					(linkEl.textContent || "").trim(),
-					(linkEl.parentElement?.textContent || "").trim(),
-				].join(" ");
+				const fullText = (card.textContent || "").trim();
 
-				const priceText = (cardText.match(/£[0-9,]+/) || [""])[0];
-				const title = (cardText.split("\n")[0] || "Property").substring(0, 150);
+				// Price: first £ occurrence in card text
+				const priceText = (fullText.match(/\u00a3[\d,]+/) || [""])[0];
 
+				// Title: look for the property title element, fallback to first non-empty line
+				const titleEl = card.querySelector(".p-name, .property-title, h2, h3");
+				const title = (
+					titleEl
+						? titleEl.textContent.trim()
+						: fullText.split("\n").map((l) => l.trim()).find((l) => l.length > 5) || "Property"
+				).substring(0, 150);
+
+				// Bedrooms: look for "X bed" pattern
 				let bedrooms = null;
-				const bedMatch = cardText.match(/(\d+)\s*(bed|beds)/i);
+				const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
 				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
 
 				items.push({
@@ -165,49 +171,15 @@ async function handleListingPage({ page, request }) {
 					title,
 					priceText,
 					bedrooms,
-					statusText: cardText.toLowerCase(),
+					statusText: fullText.toLowerCase(),
 				});
 			});
 
-			return {
-				count: items.length,
-				sample: items.slice(0, 2),
-			};
+			return items;
 		});
 
-		console.log(`    🔍 Found ${result.count} property links on Page ${pageNumber}`);
-		if (result.sample.length > 0) console.log("    Sample:", result.sample);
-
-		const properties =
-			result.count > 0
-				? await page.evaluate(() => {
-					const items = [];
-					document
-							.querySelectorAll('a[href*="/property-to-rent/"]')
-							.forEach((linkEl) => {
-								const href = linkEl.getAttribute("href");
-								const fullText = (linkEl.textContent || "").trim();
-								if (!href || !fullText) return;
-
-								const priceText = (fullText.match(/\u00a3[0-9,]+/) || [""])[0];
-								const title = (fullText.split("\n")[0] || "Property").substring(0, 150);
-
-								let bedrooms = null;
-								const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
-								if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-
-								items.push({
-									link: href.startsWith("http") ? href : "https://www.openrent.co.uk" + href,
-									title,
-									priceText,
-									bedrooms,
-									statusText: fullText.toLowerCase(),
-								});
-							});
-					return items;
-				}
-				)
-				: [];
+		console.log(`    🔍 Found ${properties.length} property cards on Page ${pageNumber}`);
+		if (properties.length > 0) console.log("    Sample:", properties.slice(0, 2));
 
 		if (properties.length === 0) {
 			console.log("    ⚠️ Still no properties. Page may be blocked or heavily protected.");
