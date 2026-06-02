@@ -1,6 +1,6 @@
 // REDAC Strattons Property scraper using Playwright with Crawlee
 // Agent ID: 262
-// Updated 2026-06-02: Stronger Under Offer / Sold / Let exclusion logic
+// Updated 2026-06-02: Fixed for Nuxt.js dynamic loading + better card detection
 
 const { PlaywrightCrawler, log } = require("crawlee");
 const { updateRemoveStatus } = require("./db.js");
@@ -18,12 +18,12 @@ const logger = createAgentLogger(AGENT_ID);
 
 const PROPERTY_TYPES = [
 	{
-		baseUrl: "https://redacstrattons.com/property-for-sale/?location&office&type&min_price&max_price&min_beds&exclude_sold=true",
+		baseUrl: "https://redacstrattons.com/property-for-sale/",
 		isRental: false,
 		label: "SALES",
 	},
 	{
-		baseUrl: "https://redacstrattons.com/property-to-rent/?location&office&type&min_price&max_price&min_beds&exclude_let=true",
+		baseUrl: "https://redacstrattons.com/property-to-rent/",
 		isRental: true,
 		label: "RENTALS",
 	},
@@ -33,44 +33,33 @@ const counts = { totalScraped: 0, totalSaved: 0, savedSales: 0, savedRentals: 0 
 const processedUrls = new Set();
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// UTILITIES
 // ============================================================================
 
-function sleep(ms) { 
-    return new Promise(r => setTimeout(r, ms)); 
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function blockNonEssentialResources(page) {
 	return page.route("**/*", (route) => {
-		if (["image", "font", "media"].includes(route.request().resourceType())) 
-            return route.abort();
+		const type = route.request().resourceType();
+		if (["image", "font", "media", "stylesheet"].includes(type)) return route.abort();
 		return route.continue();
 	});
 }
 
-// === STRONG EXCLUSION LOGIC ===
 function shouldExcludeProperty(statusText, rawText, title) {
-    const combinedText = (statusText + " " + rawText + " " + title || "").toLowerCase();
-    
-    const excludeKeywords = [
-        "under offer", "under-offer", "sold", "sold stc", 
-        "reserved", "let agreed", "let", "rented", "agreed",
-        "under offer", "sstc"
-    ];
-
-    return excludeKeywords.some(keyword => combinedText.includes(keyword));
+    const text = (statusText + " " + rawText + " " + title || "").toLowerCase();
+    const keywords = ["under offer", "under-offer", "sold", "sold stc", "sstc", "reserved", "let agreed", "let", "rented", "agreed"];
+    return keywords.some(k => text.includes(k));
 }
 
 function normalizePropertyUrl(url) {
 	try {
 		const u = new URL(url);
 		const parts = u.pathname.split("/").filter(Boolean);
-
 		if (parts.length >= 2 && parts[0] === "property") {
 			const slug = parts[1].replace(/-\d+$/, "");
 			u.pathname = `/property/${slug}`;
 		}
-
 		return u.toString();
 	} catch {
 		return url;
@@ -78,42 +67,42 @@ function normalizePropertyUrl(url) {
 }
 
 // ============================================================================
-// LISTING PAGE HANDLER
+// LISTING HANDLER
 // ============================================================================
 
 async function handleListingPage({ page, request, crawler }) {
-    const { pageNum, isRental, label, baseUrl, totalPages = 20 } = request.userData;
+    const { pageNum, isRental, label, baseUrl } = request.userData;
     
-    logger.page(pageNum, label, request.url, totalPages);
+    logger.page(pageNum, label, request.url);
 
     try {
-        await page.waitForLoadState("domcontentloaded", { timeout: 30000 });
+        await page.waitForLoadState("networkidle", { timeout: 60000 });
 
-        // Wait for property cards
-        await Promise.race([
-            page.waitForSelector("a[href*='/property/']", { timeout: 25000 }),
-            page.waitForTimeout(12000)
-        ]).catch(() => {});
+        // Long wait for Nuxt.js to load listings
+        await page.waitForTimeout(8000);
 
-        // Extra time for Nuxt hydration
-        await page.waitForTimeout(4500);
+        // Scroll to trigger lazy loading
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.waitForTimeout(3000);
 
         const properties = await page.evaluate(() => {
             const results = [];
             const seen = new Set();
 
+            // Very aggressive selectors for this site
             const cardElements = document.querySelectorAll(`
                 article, 
                 div[class*="property"], 
                 div[class*="listing"], 
-                li[class*="property"], 
-                .card, 
-                .property-card,
-                [data-property]
+                div[class*="card"], 
+                .nuxt-link, 
+                a[href*="/property/"] ~ div,
+                [class*="item"]
             `);
 
             for (const card of cardElements) {
-                const linkEl = card.querySelector('a[href*="/property/"]');
+                const linkEl = card.querySelector('a[href*="/property/"]') || 
+                               card.closest('a[href*="/property/"]');
                 if (!linkEl) continue;
 
                 const href = linkEl.getAttribute("href");
@@ -123,32 +112,25 @@ async function handleListingPage({ page, request, crawler }) {
                 const fullLink = href.startsWith("http") ? href : new URL(href, location.origin).href;
 
                 const rawText = (card.textContent || "").replace(/\s+/g, " ").trim();
-                const titleEl = card.querySelector("h2, h3, .title, .address, .property-title, strong");
+                const titleEl = card.querySelector("h2, h3, .title, .address, strong, .property-title");
                 const title = (titleEl?.textContent || "Property").trim();
 
-                // Status detection - multiple attempts
+                // Status
                 let statusText = "";
-                const statusSelectors = [
-                    "[class*='status']", "[class*='badge']", "[class*='tag']", 
-                    ".sold", ".let", ".offer", ".under", ".stc", "[class*='flag']"
-                ];
-                
-                for (const sel of statusSelectors) {
-                    const el = card.querySelector(sel);
-                    if (el) {
-                        statusText = (el.textContent || "").trim();
+                const statusEls = card.querySelectorAll(".status, .badge, .tag, .flag, .label, [class*='sold'], [class*='offer'], [class*='let']");
+                for (const el of statusEls) {
+                    const txt = (el.textContent || "").trim();
+                    if (txt.length > 2) {
+                        statusText = txt;
                         break;
                     }
                 }
 
-                // Price
                 const priceMatch = rawText.match(/£[\d,]+(?:\.\d+)?/);
                 const priceRaw = priceMatch ? priceMatch[0] : "";
 
-                // Bedrooms
                 let bedText = "";
-                const bedRegex = /(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i;
-                const bedMatch = rawText.match(bedRegex);
+                const bedMatch = rawText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
                 if (bedMatch) bedText = bedMatch[0];
 
                 results.push({
@@ -157,24 +139,25 @@ async function handleListingPage({ page, request, crawler }) {
                     priceRaw,
                     bedText,
                     statusText,
-                    rawText: rawText.substring(0, 500)
+                    rawText: rawText.substring(0, 600)
                 });
             }
 
             return results;
         });
 
-        logger.page(pageNum, label, `Found ${properties.length} properties on page ${pageNum}`);
+        logger.page(pageNum, label, `Found ${properties.length} properties`);
 
-        // Process each property
+        let excluded = 0;
+
         for (const prop of properties) {
             const normalizedUrl = normalizePropertyUrl(prop.link);
-            if (!prop.link || processedUrls.has(normalizedUrl)) continue;
+            if (processedUrls.has(normalizedUrl)) continue;
             processedUrls.add(normalizedUrl);
 
-            // === EXCLUSION CHECK ===
             if (shouldExcludeProperty(prop.statusText, prop.rawText, prop.title)) {
-                logger.property(pageNum, label, prop.title.substring(0, 60), "N/A", prop.link, isRental, totalPages, "EXCLUDED");
+                excluded++;
+                logger.property(pageNum, label, prop.title.substring(0, 50), "N/A", prop.link, isRental, 20, "EXCLUDED");
                 continue;
             }
 
@@ -183,8 +166,8 @@ async function handleListingPage({ page, request, crawler }) {
 
             let bedrooms = null;
             if (prop.bedText) {
-                const numMatch = prop.bedText.match(/\d+/);
-                if (numMatch) bedrooms = parseInt(numMatch[0]);
+                const num = prop.bedText.match(/\d+/);
+                if (num) bedrooms = parseInt(num[0]);
             }
 
             const result = await updatePriceByPropertyURLOptimized(
@@ -201,39 +184,33 @@ async function handleListingPage({ page, request, crawler }) {
                     const html = await detailPage.content();
                     await processPropertyWithCoordinates(prop.link, price, prop.title, bedrooms, AGENT_ID, isRental, html);
                     await detailPage.close().catch(() => {});
-                    
+
                     counts.totalSaved++;
                     if (isRental) counts.savedRentals++;
                     else counts.savedSales++;
                 } catch (e) {
-                    logger.error(`Detail page failed: ${prop.link}`, e.message);
+                    logger.error(`Detail failed: ${prop.link}`, e.message);
                 }
             }
 
-            logger.property(
-                pageNum, 
-                label, 
+            logger.property(pageNum, label,
                 `${prop.title.substring(0, 55)}${bedrooms ? ` (${bedrooms} bed)` : ""}`,
-                formatPriceDisplay(price, isRental), 
-                prop.link, 
-                isRental, 
-                totalPages, 
-                action
+                formatPriceDisplay(price, isRental),
+                prop.link, isRental, 20, action
             );
 
-            await sleep(action.includes("CREATE") ? 2500 : 800);
+            await sleep(1000);
         }
 
-        // Pagination
+        logger.page(pageNum, label, `Excluded ${excluded} properties this page`);
+
+        // Try pagination
         const hasNext = await page.evaluate(() => 
-            !!document.querySelector("a[rel='next'], a.next, .pagination a:last-child, button.next")
+            !!document.querySelector("a[rel='next'], a.next, button.next, .pagination a:last-child")
         );
 
-        if (hasNext && pageNum < 30) {
-            const nextUrl = baseUrl.includes("?") 
-                ? `${baseUrl}&page=${pageNum + 1}` 
-                : `${baseUrl}?page=${pageNum + 1}`;
-            
+        if (hasNext && pageNum < 25) {
+            const nextUrl = `${baseUrl}?page=${pageNum + 1}`;
             await crawler.addRequests([{
                 url: nextUrl,
                 userData: { ...request.userData, pageNum: pageNum + 1 }
@@ -241,7 +218,7 @@ async function handleListingPage({ page, request, crawler }) {
         }
 
     } catch (error) {
-        logger.error(`Page ${pageNum} error (${label})`, error.message);
+        logger.error(`Page ${pageNum} error`, error.message);
     }
 }
 
@@ -253,30 +230,26 @@ function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
 		maxConcurrency: 1,
 		maxRequestRetries: 3,
-		navigationTimeoutSecs: 90,
-		requestHandlerTimeoutSecs: 240,
+		navigationTimeoutSecs: 120,
+		requestHandlerTimeoutSecs: 300,
 		preNavigationHooks: [({ page }) => blockNonEssentialResources(page)],
 		launchContext: {
 			launchOptions: {
 				browserWSEndpoint,
 				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-				viewport: { width: 1280, height: 900 }
+				viewport: { width: 1366, height: 1000 }
 			}
 		},
 		requestHandler: handleListingPage,
 	});
 }
 
-// ============================================================================
-// MAIN FUNCTION
-// ============================================================================
-
 async function scrapeRedacStrattons() {
-	logger.step("Starting REDAC Strattons Scraper (Sales + Rentals) - v2026-06-02");
+	logger.step("Starting REDAC Strattons Scraper - Nuxt Optimized v2026-06-02");
 
 	const args = process.argv.slice(2);
 	const startPage = args.length ? parseInt(args[0]) || 1 : 1;
-	
+
 	const browserWSEndpoint = process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`;
 
@@ -284,15 +257,14 @@ async function scrapeRedacStrattons() {
 	const allRequests = [];
 
 	for (const type of PROPERTY_TYPES) {
-		logger.step(`Queueing ${type.label} start page`);
+		logger.step(`Queueing ${type.label}`);
 		allRequests.push({
-			url: type.baseUrl + (startPage > 1 ? `&page=${startPage}` : ""),
+			url: type.baseUrl,
 			userData: {
 				pageNum: startPage,
 				isRental: type.isRental,
 				label: type.label,
-				baseUrl: type.baseUrl,
-				totalPages: 20
+				baseUrl: type.baseUrl
 			}
 		});
 	}
