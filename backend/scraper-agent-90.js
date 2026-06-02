@@ -10,17 +10,30 @@ const {
 	updatePriceByPropertyURLOptimized,
 	processPropertyWithCoordinates,
 } = require("./lib/db-helpers.js");
-const { isSoldProperty, parsePrice } = require("./lib/property-helpers.js");
+const {
+	isSoldProperty,
+	parsePrice,
+	formatPriceDisplay,
+} = require("./lib/property-helpers.js");
+const { createAgentLogger } = require("./lib/logger-helpers.js");
 
 // Disable Crawlee's verbose logging
 log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 90;
+const logger = createAgentLogger(AGENT_ID);
 
 const stats = {
+	pagesProcessed: 0,
 	totalScraped: 0,
 	totalSaved: 0,
+	totalUpdated: 0,
+	totalCreated: 0,
+	totalSkipped: 0,
+	totalErrors: 0,
 };
+
+const MAX_PROPERTIES_PER_PAGE = 50;
 
 // BROWSERLESS SETUP
 
@@ -31,13 +44,67 @@ function getBrowserlessEndpoint() {
 	);
 }
 
-// DETAIL PAGE SCRAPING FUNCTION
+function normalizePropertyUrl(rawUrl) {
+	if (!rawUrl) return null;
+	try {
+		const url = new URL(rawUrl, "https://www.openrent.co.uk");
+		return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
+	} catch (error) {
+		return rawUrl.trim();
+	}
+}
+
+function buildListingProperties() {
+	return Array.from(document.querySelectorAll("a.search-property-card, a[href*='/property/']"))
+		.map((card) => {
+			const href = card.getAttribute("href");
+			if (!href) return null;
+
+			const fullText = (card.textContent || "").trim();
+
+			const priceEl = card.querySelector("[class*='price'], .price, .property-price, .listing-price");
+			const priceText =
+				(priceEl && priceEl.textContent && priceEl.textContent.trim()) ||
+				(fullText.match(/\u00a3[\d,]+(?:\.\d+)?/) || [""])[0] ||
+				"";
+
+			const titleEl =
+				card.querySelector(".p-name, .property-title, h2, h3, [class*='title'], [data-testid='listing-title']");
+			const title = (
+				(titleEl ? titleEl.textContent.trim() : null) ||
+				fullText
+					.split("\n")
+					.map((line) => line.trim())
+					.filter(Boolean)
+					.find((line) => line.length > 5) ||
+				"Property"
+			).substring(0, 150);
+
+			let bedrooms = null;
+			const bedMatch = fullText.match(/(\d+)\s*(bedroom|bedrooms|bed)/i);
+			if (bedMatch) bedrooms = parseInt(bedMatch[1], 10);
+
+			const statusTextEl = card.querySelector("[class*='status'], .status, .label, .badge");
+			const statusText =
+				(statusTextEl && statusTextEl.textContent && statusTextEl.textContent.trim().toLowerCase()) ||
+				fullText.toLowerCase();
+
+			return {
+				link: href.startsWith("http") ? href : `https://www.openrent.co.uk${href}`,
+				title,
+				priceText,
+				bedrooms,
+				statusText,
+			};
+		})
+		.filter(Boolean);
+}
 
 async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
+	let detailHtml = null;
 
 	try {
-		// Block unnecessary resources
 		await detailPage.route("**/*", (route) => {
 			const resourceType = route.request().resourceType();
 			if (["image", "font", "stylesheet", "media"].includes(resourceType)) {
@@ -52,73 +119,91 @@ async function scrapePropertyDetail(browserContext, property, isRental) {
 			timeout: 60000,
 		});
 
-		// Small human-like delay
 		await detailPage.waitForTimeout(1500);
 
-		// Extract coordinates from map
+		detailHtml = await detailPage.content();
+
 		const detailData = await detailPage.evaluate(() => {
+			const parseFloatSafe = (value) => {
+				const normalized = String(value || "").trim();
+				const num = parseFloat(normalized);
+				return Number.isFinite(num) ? num : null;
+			};
+
 			let lat = null;
 			let lng = null;
 
-			const mapDiv =
-				document.querySelector("#map[data-lat][data-lng]") ||
-				document.querySelector("div[data-lat][data-lng]");
-
+			const mapDiv = document.querySelector("[data-lat][data-lng]");
 			if (mapDiv) {
-				lat = parseFloat(mapDiv.getAttribute("data-lat"));
-				lng = parseFloat(mapDiv.getAttribute("data-lng"));
+				lat = parseFloatSafe(mapDiv.getAttribute("data-lat"));
+				lng = parseFloatSafe(mapDiv.getAttribute("data-lng"));
+			}
+
+			if (!lat || !lng) {
+				const latEl = document.querySelector("[data-lat]");
+				const lngEl = document.querySelector("[data-lng]");
+				if (latEl && lngEl) {
+					lat = parseFloatSafe(latEl.getAttribute("data-lat") || latEl.getAttribute("data-lat") || latEl.textContent);
+					lng = parseFloatSafe(lngEl.getAttribute("data-lng") || lngEl.textContent);
+				}
+			}
+
+			if ((!lat || !lng) && window.location.href) {
+				const iframe = document.querySelector("iframe[src*='maps.google.com'], iframe[src*='google.com/maps']");
+				if (iframe) {
+					const match = iframe.src.match(/@([0-9.-]+),([0-9.-]+),/);
+					if (match) {
+						lat = parseFloatSafe(match[1]);
+						lng = parseFloatSafe(match[2]);
+					}
+				}
 			}
 
 			return { lat, lng };
 		});
 
-		// Save to database
-		await processPropertyWithCoordinates(
+		const result = await processPropertyWithCoordinates(
 			property.link,
 			property.price,
 			property.title,
 			property.bedrooms || null,
 			AGENT_ID,
 			isRental,
-			null, // html (optional)
+			detailHtml,
 			detailData.lat,
 			detailData.lng,
 		);
 
-		stats.totalScraped++;
-		stats.totalSaved++;
-
-		console.log(`    ✅ Detail scraped: ${property.title}`);
+		return {
+			success: true,
+			coordsFound: detailData.lat !== null && detailData.lng !== null,
+			result,
+		};
 	} catch (error) {
-		console.error(`    ❌ Error scraping detail page ${property.link}:`, error.message);
+		logger.error(`Error scraping detail page`, error, null, null);
+		return { success: false, error: error.message || String(error) };
 	} finally {
 		await detailPage.close();
 	}
 }
 
-// Auto-scroll to load lazy-loaded properties
 async function autoScroll(page) {
 	await page.evaluate(async () => {
-		await new Promise((resolve) => {
-			let totalHeight = 0;
-			const distance = 700;
-			const timer = setInterval(() => {
-				window.scrollBy(0, distance);
-				totalHeight += distance;
-				if (totalHeight >= document.body.scrollHeight - 1200) {
-					clearInterval(timer);
-					resolve();
-				}
-			}, 380);
-		});
+		const distance = 700;
+		let previousHeight = document.body.scrollHeight;
+		for (let i = 0; i < 10; i += 1) {
+			window.scrollBy(0, distance);
+			await new Promise((resolve) => setTimeout(resolve, 380));
+			const currentHeight = document.body.scrollHeight;
+			if (currentHeight === previousHeight) break;
+			previousHeight = currentHeight;
+		}
 	});
 }
 
-// REQUEST HANDLER
-
 async function handleListingPage({ page, request }) {
 	const { isRental, label, pageNumber, area } = request.userData;
-	console.log(`\n Loading [${label}] ${area} Page ${pageNumber}: ${request.url}`);
+	logger.page(pageNumber, label, `Loading ${area} page`, null);
 
 	try {
 		await page.goto(request.url, {
@@ -126,114 +211,129 @@ async function handleListingPage({ page, request }) {
 			timeout: 90000,
 		});
 
-		// Extra time for heavy JS
-		await page.waitForTimeout(8000);
+		await page.waitForTimeout(6000);
 
-		// Multiple scrolls
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < 3; i += 1) {
 			await autoScroll(page);
-			await page.waitForTimeout(2000);
+			await page.waitForTimeout(1500);
 		}
 
-		// Debug: log page title to detect bot blocks or challenges
 		const pageTitle = await page.title();
-		console.log(`    📄 Page title: "${pageTitle}"`);
+		logger.page(pageNumber, label, `Page title: ${pageTitle}`);
 
-		// OpenRent listing cards: selector is now `a.search-property-card` with numeric hrefs (e.g. /2889736)
-		await page
-			.waitForSelector("a.search-property-card", { timeout: 15000 })
-			.catch(() => { });
+		const cardSelector = "a.search-property-card, a[href*='/property/']";
+		const cardCount = await page.$$eval(cardSelector, (els) => els.length).catch(() => 0);
 
-		// Debug: dump a portion of the HTML if no cards found
-		const cardCount = await page.$$eval("a.search-property-card", els => els.length).catch(() => 0);
 		if (cardCount === 0) {
-			const bodySnippet = await page.evaluate(() => document.body?.innerHTML?.substring(0, 800) || "EMPTY BODY").catch(() => "EVAL ERROR");
-			console.log(`    🐛 HTML snippet (first 800 chars):\n${bodySnippet}`);
-		}
-
-		const properties = await page.evaluate(() => {
-			const cards = Array.from(document.querySelectorAll("a.search-property-card"));
-			const items = [];
-
-			cards.forEach((card) => {
-				const href = card.getAttribute("href");
-				if (!href) return;
-
-				const fullText = (card.textContent || "").trim();
-
-				// Price: first £ occurrence in card text
-				const priceText = (fullText.match(/\u00a3[\d,]+/) || [""])[0];
-
-				// Title: look for the property title element, fallback to first non-empty line
-				const titleEl = card.querySelector(".p-name, .property-title, h2, h3");
-				const title = (
-					titleEl
-						? titleEl.textContent.trim()
-						: fullText.split("\n").map((l) => l.trim()).find((l) => l.length > 5) || "Property"
-				).substring(0, 150);
-
-				// Bedrooms: look for "X bed" pattern
-				let bedrooms = null;
-				const bedMatch = fullText.match(/(\d+)\s*(bed|beds)/i);
-				if (bedMatch) bedrooms = parseInt(bedMatch[1]);
-
-				items.push({
-					link: href.startsWith("http") ? href : "https://www.openrent.co.uk" + href,
-					title,
-					priceText,
-					bedrooms,
-					statusText: fullText.toLowerCase(),
-				});
-			});
-
-			return items;
-		});
-
-		console.log(`    🔍 Found ${properties.length} property cards on Page ${pageNumber}`);
-		if (properties.length > 0) console.log("    Sample:", properties.slice(0, 2));
-
-		if (properties.length === 0) {
-			console.log("    ⚠️ Still no properties. Page may be blocked or heavily protected.");
+			const bodySnippet = await page.evaluate(() => document.body?.innerText?.slice(0, 800) || "EMPTY BODY").catch(() => "EVAL ERROR");
+			logger.warn(`No listing cards found on page. HTML snippet: ${bodySnippet}`, pageNumber, label);
 			return;
 		}
 
-		// Deduplication + batch processing
-		const seen = new Set();
-		const deduped = [];
-		for (const p of properties) {
-			if (!p?.link) continue;
-			const key = p.link.trim();
-			if (seen.has(key)) continue;
-			seen.add(key);
-			deduped.push(p);
+		const properties = await page.evaluate(buildListingProperties);
+		logger.page(pageNumber, label, `Found ${properties.length} potential cards`, null);
+
+		if (!properties.length) {
+			logger.warn("No property data could be extracted from listing cards.", pageNumber, label);
+			return;
 		}
 
-		const batch = deduped.slice(0, 50);
-		console.log(`    Processing ${batch.length} properties (deduped) on Page ${pageNumber}`);
+		const deduped = [];
+		const seenLinks = new Set();
+		for (const property of properties) {
+			const normalizedLink = normalizePropertyUrl(property.link);
+			if (!normalizedLink || seenLinks.has(normalizedLink)) continue;
+			seenLinks.add(normalizedLink);
+			deduped.push({ ...property, link: normalizedLink });
+		}
+
+		const batch = deduped.slice(0, MAX_PROPERTIES_PER_PAGE);
+		logger.page(pageNumber, label, `Processing ${batch.length} deduplicated properties`, null);
 
 		for (const property of batch) {
-			const isSold = isSoldProperty(property.statusText || "");
-			if (isSold) continue;
-
-			const price = parsePrice(property.priceText);
-			if (!price) {
-				console.log(`    ⚠️ Skipping (bad price) ${property.link}`);
+			if (isSoldProperty(property.statusText || "")) {
+				stats.totalSkipped += 1;
 				continue;
 			}
 
-			// Detail scraping (coords from detail page)
-			await scrapePropertyDetail(page.context(), property, isRental);
+			const price = parsePrice(property.priceText);
+			if (!price) {
+				stats.totalSkipped += 1;
+				logger.property(pageNumber, label, property.title, property.priceText || "NO PRICE", property.link, isRental, null, "SKIPPED");
+				continue;
+			}
+
+			const dbResult = await updatePriceByPropertyURLOptimized(
+			property.link,
+			price,
+			property.title,
+			property.bedrooms || null,
+			AGENT_ID,
+			isRental,
+		);
+
+			if (dbResult && dbResult.error) {
+				stats.totalErrors += 1;
+				logger.property(pageNumber, label, property.title, formatPriceDisplay(price, isRental), property.link, isRental, null, "ERROR");
+				continue;
+			}
+
+			if (dbResult?.isExisting && !dbResult.missingData) {
+				stats.totalScraped += 1;
+				if (dbResult.updated) {
+					stats.totalSaved += 1;
+					stats.totalUpdated += 1;
+				}
+				logger.property(
+					pageNumber,
+					label,
+					property.title,
+					formatPriceDisplay(price, isRental),
+					property.link,
+					isRental,
+					null,
+					dbResult.updated ? "UPDATED" : "UNCHANGED",
+				);
+				continue;
+			}
+
+			const detailResult = await scrapePropertyDetail(page.context(), property, isRental);
+			if (!detailResult.success) {
+				stats.totalErrors += 1;
+				logger.property(pageNumber, label, property.title, formatPriceDisplay(price, isRental), property.link, isRental, null, "ERROR");
+				continue;
+			}
+
+			stats.totalScraped += 1;
+			stats.totalSaved += 1;
+			if (dbResult?.isExisting) {
+				stats.totalUpdated += 1;
+			} else {
+				stats.totalCreated += 1;
+			}
+
+			logger.property(
+				pageNumber,
+				label,
+				property.title,
+				formatPriceDisplay(price, isRental),
+				property.link,
+				isRental,
+				null,
+				dbResult?.isExisting ? "UPDATED" : "CREATED",
+				detailResult.coordsFound ? detailResult.result?.latitude : null,
+				detailResult.coordsFound ? detailResult.result?.longitude : null,
+			);
 		}
 	} catch (error) {
-		console.error(` Error in handleListingPage: ${error.message}`);
+		stats.totalErrors += 1;
+		logger.error("Error in handleListingPage", error, pageNumber, label);
 	}
 }
 
-// CRAWLER SETUP
-
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
-		maxConcurrency: 1, // Stay at 1 for OpenRent to avoid immediate 429
+		maxConcurrency: 1,
 		maxRequestRetries: 3,
 		requestHandlerTimeoutSecs: 600,
 		launchContext: {
@@ -249,13 +349,10 @@ function createCrawler(browserWSEndpoint) {
 		},
 		preNavigationHooks: [
 			async ({ page }) => {
-				// Override automation fingerprints to bypass AWS WAF
 				await page.addInitScript(() => {
-					// Hide webdriver flag
 					Object.defineProperty(navigator, "webdriver", {
 						get: () => undefined,
 					});
-					// Fake plugins list (real browsers have plugins)
 					Object.defineProperty(navigator, "plugins", {
 						get: () => [
 							{ name: "Chrome PDF Plugin" },
@@ -263,51 +360,44 @@ function createCrawler(browserWSEndpoint) {
 							{ name: "Native Client" },
 						],
 					});
-					// Set realistic languages
 					Object.defineProperty(navigator, "languages", {
 						get: () => ["en-GB", "en"],
 					});
-					// Remove Chrome automation property
 					delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 					delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
 					delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
 				});
 
-				// Set a real browser user-agent
-				await page.setExtraHTTPHeaders({
-					"User-Agent":
-						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-					"Accept-Language": "en-GB,en;q=0.9",
-					Accept:
-						"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-					"Sec-Fetch-Site": "none",
-					"Sec-Fetch-Mode": "navigate",
-					"Sec-Fetch-User": "?1",
-					"Sec-Fetch-Dest": "document",
-					"Upgrade-Insecure-Requests": "1",
-				});
+			await page.setExtraHTTPHeaders({
+				"User-Agent":
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+				"Accept-Language": "en-GB,en;q=0.9",
+				Accept:
+					"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+				"Sec-Fetch-Site": "none",
+				"Sec-Fetch-Mode": "navigate",
+				"Sec-Fetch-User": "?1",
+				"Sec-Fetch-Dest": "document",
+				"Upgrade-Insecure-Requests": "1",
+			});
 
-				// Set realistic viewport
-				await page.setViewportSize({ width: 1366, height: 768 });
-			},
-		],
-		requestHandler: handleListingPage,
-		failedRequestHandler({ request }) {
-			console.error(` Failed listing page: ${request.url}`);
+			await page.setViewportSize({ width: 1366, height: 768 });
 		},
-	});
+	],
+	requestHandler: handleListingPage,
+	failedRequestHandler({ request }) {
+		logger.error(`Failed listing page: ${request.url}`);
+	},
+});
 }
 
-
-// MAIN SCRAPER LOGIC
-
 async function scrapeOpenRent() {
-	console.log(` Starting OpenRent Scraper (Agent ${AGENT_ID})...`);
+	logger.step(`Starting OpenRent Scraper (Agent ${AGENT_ID})...`);
+	const scrapeStartTime = new Date();
 
 	const browserWSEndpoint = getBrowserlessEndpoint();
 	const crawler = createCrawler(browserWSEndpoint);
 
-	// Focus only on Greater London (6,000+ properties)
 	const AREAS = [{ name: "Greater London", term: "Greater%20London", pages: 350 }];
 
 	for (const area of AREAS) {
@@ -315,7 +405,7 @@ async function scrapeOpenRent() {
 		const path = area.term.toLowerCase().replace(/%20/g, "-");
 		const baseUrl = `https://www.openrent.co.uk/properties-to-rent/${path}?term=${area.term}&isLive=true`;
 
-		for (let p = 0; p < area.pages; p++) {
+		for (let p = 0; p < area.pages; p += 1) {
 			const skip = p * 20;
 			const url = skip === 0 ? baseUrl : `${baseUrl}&skip=${skip}`;
 			requests.push({
@@ -333,21 +423,19 @@ async function scrapeOpenRent() {
 
 	await crawler.run();
 
-	console.log(
-		`\n Finished OpenRent - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}`,
+	logger.step(
+		`Finished OpenRent - Total scraped: ${stats.totalScraped}, Total saved: ${stats.totalSaved}, Created: ${stats.totalCreated}, Updated: ${stats.totalUpdated}, Skipped: ${stats.totalSkipped}, Errors: ${stats.totalErrors}`,
 	);
-}
 
-// MAIN EXECUTION
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
+}
 
 (async () => {
 	try {
 		await scrapeOpenRent();
-		await updateRemoveStatus(AGENT_ID);
 		process.exit(0);
 	} catch (err) {
-		console.error(" Fatal error:", err?.message || err);
+		logger.error("Fatal error during scrape", err);
 		process.exit(1);
 	}
 })();
-
