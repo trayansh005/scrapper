@@ -67,216 +67,168 @@ function normalizePropertyUrl(url) {
 	}
 }
 
-// ============================================================================
 // LISTING HANDLER - IMPROVED VERSION
-// ============================================================================
-
 async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, isRental, label, baseUrl, totalPages } = request.userData;
+    const { pageNum, isRental, label, baseUrl, totalPages = 20 } = request.userData;
+    
+    logger.page(pageNum, label, request.url, totalPages);
 
-	logger.page(pageNum, label, request.url, totalPages);
+    try {
+        await page.waitForLoadState("domcontentloaded", { timeout: 30000 });
 
-	try {
-		// 1. Initial load
-		await page.waitForLoadState("domcontentloaded", { timeout: 20000 });
+        // === CRITICAL: Wait for listings to render ===
+        await Promise.race([
+            page.waitForSelector("a[href*='/property/']", { timeout: 25000 }),
+            page.waitForSelector(".property__listings, article, .listing", { timeout: 25000 }),
+            page.waitForTimeout(12000)
+        ]).catch(() => {});
 
-		// 2. Better waiting for content to load (critical for Nuxt SSR + client-side rendering)
-		await Promise.race([
-			page.waitForSelector("h4:contains('properties found')", { timeout: 15000 }),
-			page.waitForSelector("article, .property-card, .listing-item", { timeout: 15000 }),
-			page.waitForTimeout(10000)
-		]).catch(() => { });
+        // Extra wait for Nuxt hydration
+        await page.waitForTimeout(5000);
 
-		// 3. Optional: Trigger search / refresh if needed
-		try {
-			const submitBtn = await page.locator("input[type='submit'], button[type='submit'], .button--primary").first();
-			if (await submitBtn.isVisible({ timeout: 3000 })) {
-				await submitBtn.click();
-				await page.waitForTimeout(4000);
-			}
-		} catch (e) { }
+        const properties = await page.evaluate(() => {
+            const results = [];
+            const seen = new Set();
 
-		// 4. Wait a bit more for dynamic content
-		await page.waitForTimeout(3000);
+            // Stronger, more comprehensive selectors
+            const cardElements = document.querySelectorAll(`
+                article, 
+                div[class*="property"], 
+                div[class*="listing"], 
+                li[class*="property"], 
+                .card, 
+                .property-card,
+                [data-property],
+                .google__map ~ div article
+            `);
 
-		// 5. Extract properties
-		const properties = await page.evaluate(() => {
-			const results = [];
-			const seen = new Set();
+            for (const card of cardElements) {
+                const linkEl = card.querySelector('a[href*="/property/"]');
+                if (!linkEl) continue;
 
-			// Broader and more reliable selectors
-			const cardSelectors = [
-				"article",
-				"div[class*='property']",
-				"div[class*='listing']",
-				"li[class*='property']",
-				".card",
-				".listing-item"
-			];
+                const href = linkEl.getAttribute("href");
+                if (!href || seen.has(href)) continue;
+                seen.add(href);
 
-			let cards = [];
-			for (const sel of cardSelectors) {
-				cards = Array.from(document.querySelectorAll(sel));
-				if (cards.length > 0) break;
-			}
+                const fullLink = href.startsWith("http") ? href : new URL(href, location.origin).href;
 
-			for (const card of cards) {
-				const linkEl = card.querySelector("a[href*='/property/']");
-				if (!linkEl) continue;
+                const rawText = (card.textContent || "").replace(/\s+/g, " ").trim();
+                const titleEl = card.querySelector("h2, h3, .title, .address, strong, .property-title");
+                const title = (titleEl?.textContent || "Property").trim();
 
-				const href = linkEl.getAttribute("href");
-				if (!href || seen.has(href)) continue;
-				seen.add(href);
+                // Status
+                let statusText = "";
+                const statusSelectors = "[class*='status'], [class*='badge'], [class*='tag'], .sold, .let, .under, .offer";
+                const statusEl = card.querySelector(statusSelectors);
+                if (statusEl) statusText = statusEl.textContent.trim();
 
-				const fullLink = href.startsWith("http")
-					? href
-					: new URL(href, location.origin).href;
+                // Price
+                const priceMatch = rawText.match(/£[\d,]+(?:\.\d+)?/);
+                const priceRaw = priceMatch ? priceMatch[0] : "";
 
-				const rawText = (card.textContent || "").replace(/\s+/g, " ").trim();
+                // Bedrooms
+                let bedText = "";
+                const bedRegex = [
+                    /(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i,
+                    /bed(?:room)?s?\s*[:=]?\s*(\d+)/i,
+                    /\b(studio)\b/i,
+                    /\b(\d+)\s*[xX]\s*\d+/i
+                ];
+                for (const re of bedRegex) {
+                    const m = rawText.match(re);
+                    if (m) { bedText = m[0]; break; }
+                }
 
-				const titleEl = card.querySelector("h2, h3, .title, .address, .property-title");
-				const title = (titleEl?.textContent || "Property").trim();
+                results.push({
+                    link: fullLink,
+                    title,
+                    priceRaw,
+                    bedText,
+                    statusText,
+                    rawText: rawText.substring(0, 400)
+                });
+            }
 
-				// Status
-				let statusText = "";
-				const statusEl = card.querySelector("[class*='status'], [class*='badge'], [class*='tag'], .sold, .let, .under-offer");
-				if (statusEl) statusText = statusEl.textContent.trim();
+            return results;
+        });
 
-				// Price
-				const priceMatch = rawText.match(/£[\d,]+(?:\.\d+)?/);
-				const priceRaw = priceMatch ? priceMatch[0] : "";
+        logger.page(pageNum, label, `Found ${properties.length} properties on page ${pageNum}`);
 
-				// Bedrooms - improved regex
-				let bedText = "";
-				const bedPatterns = [
-					/(\d+)\s*(?:bed|beds|bedroom|bedrooms)\b/i,
-					/bed(?:room)?s?\s*[:=]?\s*(\d+)/i,
-					/\b(\d+)\s*[xX]\s*\d+/i,
-					/\b(studio)\b/i
-				];
+        // Process properties (rest remains mostly same)
+        for (const prop of properties) {
+            const normalizedUrl = normalizePropertyUrl(prop.link);
+            if (!prop.link || processedUrls.has(normalizedUrl)) continue;
+            processedUrls.add(normalizedUrl);
 
-				for (const re of bedPatterns) {
-					const match = rawText.match(re);
-					if (match) {
-						bedText = match[0];
-						break;
-					}
-				}
+            if (isSkippableProperty(prop.statusText)) {
+                logger.property(pageNum, label, prop.title.substring(0, 60), "N/A", prop.link, isRental, totalPages, "SKIPPED");
+                continue;
+            }
 
-				results.push({
-					link: fullLink,
-					title,
-					priceRaw,
-					bedText,
-					statusText,
-					rawText: rawText.substring(0, 300) // for debugging
-				});
-			}
+            const price = parsePrice(prop.priceRaw);
+            if (!price) continue;
 
-			return results;
-		});
+            let bedrooms = null;
+            if (prop.bedText) {
+                if (prop.bedText.toLowerCase().includes("studio")) bedrooms = 0;
+                else {
+                    const num = prop.bedText.match(/\d+/);
+                    if (num) bedrooms = parseInt(num[0]);
+                }
+            }
 
-		logger.page(pageNum, label, `Found ${properties.length} properties on page ${pageNum}`);
+            const result = await updatePriceByPropertyURLOptimized(
+                prop.link, price, prop.title, bedrooms, AGENT_ID, isRental
+            );
 
-		// 6. Process each property
-		for (const prop of properties) {
-			const normalizedUrl = normalizePropertyUrl(prop.link);
+            let action = result.updated ? "UPDATED" : (!result.isExisting ? "CREATED" : "EXISTING");
 
-			if (!prop.link || processedUrls.has(normalizedUrl)) continue;
-			processedUrls.add(normalizedUrl);
+            if (!result.isExisting) {
+                try {
+                    const detailPage = await page.context().newPage();
+                    await blockNonEssentialResources(detailPage);
+                    await detailPage.goto(prop.link, { waitUntil: "networkidle", timeout: 60000 });
+                    const html = await detailPage.content();
+                    await processPropertyWithCoordinates(prop.link, price, prop.title, bedrooms, AGENT_ID, isRental, html);
+                    await detailPage.close().catch(() => {});
+                    counts.totalSaved++;
+                    if (isRental) counts.savedRentals++; else counts.savedSales++;
+                } catch (e) {
+                    logger.error(`Detail failed: ${prop.link}`, e.message);
+                }
+            }
 
-			// Skip sold / under offer / let properties
-			if (isSkippableProperty(prop.statusText)) {
-				logger.property(pageNum, label, prop.title.substring(0, 60), "N/A", prop.link, isRental, totalPages, "SKIPPED");
-				continue;
-			}
+            logger.property(pageNum, label, 
+                `${prop.title.substring(0, 55)}${bedrooms ? ` (${bedrooms} bed)` : ""}`,
+                formatPriceDisplay(price, isRental), 
+                prop.link, isRental, totalPages, action
+            );
 
-			const price = parsePrice(prop.priceRaw);
-			if (!price) {
-				logger.property(pageNum, label, prop.title.substring(0, 60), "INVALID PRICE", prop.link, isRental, totalPages, "SKIPPED");
-				continue;
-			}
+            await sleep(action.includes("CREATE") ? 2500 : 800);
+        }
 
-			// Parse bedrooms
-			let bedrooms = null;
-			if (prop.bedText) {
-				const lower = prop.bedText.toLowerCase();
-				if (lower.includes("studio")) bedrooms = 0;
-				else {
-					const numMatch = prop.bedText.match(/\d+/);
-					if (numMatch) bedrooms = parseInt(numMatch[0], 10);
-				}
-			}
+        // Pagination
+        const hasNext = await page.evaluate(() => 
+            !!document.querySelector("a[rel='next'], a.next, .pagination a:last-child, button.next")
+        );
 
-			// Save/Update in DB
-			const result = await updatePriceByPropertyURLOptimized(
-				prop.link, price, prop.title, bedrooms, AGENT_ID, isRental
-			);
+        if (hasNext && pageNum < 30) {
+            const nextUrl = baseUrl.includes("?") 
+                ? `${baseUrl}&page=${pageNum + 1}` 
+                : `${baseUrl}?page=${pageNum + 1}`;
+            
+            await crawler.addRequests([{
+                url: nextUrl,
+                userData: { ...request.userData, pageNum: pageNum + 1 }
+            }]);
+        }
 
-			let action = "EXISTING";
-			if (result.updated) action = "UPDATED";
-			else if (!result.isExisting) action = "CREATED";
-
-			if (!result.isExisting) {
-				try {
-					const detailPage = await page.context().newPage();
-					await blockNonEssentialResources(detailPage);
-					await detailPage.goto(prop.link, { waitUntil: "networkidle", timeout: 45000 });
-
-					const html = await detailPage.content();
-					await processPropertyWithCoordinates(
-						prop.link, price, prop.title, bedrooms, AGENT_ID, isRental, html
-					);
-
-					await detailPage.close().catch(() => { });
-					action = "CREATED";
-					counts.totalSaved++;
-					if (isRental) counts.savedRentals++;
-					else counts.savedSales++;
-				} catch (e) {
-					logger.error(`Detail scraping failed for ${prop.link}`, e.message);
-				}
-			}
-
-			logger.property(
-				pageNum,
-				label,
-				`${prop.title.substring(0, 55)}${bedrooms !== null ? ` (${bedrooms} bed)` : ""}`,
-				formatPriceDisplay(price, isRental),
-				prop.link,
-				isRental,
-				totalPages,
-				action
-			);
-
-			await sleep(action === "CREATED" ? 2500 : 800);
-		}
-
-		// 7. Pagination
-		const hasNext = await page.evaluate(() => {
-			return !!document.querySelector("a[rel='next'], a.next, .pagination__next, .next-page, button.next");
-		});
-
-		if (hasNext && pageNum < 30) {  // safety limit
-			const nextPageNum = pageNum + 1;
-			const nextUrl = baseUrl.includes("?")
-				? `${baseUrl}&page=${nextPageNum}`
-				: `${baseUrl}?page=${nextPageNum}`;
-
-			await crawler.addRequests([{
-				url: nextUrl,
-				userData: { ...request.userData, pageNum: nextPageNum }
-			}]);
-		}
-
-	} catch (error) {
-		logger.error(`Error on page ${pageNum} (${label})`, error.message);
-	}
+    } catch (error) {
+        logger.error(`Page ${pageNum} error (${label})`, error.message);
+    }
 }
 
-// ============================================================================
 // CRAWLER + MAIN
-// ============================================================================
 
 function createCrawler(browserWSEndpoint) {
 	return new PlaywrightCrawler({
