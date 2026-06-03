@@ -33,6 +33,7 @@ async function updatePriceByPropertyURLOptimized(
 
 				const linkTrimmed = link.trim();
 				const formattedPrice = formatPriceUk(price);
+				const truncatedTitle = title ? title.substring(0, 150) : "";
 
 				// Check if property exists for THIS agent and get current data
 				const [propertiesUrlRows] = await promisePool.query(
@@ -49,9 +50,9 @@ async function updatePriceByPropertyURLOptimized(
 					// UPDATE existing property - always update updated_at, but only log if price changed
 					const [result] = await promisePool.query(
 						`UPDATE ${tableName}
-                        SET price = ?, remove_status = 0, updated_at = NOW()
+                        SET property_name = ?, price = ?, remove_status = 0, updated_at = NOW()
                         WHERE property_url = ? AND agent_id = ?`,
-						[formattedPrice, linkTrimmed, agent_id],
+						[truncatedTitle, formattedPrice, linkTrimmed, agent_id],
 					);
 
 					if (currentPrice !== formattedPrice && DB_VERBOSE_LOGS) {
