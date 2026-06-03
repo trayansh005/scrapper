@@ -52,11 +52,12 @@ async function updatePriceByPropertyURL(
 
 			if (propertiesUrlRows[0].count > 0) {
 				// UPDATE existing property for THIS agent
+				const truncatedTitle = title ? title.substring(0, 150) : "";
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
-                    SET price = ?, latitude = ?, longitude = ?, bedrooms = ?, remove_status = 0, updated_at = NOW()
+                    SET property_name = ?, price = ?, latitude = ?, longitude = ?, bedrooms = ?, remove_status = 0, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
-					[price, latitude, longitude, bedrooms, linkTrimmed, agent_id],
+					[truncatedTitle, price, latitude, longitude, bedrooms, linkTrimmed, agent_id],
 				);
 
 				if (result.affectedRows > 0) {
