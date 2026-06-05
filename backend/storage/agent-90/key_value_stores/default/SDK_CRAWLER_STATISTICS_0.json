@@ -1,0 +1,40 @@
+{
+  "requestsFinished": 110,
+  "requestsFailed": 0,
+  "requestsRetries": 1,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 1,
+  "requestMinDurationMillis": 45710,
+  "requestMaxDurationMillis": 163572,
+  "requestTotalFailedDurationMillis": 0,
+  "requestTotalFinishedDurationMillis": 10843943,
+  "crawlerStartedAt": "2026-06-05T08:26:28.449Z",
+  "crawlerFinishedAt": null,
+  "statsPersistedAt": "2026-06-05T11:28:31.060Z",
+  "crawlerRuntimeMillis": 10923193,
+  "crawlerLastStartTimestamp": 1780647987867,
+  "requestRetryHistogram": [
+    109,
+    1
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": null,
+  "requestAvgFinishedDurationMillis": 98581,
+  "requestTotalDurationMillis": 10843943,
+  "requestsTotal": 110,
+  "requestsWithStatusCode": {
+    "200": 111
+  },
+  "errors": {},
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 60 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
+}

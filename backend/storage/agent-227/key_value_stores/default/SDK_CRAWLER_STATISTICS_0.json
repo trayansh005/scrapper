@@ -1,30 +1,50 @@
 {
   "requestsFinished": 17,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 2,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 22710,
-  "requestMaxDurationMillis": 83214,
+  "requestMinDurationMillis": 29216,
+  "requestMaxDurationMillis": 102536,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1162308,
-  "crawlerStartedAt": "2026-05-14T05:54:34.557Z",
-  "crawlerFinishedAt": "2026-05-14T06:13:59.708Z",
-  "statsPersistedAt": "2026-05-14T06:13:59.708Z",
-  "crawlerRuntimeMillis": 1165316,
-  "crawlerLastStartTimestamp": 1778738074392,
+  "requestTotalFinishedDurationMillis": 1117701,
+  "crawlerStartedAt": "2026-06-05T08:00:03.702Z",
+  "crawlerFinishedAt": "2026-06-05T08:19:59.325Z",
+  "statsPersistedAt": "2026-06-05T08:19:59.325Z",
+  "crawlerRuntimeMillis": 1195805,
+  "crawlerLastStartTimestamp": 1780646403520,
   "requestRetryHistogram": [
-    17
+    15,
+    2
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 68371,
-  "requestTotalDurationMillis": 1162308,
+  "requestAvgFinishedDurationMillis": 65747,
+  "requestTotalDurationMillis": 1117701,
   "requestsTotal": 17,
   "requestsWithStatusCode": {
     "200": 16,
     "404": 1
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+      "missing error code": {
+        "Error": {
+          "Navigation timed out after 60 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
+      "missing error code": {
+        "Error": {
+          "browserController.newPage() failed: l_NSxnVeMwl3vXb4FOjuB": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }
