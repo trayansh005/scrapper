@@ -1,9 +1,9 @@
 {
 	"id": "5qtPTCNcG5Bahfl",
-	"json": "{\"id\":\"5qtPTCNcG5Bahfl\",\"url\":\"https://www.leaders.co.uk/properties/for-sale/page-12/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/for-sale/page-12/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/for-sale/page-12\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":12,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-13T04:38:15.711Z\"}",
+	"json": "{\"id\":\"5qtPTCNcG5Bahfl\",\"url\":\"https://www.leaders.co.uk/properties/for-sale/page-12/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/for-sale/page-12/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/for-sale/page-12\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: browserController.newPage() failed: Om9ypruedkG7BwoKMRhWZ\\nCause:browserController.newPage() timed out..\\n    at BrowserPool._createPageForBrowser (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:405:19)\\n    at async D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:295:20\"],\"headers\":{},\"userData\":{\"pageNum\":12,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-06-19T07:35:43.320Z\"}",
 	"method": "GET",
 	"orderNo": null,
-	"retryCount": 0,
+	"retryCount": 1,
 	"uniqueKey": "https://www.leaders.co.uk/properties/for-sale/page-12",
 	"url": "https://www.leaders.co.uk/properties/for-sale/page-12/"
 }

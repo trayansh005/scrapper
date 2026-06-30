@@ -1,51 +1,30 @@
 {
-  "requestsFinished": 5,
+  "requestsFinished": 36,
   "requestsFailed": 0,
-  "requestsRetries": 1,
+  "requestsRetries": 0,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": 23542,
-  "requestMaxDurationMillis": 197134,
+  "requestsFinishedPerMinute": 2,
+  "requestMinDurationMillis": 4702,
+  "requestMaxDurationMillis": 55146,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 550501,
-  "crawlerStartedAt": "2026-04-30T07:20:08.336Z",
-  "crawlerFinishedAt": "2026-04-30T07:30:51.103Z",
-  "statsPersistedAt": "2026-04-30T07:30:51.103Z",
-  "crawlerRuntimeMillis": 642917,
-  "crawlerLastStartTimestamp": 1777533608186,
+  "requestTotalFinishedDurationMillis": 1025747,
+  "crawlerStartedAt": "2026-06-19T11:09:48.644Z",
+  "crawlerFinishedAt": "2026-06-19T11:26:58.916Z",
+  "statsPersistedAt": "2026-06-19T11:26:58.917Z",
+  "crawlerRuntimeMillis": 1030449,
+  "crawlerLastStartTimestamp": 1781867388468,
   "requestRetryHistogram": [
-    4,
-    null,
-    1
+    36
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 110100,
-  "requestTotalDurationMillis": 550501,
-  "requestsTotal": 5,
+  "requestAvgFinishedDurationMillis": 28493,
+  "requestTotalDurationMillis": 1025747,
+  "requestsTotal": 36,
   "requestsWithStatusCode": {
-    "200": 4,
-    "404": 1
+    "200": 34,
+    "404": 2
   },
   "errors": {},
-  "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
-      "missing error code": {
-        "Error": {
-          "Navigation timed out after 90 seconds.": {
-            "count": 1
-          }
-        }
-      }
-    },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
-      "missing error code": {
-        "Error": {
-          "page.goto: net::ERR_EMPTY_RESPONSE at https://robsonsweb.com/search-results/page/5/?department=residential-lettings&address_keyword&radius&minimum_price&maximum_price&minimum_rent&maximum_rent&bedrooms&availability=14": {
-            "count": 1
-          }
-        }
-      }
-    }
-  }
+  "retryErrors": {}
 }

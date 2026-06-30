@@ -1,9 +1,9 @@
 {
 	"id": "RSG6ZRk3H0ita2L",
-	"json": "{\"id\":\"RSG6ZRk3H0ita2L\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-43/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-43/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-43\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":43,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-05-13T05:37:21.442Z\"}",
+	"json": "{\"id\":\"RSG6ZRk3H0ita2L\",\"url\":\"https://www.leaders.co.uk/properties/to-rent/page-43/\",\"loadedUrl\":\"https://www.leaders.co.uk/properties/to-rent/page-43/\",\"uniqueKey\":\"https://www.leaders.co.uk/properties/to-rent/page-43\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: browserController.newPage() failed: 5cuSGnxObPi1AaiBxl8p6\\nCause:browserController.newPage() timed out..\\n    at BrowserPool._createPageForBrowser (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:405:19)\\n    at async D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:295:20\"],\"headers\":{},\"userData\":{\"pageNum\":43,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-06-19T09:20:23.795Z\"}",
 	"method": "GET",
 	"orderNo": null,
-	"retryCount": 0,
+	"retryCount": 1,
 	"uniqueKey": "https://www.leaders.co.uk/properties/to-rent/page-43",
 	"url": "https://www.leaders.co.uk/properties/to-rent/page-43/"
 }

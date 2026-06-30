@@ -1,29 +1,52 @@
 {
-  "requestsFinished": 1,
-  "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsFinished": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 1,
   "requestsFailedPerMinute": 0,
   "requestsFinishedPerMinute": 0,
-  "requestMinDurationMillis": 149753,
-  "requestMaxDurationMillis": 149753,
-  "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 149753,
-  "crawlerStartedAt": "2026-05-06T10:51:23.575Z",
-  "crawlerFinishedAt": "2026-05-06T10:53:55.233Z",
-  "statsPersistedAt": "2026-05-06T10:53:55.233Z",
-  "crawlerRuntimeMillis": 151927,
-  "crawlerLastStartTimestamp": 1778064683306,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 308387,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-06-05T07:37:45.097Z",
+  "crawlerFinishedAt": "2026-06-05T07:58:16.336Z",
+  "statsPersistedAt": "2026-06-05T07:58:16.336Z",
+  "crawlerRuntimeMillis": 1231451,
+  "crawlerLastStartTimestamp": 1780645064885,
   "requestRetryHistogram": [
+    null,
+    null,
+    null,
     1
   ],
   "statsId": 0,
-  "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 149753,
-  "requestTotalDurationMillis": 149753,
+  "requestAvgFailedDurationMillis": 308387,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 308387,
   "requestsTotal": 1,
   "requestsWithStatusCode": {
-    "200": 1
+    "200": 4
   },
-  "errors": {},
-  "retryErrors": {}
+  "errors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 3
+          }
+        }
+      }
+    }
+  }
 }

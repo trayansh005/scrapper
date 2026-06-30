@@ -1,9 +1,9 @@
 {
 	"id": "W2A5RxpxFsyjlou",
-	"json": "{\"id\":\"W2A5RxpxFsyjlou\",\"url\":\"https://www.openrent.co.uk/properties-to-rent/greater-london?term=Greater%20London&isLive=true&skip=5960\",\"uniqueKey\":\"https://www.openrent.co.uk/properties-to-rent/greater-london?isLive=true&skip=5960&term=Greater+London\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":299,\"totalPages\":350,\"isRental\":true,\"label\":\"RENTALS\",\"area\":\"Greater London\"}}",
+	"json": "{\"id\":\"W2A5RxpxFsyjlou\",\"url\":\"https://www.openrent.co.uk/properties-to-rent/greater-london?term=Greater%20London&isLive=true&skip=5960\",\"loadedUrl\":\"https://www.openrent.co.uk/properties-to-rent/greater-london?term=Greater%20London&isLive=true\",\"uniqueKey\":\"https://www.openrent.co.uk/properties-to-rent/greater-london?isLive=true&skip=5960&term=Greater+London\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":1,\"errorMessages\":[\"Error: browserController.newPage() failed: Cj4tqJBp1vvHWiHu_g60T\\nCause:browserController.newPage() timed out..\\n    at BrowserPool._createPageForBrowser (D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:405:19)\\n    at runNextTicks (node:internal/process/task_queues:60:5)\\n    at process.processTimers (node:internal/timers:516:9)\\n    at async D:\\\\RSSC Technologies Data\\\\Projects\\\\scrapper\\\\backend\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:295:20\"],\"headers\":{},\"userData\":{\"pageNum\":299,\"totalPages\":350,\"isRental\":true,\"label\":\"RENTALS\",\"area\":\"Greater London\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-06-22T12:30:20.117Z\"}",
 	"method": "GET",
-	"orderNo": 1780488134659,
-	"retryCount": 0,
+	"orderNo": null,
+	"retryCount": 1,
 	"uniqueKey": "https://www.openrent.co.uk/properties-to-rent/greater-london?isLive=true&skip=5960&term=Greater+London",
 	"url": "https://www.openrent.co.uk/properties-to-rent/greater-london?term=Greater%20London&isLive=true&skip=5960"
 }
