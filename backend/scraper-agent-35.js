@@ -56,14 +56,14 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNum, label, `Found ${propertiesData.length} properties via map data`, totalPages);
 
 	// Process each property from the map data
-	// Data structure from research: [lat, lon, img, price, address, beds, baths, ?, id, url]
+	// Data structure from research: [lat, lon, img, price, address, receptions, beds, baths, id, url]
 	for (const data of propertiesData) {
 		try {
 			const latitude = parseFloat(data[0]);
 			const longitude = parseFloat(data[1]);
 			const rawPrice = data[3];
 			const title = data[4];
-			const bedrooms = data[5];
+			const bedrooms = data[6];
 			const relativeUrl = data[9];
 			const link = relativeUrl.startsWith("http")
 				? relativeUrl

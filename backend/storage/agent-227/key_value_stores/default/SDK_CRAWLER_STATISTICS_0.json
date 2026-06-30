@@ -1,47 +1,47 @@
 {
   "requestsFinished": 17,
   "requestsFailed": 0,
-  "requestsRetries": 2,
+  "requestsRetries": 10,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 1,
-  "requestMinDurationMillis": 29216,
-  "requestMaxDurationMillis": 102536,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": 35610,
+  "requestMaxDurationMillis": 309545,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 1117701,
-  "crawlerStartedAt": "2026-06-05T08:00:03.702Z",
-  "crawlerFinishedAt": "2026-06-05T08:19:59.325Z",
-  "statsPersistedAt": "2026-06-05T08:19:59.325Z",
-  "crawlerRuntimeMillis": 1195805,
-  "crawlerLastStartTimestamp": 1780646403520,
+  "requestTotalFinishedDurationMillis": 2531439,
+  "crawlerStartedAt": "2026-06-26T10:19:14.121Z",
+  "crawlerFinishedAt": "2026-06-26T11:39:05.381Z",
+  "statsPersistedAt": "2026-06-26T11:39:05.381Z",
+  "crawlerRuntimeMillis": 4791475,
+  "crawlerLastStartTimestamp": 1782469153906,
   "requestRetryHistogram": [
-    15,
-    2
+    7,
+    10
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 65747,
-  "requestTotalDurationMillis": 1117701,
+  "requestAvgFinishedDurationMillis": 148908,
+  "requestTotalDurationMillis": 2531439,
   "requestsTotal": 17,
   "requestsWithStatusCode": {
-    "200": 16,
+    "200": 22,
     "404": 1
   },
   "errors": {},
   "retryErrors": {
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
       "missing error code": {
         "Error": {
-          "Navigation timed out after 60 seconds.": {
-            "count": 1
+          "requestHandler timed out after 300 seconds.": {
+            "count": 6
           }
         }
       }
     },
-    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\core\\crawlers\\crawler_utils.js:13:11": {
       "missing error code": {
         "Error": {
-          "browserController.newPage() failed: l_NSxnVeMwl3vXb4FOjuB": {
-            "count": 1
+          "Navigation timed out after 60 seconds.": {
+            "count": 4
           }
         }
       }

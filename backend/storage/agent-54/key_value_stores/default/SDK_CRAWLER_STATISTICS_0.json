@@ -1,29 +1,49 @@
 {
   "requestsFinished": 555,
   "requestsFailed": 0,
-  "requestsRetries": 0,
+  "requestsRetries": 10,
   "requestsFailedPerMinute": 0,
-  "requestsFinishedPerMinute": 4,
-  "requestMinDurationMillis": 6701,
-  "requestMaxDurationMillis": 49533,
+  "requestsFinishedPerMinute": 3,
+  "requestMinDurationMillis": 7380,
+  "requestMaxDurationMillis": 81425,
   "requestTotalFailedDurationMillis": 0,
-  "requestTotalFinishedDurationMillis": 8782040,
-  "crawlerStartedAt": "2026-05-13T04:34:24.654Z",
-  "crawlerFinishedAt": "2026-05-13T07:01:15.888Z",
-  "statsPersistedAt": "2026-05-13T07:01:15.888Z",
-  "crawlerRuntimeMillis": 8812039,
-  "crawlerLastStartTimestamp": 1778646863849,
+  "requestTotalFinishedDurationMillis": 12431027,
+  "crawlerStartedAt": "2026-06-19T07:26:10.368Z",
+  "crawlerFinishedAt": "2026-06-19T10:58:02.394Z",
+  "statsPersistedAt": "2026-06-19T10:58:02.394Z",
+  "crawlerRuntimeMillis": 12712963,
+  "crawlerLastStartTimestamp": 1781853969431,
   "requestRetryHistogram": [
-    555
+    545,
+    10
   ],
   "statsId": 0,
   "requestAvgFailedDurationMillis": null,
-  "requestAvgFinishedDurationMillis": 15823,
-  "requestTotalDurationMillis": 8782040,
+  "requestAvgFinishedDurationMillis": 22398,
+  "requestTotalDurationMillis": 12431027,
   "requestsTotal": 555,
   "requestsWithStatusCode": {
     "200": 555
   },
   "errors": {},
-  "retryErrors": {}
+  "retryErrors": {
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\browser-pool\\browser-pool.js:405:19": {
+      "missing error code": {
+        "Error": {
+          "browserController.newPage() failed: _": {
+            "count": 9
+          }
+        }
+      }
+    },
+    "D:\\RSSC Technologies Data\\Projects\\scrapper\\backend\\node_modules\\@crawlee\\playwright\\internals\\utils\\playwright-utils.js:165:17": {
+      "missing error code": {
+        "Error": {
+          "page.goto: net::ERR_NETWORK_IO_SUSPENDED at https://www.leaders.co.uk/properties/to-rent/page-131/": {
+            "count": 1
+          }
+        }
+      }
+    }
+  }
 }

@@ -1,8 +1,8 @@
 {
 	"id": "68CwjQDjburtDPM",
-	"json": "{\"id\":\"68CwjQDjburtDPM\",\"url\":\"https://www.connells.co.uk/properties/sales\",\"uniqueKey\":\"https://www.connells.co.uk/properties/sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1}}",
+	"json": "{\"id\":\"68CwjQDjburtDPM\",\"url\":\"https://www.connells.co.uk/properties/sales\",\"loadedUrl\":\"https://www.connells.co.uk/properties/sales\",\"uniqueKey\":\"https://www.connells.co.uk/properties/sales\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":1,\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-06-19T06:44:48.431Z\"}",
 	"method": "GET",
-	"orderNo": 1779253360902,
+	"orderNo": null,
 	"retryCount": 0,
 	"uniqueKey": "https://www.connells.co.uk/properties/sales",
 	"url": "https://www.connells.co.uk/properties/sales"
