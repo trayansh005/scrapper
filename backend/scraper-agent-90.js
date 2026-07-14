@@ -1,6 +1,9 @@
-// OpenRent scraper using direct API batching with Crawlee fallback
+// OpenRent scraper using direct API batching with stealth Playwright & Crawlee fallback
 // Agent ID: 90
 // Website: openrent.co.uk
+
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env"), override: true });
 
 const { chromium } = require("playwright");
 const { PlaywrightCrawler, log } = require("crawlee");
@@ -26,6 +29,19 @@ const logger = createAgentLogger(AGENT_ID);
 const USER_AGENT =
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
+const DEFAULT_HEADERS = {
+	"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+	"Accept-Language": "en-US,en;q=0.9",
+	"Sec-Ch-Ua": '"Not/A_Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+	"Sec-Ch-Ua-Mobile": "?0",
+	"Sec-Ch-Ua-Platform": '"Windows"',
+	"Sec-Fetch-Dest": "document",
+	"Sec-Fetch-Mode": "navigate",
+	"Sec-Fetch-Site": "none",
+	"Sec-Fetch-User": "?1",
+	"Upgrade-Insecure-Requests": "1",
+};
+
 const counts = {
 	totalScraped: 0,
 	totalSaved: 0,
@@ -45,10 +61,24 @@ function getBrowserlessEndpoint() {
 	if (process.env.USE_LOCAL_BROWSER === "true") {
 		return undefined;
 	}
-	return (
-		process.env.BROWSERLESS_WS_ENDPOINT ||
-		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
-	);
+	if (process.env.BROWSERLESS_WS_ENDPOINT) {
+		return process.env.BROWSERLESS_WS_ENDPOINT;
+	}
+	if (process.env.BROWSERLESS_HOST) {
+		const host = process.env.BROWSERLESS_HOST;
+		const token = process.env.BROWSERLESS_TOKEN || "";
+		return `ws://${host}/chromium/playwright?token=${token}`;
+	}
+	return undefined;
+}
+
+async function applyStealthEvasions(context) {
+	await context.addInitScript(() => {
+		Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+		window.navigator.chrome = { runtime: {} };
+		Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] });
+		Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+	});
 }
 
 async function getBrowser() {
@@ -65,7 +95,13 @@ async function getBrowser() {
 
 	return await chromium.launch({
 		headless: true,
-		args: ["--no-sandbox", "--disable-setuid-sandbox"],
+		args: [
+			"--no-sandbox",
+			"--disable-setuid-sandbox",
+			"--disable-blink-features=AutomationControlled",
+			"--disable-infobars",
+			"--window-size=1920,1080",
+		],
 	});
 }
 
@@ -391,14 +427,24 @@ async function runCrawleeFallbackMode(startPage) {
 		launchContext: {
 			launchOptions: {
 				browserWSEndpoint: getBrowserlessEndpoint(),
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+				args: [
+					"--no-sandbox",
+					"--disable-setuid-sandbox",
+					"--disable-blink-features=AutomationControlled",
+					"--disable-infobars",
+					"--window-size=1920,1080",
+				],
 			},
 		},
 		preNavigationHooks: [
 			async ({ page }) => {
-				await page.setExtraHTTPHeaders({
-					"User-Agent": USER_AGENT,
+				await page.context().addInitScript(() => {
+					Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+					window.navigator.chrome = { runtime: {} };
+					Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] });
+					Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
 				});
+				await page.setExtraHTTPHeaders(DEFAULT_HEADERS);
 				await blockNonEssentialResources({ page });
 			},
 		],
@@ -539,10 +585,13 @@ async function scrapeOpenRent() {
 		browser = await getBrowser();
 		const context = await browser.newContext({
 			userAgent: USER_AGENT,
-			extraHTTPHeaders: {
-				"Accept-Language": "en-US,en;q=0.9",
-			},
+			viewport: { width: 1920, height: 1080 },
+			locale: "en-US",
+			timezoneId: "Europe/London",
+			extraHTTPHeaders: DEFAULT_HEADERS,
 		});
+
+		await applyStealthEvasions(context);
 
 		const page = await context.newPage();
 
