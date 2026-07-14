@@ -1,8 +1,10 @@
-// OpenRent scraper using Playwright with direct API batch calls
+// OpenRent scraper using direct API batching with Crawlee fallback
 // Agent ID: 90
 // Website: openrent.co.uk
 
 const { chromium } = require("playwright");
+const { PlaywrightCrawler, log } = require("crawlee");
+const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -15,6 +17,8 @@ const {
 } = require("./lib/property-helpers.js");
 const { createAgentLogger } = require("./lib/logger-helpers.js");
 const { blockNonEssentialResources } = require("./lib/scraper-utils.js");
+
+log.setLevel(log.LEVELS.ERROR);
 
 const AGENT_ID = 90;
 const logger = createAgentLogger(AGENT_ID);
@@ -133,23 +137,40 @@ async function fetchMasterPropertyIds(page) {
 		timeout: 60000,
 	});
 
+	await page.waitForTimeout(3000);
+
 	const propertyIds = await page.evaluate(() => {
+		// 1. Check window global
 		if (window.PROPERTYIDS && Array.isArray(window.PROPERTYIDS) && window.PROPERTYIDS.length > 0) {
 			return window.PROPERTYIDS;
 		}
 
+		// 2. Search script tags HTML
 		const scripts = Array.from(document.querySelectorAll("script"));
 		for (const s of scripts) {
 			const text = s.innerHTML || s.textContent || "";
-			const m = text.match(/var\s+PROPERTYIDS\s*=\s*\[([\s\S]*?)\];/);
+			const m = text.match(/var\s+PROPERTYIDS\s*=\s*\[([\s\S]*?)\];/i) || text.match(/PROPERTYIDS\s*=\s*\[([\s\S]*?)\];/i);
 			if (m) {
-				return m[1]
+				const parsed = m[1]
 					.split(",")
 					.map((i) => parseInt(i.trim()))
 					.filter((i) => Number.isInteger(i) && i > 0);
+				if (parsed.length > 0) return parsed;
 			}
 		}
-		return [];
+
+		// 3. Extract IDs from links on page
+		const cardLinks = Array.from(document.querySelectorAll("a.search-property-card, a[href*='/property-to-rent/'], .pli"));
+		const extracted = [];
+		for (const card of cardLinks) {
+			const href = card.getAttribute("href") || "";
+			const idMatch = href.match(/\/(\d+)(?:\?|$)/);
+			if (idMatch) {
+				const idNum = parseInt(idMatch[1]);
+				if (idNum && !extracted.includes(idNum)) extracted.push(idNum);
+			}
+		}
+		return extracted;
 	});
 
 	return propertyIds;
@@ -187,107 +208,241 @@ function parseBedroomsFromDetails(details) {
 	return null;
 }
 
-async function scrapeOpenRent() {
-	logger.step(`Starting OpenRent Scraper (Agent ${AGENT_ID})...`);
+function parseListingHtmlWithCheerio(html) {
+	const $ = cheerio.load(html);
+	const items = [];
 
-	const args = process.argv.slice(2);
-	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
-	const isPartialRun = startPage > 1;
-	const scrapeStartTime = new Date();
+	$("a.search-property-card, a[href*='/property-to-rent/'], a[href*='/property/']").each((_, el) => {
+		const card = $(el);
+		const href = card.attr("href");
+		if (!href) return;
 
+		const fullText = card.text().trim();
+		let title = card.find("h1, h2, h3, h4, .fs-d-4, .fs-lg-d-3, [class*='title']").first().text().trim();
+
+		if (!title || title.length < 10) {
+			title = fullText.split(/\n|\s{2,}/).map(l => l.trim()).find(l => l.length > 20 && !/^£|pcm|pm|pa|bed|bath/i.test(l)) || "Property";
+		}
+
+		title = title.replace(/\s*[•-]\s*£[\d,]+.*$/gi, "").replace(/£[\d,]+.*$/gi, "").replace(/\s+/g, " ").trim().substring(0, 150);
+
+		let priceText = card.find('[class*="price"], .price, strong, b').first().text().trim();
+		if (!priceText) {
+			const match = fullText.match(/£[\d,]+(?:\.\d+)?/);
+			priceText = match ? match[0] : "";
+		}
+
+		const bedMatch = fullText.match(/(\d+)\s*(?:bed|bedroom|bedrooms)/i);
+
+		items.push({
+			link: href.startsWith("http") ? href : `https://www.openrent.co.uk${href}`,
+			title,
+			priceText,
+			bedrooms: bedMatch ? parseInt(bedMatch[1]) : null,
+			statusText: fullText.toLowerCase(),
+		});
+	});
+
+	return items;
+}
+
+async function runApiBatchMode(context, allPropertyIds, startPage) {
 	const isRental = true;
 	const label = "RENTALS";
 
-	let browser;
-	try {
-		browser = await getBrowser();
-		const context = await browser.newContext({
-			userAgent: USER_AGENT,
-			extraHTTPHeaders: {
-				"Accept-Language": "en-US,en;q=0.9",
-			},
-		});
+	const totalBatches = Math.ceil(allPropertyIds.length / BATCH_SIZE);
+	const effectiveStartBatch = Math.max(1, startPage);
 
-		const page = await context.newPage();
+	for (let b = effectiveStartBatch - 1; b < totalBatches; b++) {
+		const pageNum = b + 1;
+		const startIdx = b * BATCH_SIZE;
+		const batchIds = allPropertyIds.slice(startIdx, startIdx + BATCH_SIZE);
 
-		logger.step("Fetching master property list from OpenRent via Playwright...");
-		const allPropertyIds = await fetchMasterPropertyIds(page);
-		await page.close().catch(() => {});
+		logger.page(pageNum, label, `Fetching batch of ${batchIds.length} properties via API...`, totalBatches);
 
-		if (!allPropertyIds || allPropertyIds.length === 0) {
-			throw new Error("Failed to extract master PROPERTYIDS list from OpenRent DOM.");
+		try {
+			const propertiesData = await fetchPropertyBatch(context, batchIds);
+			logger.page(pageNum, label, `Received ${propertiesData.length} property items`, totalBatches);
+
+			if (propertiesData.length === 0) continue;
+
+			for (const item of propertiesData) {
+				const rawLink = `https://www.openrent.co.uk/${item.id}`;
+				const propertyLink = normalizePropertyUrl(rawLink);
+
+				if (!propertyLink) continue;
+
+				if (item.letAgreed || isSoldProperty(item.description || "")) {
+					counts.totalSkipped++;
+					logger.property(
+						pageNum,
+						label,
+						(item.title || "Property").substring(0, 30),
+						"",
+						propertyLink,
+						isRental,
+						totalBatches,
+						"SKIPPED",
+					);
+					continue;
+				}
+
+				let price = item.rentPerMonth ? parseFloat(item.rentPerMonth) : null;
+				if (!price && item.rentPerWeek) {
+					price = parsePrice(item.rentPerWeek);
+				}
+
+				if (!price) {
+					counts.totalSkipped++;
+					continue;
+				}
+
+				const title = (item.title || "Property")
+					.replace(/\s*[•-]\s*£[\d,]+.*$/gi, "")
+					.replace(/£[\d,]+.*$/gi, "")
+					.replace(/\s+/g, " ")
+					.trim()
+					.substring(0, 150);
+
+				const bedrooms = parseBedroomsFromDetails(item.details);
+
+				const propertyObj = {
+					link: propertyLink,
+					price,
+					title,
+					bedrooms,
+				};
+
+				const dbResult = await updatePriceByPropertyURLOptimized(
+					propertyLink,
+					price,
+					title,
+					bedrooms,
+					AGENT_ID,
+					isRental,
+				);
+
+				if (dbResult?.error) {
+					counts.totalErrors++;
+					continue;
+				}
+
+				let propertyAction = "UNCHANGED";
+				if (dbResult.updated) propertyAction = "UPDATED";
+
+				if (dbResult?.isExisting && !dbResult.missingData) {
+					counts.totalScraped++;
+					if (dbResult.updated) counts.totalUpdated++;
+
+					logger.property(
+						pageNum,
+						label,
+						title.substring(0, 30),
+						formatPriceDisplay(price, isRental),
+						propertyLink,
+						isRental,
+						totalBatches,
+						propertyAction,
+					);
+					continue;
+				}
+
+				// New property or missing data -> visit detail page
+				if (!dbResult.isExisting) propertyAction = "CREATED";
+
+				await scrapePropertyDetail(context, propertyLink, propertyObj, isRental);
+
+				counts.totalScraped++;
+				counts.totalSaved++;
+				if (dbResult?.isExisting) counts.totalUpdated++;
+				else counts.totalCreated++;
+
+				logger.property(
+					pageNum,
+					label,
+					title.substring(0, 30),
+					formatPriceDisplay(price, isRental),
+					propertyLink,
+					isRental,
+					totalBatches,
+					propertyAction,
+				);
+
+				if (propertyAction !== "UNCHANGED") {
+					await sleep(100);
+				}
+			}
+		} catch (error) {
+			counts.totalErrors++;
+			logger.error(`Error processing batch ${pageNum}`, error);
 		}
 
-		logger.step(`Found ${allPropertyIds.length} active property IDs!`);
+		await sleep(100);
+	}
+}
 
-		const totalBatches = Math.ceil(allPropertyIds.length / BATCH_SIZE);
-		const effectiveStartBatch = Math.max(1, startPage);
+async function runCrawleeFallbackMode(startPage) {
+	logger.step("Starting Crawlee Fallback Pagination Scraper...");
 
-		for (let b = effectiveStartBatch - 1; b < totalBatches; b++) {
-			const pageNum = b + 1;
-			const startIdx = b * BATCH_SIZE;
-			const batchIds = allPropertyIds.slice(startIdx, startIdx + BATCH_SIZE);
-
-			logger.page(pageNum, label, `Fetching batch of ${batchIds.length} properties via API...`, totalBatches);
+	const crawler = new PlaywrightCrawler({
+		maxConcurrency: 1,
+		maxRequestRetries: 3,
+		requestHandlerTimeoutSecs: 600,
+		launchContext: {
+			launchOptions: {
+				browserWSEndpoint: getBrowserlessEndpoint(),
+				args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			},
+		},
+		preNavigationHooks: [
+			async ({ page }) => {
+				await page.setExtraHTTPHeaders({
+					"User-Agent": USER_AGENT,
+				});
+				await blockNonEssentialResources({ page });
+			},
+		],
+		requestHandler: async ({ page, request }) => {
+			const { isRental, label, pageNum, totalPages } = request.userData;
+			logger.page(pageNum, label, request.url, totalPages);
 
 			try {
-				const propertiesData = await fetchPropertyBatch(context, batchIds);
-				logger.page(pageNum, label, `Received ${propertiesData.length} property items`, totalBatches);
+				await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+				await page.waitForTimeout(2000);
 
-				if (propertiesData.length === 0) continue;
+				const html = await page.content();
+				const properties = parseListingHtmlWithCheerio(html);
 
-				for (const item of propertiesData) {
-					const rawLink = `https://www.openrent.co.uk/${item.id}`;
-					const propertyLink = normalizePropertyUrl(rawLink);
+				logger.page(pageNum, label, `Found ${properties.length} properties via Cheerio`, totalPages);
 
-					if (!propertyLink) continue;
+				if (properties.length === 0) return;
 
-					if (item.letAgreed || isSoldProperty(item.description || "")) {
+				const seen = new Set();
+				const batch = properties
+					.map((p) => ({ ...p, link: normalizePropertyUrl(p.link) }))
+					.filter((p) => p.link && !seen.has(p.link) && seen.add(p.link))
+					.slice(0, 50);
+
+				for (const property of batch) {
+					if (isSoldProperty(property.statusText || "")) {
 						counts.totalSkipped++;
-						logger.property(
-							pageNum,
-							label,
-							(item.title || "Property").substring(0, 30),
-							"",
-							propertyLink,
-							isRental,
-							totalBatches,
-							"SKIPPED",
-						);
+						logger.property(pageNum, label, property.title.substring(0, 30), "", property.link, isRental, totalPages, "SKIPPED");
 						continue;
 					}
 
-					let price = item.rentPerMonth ? parseFloat(item.rentPerMonth) : null;
-					if (!price && item.rentPerWeek) {
-						price = parsePrice(item.rentPerWeek);
-					}
-
+					const price = parsePrice(property.priceText);
 					if (!price) {
 						counts.totalSkipped++;
 						continue;
 					}
 
-					const title = (item.title || "Property")
-						.replace(/\s*[•-]\s*£[\d,]+.*$/gi, "")
-						.replace(/£[\d,]+.*$/gi, "")
-						.replace(/\s+/g, " ")
-						.trim()
-						.substring(0, 150);
-
-					const bedrooms = parseBedroomsFromDetails(item.details);
-
-					const propertyObj = {
-						link: propertyLink,
-						price,
-						title,
-						bedrooms,
-					};
+					property.price = price;
 
 					const dbResult = await updatePriceByPropertyURLOptimized(
-						propertyLink,
+						property.link,
 						price,
-						title,
-						bedrooms,
+						property.title,
+						property.bedrooms || null,
 						AGENT_ID,
 						isRental,
 					);
@@ -307,20 +462,19 @@ async function scrapeOpenRent() {
 						logger.property(
 							pageNum,
 							label,
-							title.substring(0, 30),
+							property.title.substring(0, 30),
 							formatPriceDisplay(price, isRental),
-							propertyLink,
+							property.link,
 							isRental,
-							totalBatches,
+							totalPages,
 							propertyAction,
 						);
 						continue;
 					}
 
-					// New property or missing data -> visit detail page
 					if (!dbResult.isExisting) propertyAction = "CREATED";
 
-					await scrapePropertyDetail(context, propertyLink, propertyObj, isRental);
+					await scrapePropertyDetail(page.context(), property.link, property, isRental);
 
 					counts.totalScraped++;
 					counts.totalSaved++;
@@ -330,30 +484,92 @@ async function scrapeOpenRent() {
 					logger.property(
 						pageNum,
 						label,
-						title.substring(0, 30),
+						property.title.substring(0, 30),
 						formatPriceDisplay(price, isRental),
-						propertyLink,
+						property.link,
 						isRental,
-						totalBatches,
+						totalPages,
 						propertyAction,
 					);
 
 					if (propertyAction !== "UNCHANGED") {
-						await sleep(100);
+						await sleep(200);
 					}
 				}
 			} catch (error) {
 				counts.totalErrors++;
-				logger.error(`Error processing batch ${pageNum}`, error);
+				logger.error(`Listing page error on page ${pageNum}`, error);
 			}
+		},
+	});
 
-			await sleep(100);
+	const AREAS = [{ name: "Greater London", term: "Greater%20London", pages: 350 }];
+	for (const area of AREAS) {
+		const requests = [];
+		const baseUrl = `https://www.openrent.co.uk/properties-to-rent/greater-london?term=Greater%20London&isLive=true`;
+		const totalPages = area.pages;
+
+		const effectiveStartPage = Math.max(1, startPage);
+		for (let p = effectiveStartPage - 1; p < area.pages; p++) {
+			const skip = p * 20;
+			const url = skip === 0 ? baseUrl : `${baseUrl}&skip=${skip}`;
+			requests.push({
+				url,
+				userData: { pageNum: p + 1, totalPages, isRental: true, label: "RENTALS", area: area.name },
+			});
 		}
+		await crawler.addRequests(requests);
+	}
 
-		await browser.close().catch(() => {});
+	await crawler.run();
+}
+
+async function scrapeOpenRent() {
+	logger.step(`Starting OpenRent Scraper (Agent ${AGENT_ID})...`);
+
+	const args = process.argv.slice(2);
+	const startPage = args.length > 0 ? parseInt(args[0]) : 1;
+	const isPartialRun = startPage > 1;
+	const scrapeStartTime = new Date();
+
+	let browser;
+	let allPropertyIds = [];
+
+	try {
+		browser = await getBrowser();
+		const context = await browser.newContext({
+			userAgent: USER_AGENT,
+			extraHTTPHeaders: {
+				"Accept-Language": "en-US,en;q=0.9",
+			},
+		});
+
+		const page = await context.newPage();
+
+		logger.step("Fetching master property list from OpenRent via Playwright...");
+		allPropertyIds = await fetchMasterPropertyIds(page);
+		await page.close().catch(() => {});
+
+		if (allPropertyIds && allPropertyIds.length > 50) {
+			logger.step(`Master list success! Extracted ${allPropertyIds.length} active property IDs.`);
+			await runApiBatchMode(context, allPropertyIds, startPage);
+		} else {
+			logger.warn(`Master ID array returned ${allPropertyIds ? allPropertyIds.length : 0} items. Switching to Crawlee Fallback Mode.`);
+			await browser.close().catch(() => {});
+			browser = null;
+			await runCrawleeFallbackMode(startPage);
+		}
 	} catch (err) {
-		if (browser) await browser.close().catch(() => {});
-		throw err;
+		logger.warn(`API Batch mode encountered an error: ${err.message}. Switching to Crawlee Fallback Mode.`);
+		if (browser) {
+			await browser.close().catch(() => {});
+			browser = null;
+		}
+		await runCrawleeFallbackMode(startPage);
+	} finally {
+		if (browser) {
+			await browser.close().catch(() => {});
+		}
 	}
 
 	logger.step(
