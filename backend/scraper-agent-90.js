@@ -51,7 +51,7 @@ const counts = {
 	totalErrors: 0,
 };
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
