@@ -212,23 +212,39 @@ async function fetchMasterPropertyIds(page) {
 	return propertyIds;
 }
 
-async function fetchPropertyBatch(context, idsBatch) {
+async function fetchPropertyBatch(page, idsBatch) {
 	const query = idsBatch.map((id) => `ids=${id}`).join("&");
 	const apiUrl = `https://www.openrent.co.uk/search/propertiesbyid?${query}`;
 
-	const response = await context.request.get(apiUrl, {
-		headers: {
-			"X-Requested-With": "XMLHttpRequest",
-		},
-		timeout: 30000,
-	});
+	// Use page.evaluate fetch so the request goes through the real browser session
+	// with Cloudflare cookies and TLS fingerprint - prevents empty responses on VPS IPs
+	const result = await page.evaluate(async (url) => {
+		try {
+			const r = await fetch(url, {
+				method: "GET",
+				headers: { "X-Requested-With": "XMLHttpRequest" },
+				credentials: "include",
+			});
+			const text = await r.text();
+			return { status: r.status, body: text };
+		} catch (e) {
+			return { status: 0, body: "", error: e.message };
+		}
+	}, apiUrl);
 
-	if (!response.ok()) {
-		throw new Error(`Batch API response returned status ${response.status()}`);
+	if (result.status === 0) {
+		throw new Error(`Batch API in-browser fetch failed: ${result.error}`);
+	}
+	if (result.status !== 200) {
+		throw new Error(`Batch API response returned status ${result.status}`);
 	}
 
-	const data = await response.json();
-	return Array.isArray(data) ? data : [];
+	try {
+		const data = JSON.parse(result.body);
+		return Array.isArray(data) ? data : [];
+	} catch {
+		throw new Error(`Failed to parse API response: ${result.body.substring(0, 100)}`);
+	}
 }
 
 function parseBedroomsFromDetails(details) {
@@ -282,7 +298,7 @@ function parseListingHtmlWithCheerio(html) {
 	return items;
 }
 
-async function runApiBatchMode(context, allPropertyIds, startPage) {
+async function runApiBatchMode(page, allPropertyIds, startPage) {
 	const isRental = true;
 	const label = "RENTALS";
 
@@ -297,7 +313,7 @@ async function runApiBatchMode(context, allPropertyIds, startPage) {
 		logger.page(pageNum, label, `Fetching batch of ${batchIds.length} properties via API...`, totalBatches);
 
 		try {
-			const propertiesData = await fetchPropertyBatch(context, batchIds);
+			const propertiesData = await fetchPropertyBatch(page, batchIds);
 			logger.page(pageNum, label, `Received ${propertiesData.length} property items`, totalBatches);
 
 			if (propertiesData.length === 0) continue;
@@ -386,7 +402,7 @@ async function runApiBatchMode(context, allPropertyIds, startPage) {
 				// New property or missing data -> visit detail page
 				if (!dbResult.isExisting) propertyAction = "CREATED";
 
-				await scrapePropertyDetail(context, propertyLink, propertyObj, isRental);
+				await scrapePropertyDetail(page.context(), propertyLink, propertyObj, isRental);
 
 				counts.totalScraped++;
 				counts.totalSaved++;
@@ -597,13 +613,15 @@ async function scrapeOpenRent() {
 
 		logger.step("Fetching master property list from OpenRent via Playwright...");
 		allPropertyIds = await fetchMasterPropertyIds(page);
-		await page.close().catch(() => {});
 
 		if (allPropertyIds && allPropertyIds.length > 50) {
 			logger.step(`Master list success! Extracted ${allPropertyIds.length} active property IDs.`);
-			await runApiBatchMode(context, allPropertyIds, startPage);
+			// Keep page alive - API calls are routed through it to bypass Cloudflare
+			await runApiBatchMode(page, allPropertyIds, startPage);
+			await page.close().catch(() => {});
 		} else {
 			logger.warn(`Master ID array returned ${allPropertyIds ? allPropertyIds.length : 0} items. Switching to Crawlee Fallback Mode.`);
+			await page.close().catch(() => {});
 			await browser.close().catch(() => {});
 			browser = null;
 			await runCrawleeFallbackMode(startPage);
