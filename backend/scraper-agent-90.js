@@ -3,6 +3,7 @@
 // Website: openrent.co.uk
 
 const { PlaywrightCrawler, log } = require("crawlee");
+const cheerio = require("cheerio");
 const { updateRemoveStatus } = require("./db.js");
 const {
 	updatePriceByPropertyURLOptimized,
@@ -55,7 +56,7 @@ function normalizePropertyUrl(rawUrl) {
 
 // ==================== BEST TITLE EXTRACTION ====================
 function buildListingProperties() {
-	return Array.from(document.querySelectorAll("a[href*='/property/'], a.search-property-card, article a, .listing-card a"))
+	return Array.from(document.querySelectorAll("a.search-property-card, a[href*='/property-to-rent/'], a[href*='/property/'], article a, .listing-card a"))
 		.map((card) => {
 			const href = card.getAttribute("href");
 			if (!href) return null;
@@ -140,6 +141,44 @@ function buildListingProperties() {
 		.filter(Boolean);
 }
 
+function parseListingHtmlWithCheerio(html) {
+	const $ = cheerio.load(html);
+	const items = [];
+
+	$("a.search-property-card, a[href*='/property-to-rent/'], a[href*='/property/']").each((_, el) => {
+		const card = $(el);
+		const href = card.attr("href");
+		if (!href) return;
+
+		const fullText = card.text().trim();
+		let title = card.find("h1, h2, h3, h4, .fs-d-4, .fs-lg-d-3, [class*='title']").first().text().trim();
+
+		if (!title || title.length < 10) {
+			title = fullText.split(/\n|\s{2,}/).map(l => l.trim()).find(l => l.length > 20 && !/^£|pcm|pm|pa|bed|bath/i.test(l)) || "Property";
+		}
+
+		title = title.replace(/\s*[•-]\s*£[\d,]+.*$/gi, "").replace(/£[\d,]+.*$/gi, "").replace(/\s+/g, " ").trim().substring(0, 150);
+
+		let priceText = card.find('[class*="price"], .price, strong, b').first().text().trim();
+		if (!priceText) {
+			const match = fullText.match(/£[\d,]+(?:\.\d+)?/);
+			priceText = match ? match[0] : "";
+		}
+
+		const bedMatch = fullText.match(/(\d+)\s*(?:bed|bedroom|bedrooms)/i);
+
+		items.push({
+			link: href.startsWith("http") ? href : `https://www.openrent.co.uk${href}`,
+			title,
+			priceText,
+			bedrooms: bedMatch ? parseInt(bedMatch[1]) : null,
+			statusText: fullText.toLowerCase(),
+		});
+	});
+
+	return items;
+}
+
 async function scrapePropertyDetail(browserContext, property, isRental) {
 	const detailPage = await browserContext.newPage();
 
@@ -204,13 +243,18 @@ async function handleListingPage({ page, request }) {
 	logger.page(pageNum, label, request.url, totalPages);
 
 	try {
-		await page.goto(request.url, { waitUntil: "networkidle", timeout: 90000 });
-		await page.waitForTimeout(5000);
-		await page.waitForSelector('a[href*="/property/"]', { timeout: 20000 }).catch(() => { });
+		await page.goto(request.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+		await page.waitForSelector('a.search-property-card, a[href*="/property-to-rent/"], a[href*="/property/"]', { timeout: 10000 }).catch(() => { });
 
 		await autoScroll(page);
 
-		const properties = await page.evaluate(buildListingProperties);
+		let properties = await page.evaluate(buildListingProperties);
+		
+		if (!properties || properties.length === 0) {
+			const html = await page.content();
+			properties = parseListingHtmlWithCheerio(html);
+		}
+
 		logger.page(pageNum, label, `Found ${properties.length} properties`, totalPages);
 
 		if (properties.length === 0) return;

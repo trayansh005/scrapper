@@ -41,6 +41,9 @@ function blockNonEssentialResources(page) {
 }
 
 function getBrowserlessEndpoint() {
+	if (process.env.USE_LOCAL_BROWSER === "true") {
+		return undefined;
+	}
 	return (
 		process.env.BROWSERLESS_WS_ENDPOINT ||
 		`ws://browserless-e44co4wws040gcokws8k0c00:3000?token=ssl0sRD6GX2dLgT69SlhLh25XREd17tv`
@@ -227,7 +230,7 @@ function createCrawler(browserWSEndpoint) {
 		launchContext: {
 			launcher: undefined,
 			launchOptions: {
-				browserWSEndpoint,
+				...(browserWSEndpoint ? { browserWSEndpoint } : {}),
 				args: [
 					"--no-sandbox",
 					"--disable-setuid-sandbox",
