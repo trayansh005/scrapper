@@ -1,0 +1,52 @@
+{
+  "requestsFinished": 0,
+  "requestsFailed": 2,
+  "requestsRetries": 2,
+  "requestsFailedPerMinute": 0,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 608226,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-07-22T10:29:34.351Z",
+  "crawlerFinishedAt": "2026-07-22T11:10:05.361Z",
+  "statsPersistedAt": "2026-07-22T11:10:05.361Z",
+  "crawlerRuntimeMillis": 2431221,
+  "crawlerLastStartTimestamp": 1784716174140,
+  "requestRetryHistogram": [
+    null,
+    null,
+    null,
+    2
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": 304113,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 608226,
+  "requestsTotal": 2,
+  "requestsWithStatusCode": {
+    "200": 8
+  },
+  "errors": {
+    "E:\\Scraper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 2
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "E:\\Scraper\\backend\\node_modules\\@apify\\timeout\\cjs\\index.cjs:64:68": {
+      "missing error code": {
+        "Error": {
+          "requestHandler timed out after 300 seconds.": {
+            "count": 6
+          }
+        }
+      }
+    }
+  }
+}

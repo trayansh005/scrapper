@@ -211,48 +211,59 @@ async function handleListingPage({ $, request, crawler }) {
 				CURRENCY,
 			);
 
-			if (result.isExisting && !result.missingData) {
-				if (result.updated) {
-					logger.property(prop.link, prop.price, prop.bedrooms, 'UPDATED', isRental);
+				if (result.isExisting && !result.missingData) {
+					if (result.updated) {
+						logger.property(pageNum, label, prop.title, prop.price, prop.link, isRental, null, 'UPDATED');
+						counts.totalSaved++;
+						if (isRental) counts.savedRentals++;
+						else counts.savedSales++;
+					} else {
+						logger.property(pageNum, label, prop.title, prop.price, prop.link, isRental, null, 'UNCHANGED');
+					}
+				} else {
+					let lat = prop.lat;
+					let lng = prop.lng;
+					let htmlForCoords = null;
+
+					if (lat === null || lng === null) {
+						htmlForCoords = await fetchDetailHTML(prop.link);
+					}
+
+					const coordsResult = await processPropertyWithCoordinates(
+						prop.link,
+						prop.price,
+						prop.title,
+						prop.bedrooms,
+						AGENT_ID,
+						isRental,
+						htmlForCoords,
+						lat,
+						lng,
+						CURRENCY,
+					);
+
+					const finalLat = coordsResult.latitude || lat;
+					const finalLng = coordsResult.longitude || lng;
+
+					logger.property(
+						pageNum,
+						label,
+						prop.title,
+						prop.price,
+						prop.link,
+						isRental,
+						null,
+						'CREATED',
+						finalLat,
+						finalLng,
+					);
+
 					counts.totalSaved++;
 					if (isRental) counts.savedRentals++;
 					else counts.savedSales++;
-				} else {
-					logger.property(prop.link, prop.price, prop.bedrooms, 'UNCHANGED', isRental);
+
+					await sleep(200); // Politeness delay ONLY on CREATED
 				}
-			} else {
-				let lat = prop.lat;
-				let lng = prop.lng;
-				let htmlForCoords = null;
-
-				if (lat === null || lng === null) {
-					htmlForCoords = await fetchDetailHTML(prop.link);
-				}
-
-				const coordsResult = await processPropertyWithCoordinates(
-					prop.link,
-					prop.price,
-					prop.title,
-					prop.bedrooms,
-					AGENT_ID,
-					isRental,
-					htmlForCoords,
-					lat,
-					lng,
-					CURRENCY,
-				);
-
-				logger.property(prop.link, prop.price, prop.bedrooms, 'CREATED', isRental, {
-					latitude: coordsResult.latitude || lat,
-					longitude: coordsResult.longitude || lng,
-				});
-
-				counts.totalSaved++;
-				if (isRental) counts.savedRentals++;
-				else counts.savedSales++;
-
-				await sleep(200); // Politeness delay ONLY on CREATED
-			}
 		} catch (err) {
 			logger.error(`Error processing property ${prop.link}: ${err.message}`);
 		}

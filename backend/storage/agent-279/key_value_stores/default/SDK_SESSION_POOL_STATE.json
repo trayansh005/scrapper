@@ -1,0 +1,607 @@
+{
+  "usableSessionsCount": 9,
+  "retiredSessionsCount": 2,
+  "sessions": [
+    {
+      "id": "session_sSj07koowg",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:19:35.319Z",
+      "createdAt": "2026-07-22T10:29:35.319Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_P5k4ck4aaN",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ga_2W1ZR0KBNW",
+            "value": "GS2.1.s1784716178$o1$g1$t1784716783$j60$l0$h0",
+            "expires": "2027-08-26T10:39:43.639Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.335Z",
+            "lastAccessed": "2026-07-22T10:39:44.726Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.941401516.1784716178",
+            "expires": "2027-08-26T10:39:43.742Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.342Z",
+            "lastAccessed": "2026-07-22T10:39:44.724Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1784716178483.97225842470686523",
+            "expires": "2026-10-20T10:39:43.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.345Z",
+            "lastAccessed": "2026-07-22T10:39:44.725Z"
+          },
+          {
+            "key": "_ga_PZT8L9PVCE",
+            "value": "GS2.1.s1784716178$o1$g1$t1784716783$j60$l0$h0",
+            "expires": "2027-08-26T10:39:43.741Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.345Z",
+            "lastAccessed": "2026-07-22T10:39:44.726Z"
+          },
+          {
+            "key": "_hjSessionUser_6661320",
+            "value": "eyJpZCI6IjM3MTQwNDA3LTUzZGItNTk3Zi04MDg3LTc2ZjhiZGNkOTA2YiIsImNyZWF0ZWQiOjE3ODQ3MTYxNzg5MTIsImV4aXN0aW5nIjp0cnVlfQ==",
+            "expires": "2027-07-22T10:39:43.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.345Z",
+            "lastAccessed": "2026-07-22T10:39:44.726Z"
+          },
+          {
+            "key": "_hjSession_6661320",
+            "value": "eyJpZCI6IjE2YThmZmQyLTNjNDItNGM3Ny1hZmU0LWU0YTllZTdjNzllMCIsImMiOjE3ODQ3MTYxNzg5MTMsInMiOjAsInIiOjAsInNiIjowLCJzciI6MCwic2UiOjAsImZzIjoxLCJzcCI6MH0=",
+            "expires": "2026-07-22T10:59:38.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.345Z",
+            "lastAccessed": "2026-07-22T10:39:44.725Z"
+          },
+          {
+            "key": "__hstc",
+            "value": "225168261.06dfdcdb9d46d6853f0521da8e24babc.1784716180307.1784716180307.1784716180307.1",
+            "expires": "2027-01-18T10:39:44.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.346Z",
+            "lastAccessed": "2026-07-22T10:39:44.725Z"
+          },
+          {
+            "key": "hubspotutk",
+            "value": "06dfdcdb9d46d6853f0521da8e24babc",
+            "expires": "2027-01-18T10:39:44.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.346Z",
+            "lastAccessed": "2026-07-22T10:39:44.725Z"
+          },
+          {
+            "key": "__hssrc",
+            "value": "1",
+            "expires": "2026-07-22T11:29:44.724Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.346Z",
+            "lastAccessed": "2026-07-22T10:39:44.725Z"
+          },
+          {
+            "key": "__hssc",
+            "value": "225168261.3.1784716180307",
+            "expires": "2026-07-22T11:09:44.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:29:40.346Z",
+            "lastAccessed": "2026-07-22T10:39:44.726Z"
+          },
+          {
+            "key": "CraftSessionId",
+            "value": "7762db10f187aee67c5d38713d637a85",
+            "expires": "2026-07-22T11:24:42.207Z",
+            "domain": "www.raywhite.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-22T10:34:42.209Z",
+            "lastAccessed": "2026-07-22T10:39:44.726Z"
+          },
+          {
+            "key": "CRAFT_CSRF_TOKEN",
+            "value": "24b16f993c21a9ea397035782674995da29f8cf1ffebbad6ff4cf121a2d612b2a%3A2%3A%7Bi%3A0%3Bs%3A16%3A%22CRAFT_CSRF_TOKEN%22%3Bi%3A1%3Bs%3A40%3A%22C3898X5m6F5VUDmee1f0U5Ybq7nw0gEQYFlsvBaK%22%3B%7D",
+            "expires": "2026-07-22T11:24:42.207Z",
+            "domain": "www.raywhite.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-22T10:34:42.209Z",
+            "lastAccessed": "2026-07-22T10:39:44.726Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:19:35.324Z",
+      "createdAt": "2026-07-22T10:29:35.324Z",
+      "usageCount": 4,
+      "maxUsageCount": 50,
+      "errorScore": 6
+    },
+    {
+      "id": "session_FGxKmJNxJi",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:24:40.428Z",
+      "createdAt": "2026-07-22T10:34:40.428Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_xgUFlMVDSO",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:29:42.353Z",
+      "createdAt": "2026-07-22T10:39:42.353Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_zL84p1Vfmx",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:34:44.814Z",
+      "createdAt": "2026-07-22T10:44:44.814Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_UFSOXS3SZc",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_hjSessionUser_6661320",
+            "value": "eyJpZCI6ImZiMjQ2NTNlLWNjY2UtNWE3MS05OWIzLTcxZTA4M2Y1MjkzMSIsImNyZWF0ZWQiOjE3ODQ3MTcwODg2OTQsImV4aXN0aW5nIjp0cnVlfQ==",
+            "expires": "2027-07-22T10:54:54.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "_hjSession_6661320",
+            "value": "eyJpZCI6IjQ2MzMzY2Y2LTEwMzUtNDA2My1hYTI0LWM3NWUzYjAzZWI5NCIsImMiOjE3ODQ3MTcwODg2OTUsInMiOjAsInIiOjAsInNiIjowLCJzciI6MCwic2UiOjAsImZzIjoxLCJzcCI6MH0=",
+            "expires": "2026-07-22T11:14:48.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "_ga_2W1ZR0KBNW",
+            "value": "GS2.1.s1784717088$o1$g1$t1784717694$j60$l0$h0",
+            "expires": "2027-08-26T10:54:54.067Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.916881116.1784717089",
+            "expires": "2027-08-26T10:54:54.158Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "_ga_PZT8L9PVCE",
+            "value": "GS2.1.s1784717088$o1$g1$t1784717694$j60$l0$h0",
+            "expires": "2027-08-26T10:54:54.157Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1784717089135.35629713176188036",
+            "expires": "2026-10-20T10:54:54.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "__hstc",
+            "value": "225168261.e706a49e60e245a5b0659bf5a52683da.1784717090370.1784717090370.1784717090370.1",
+            "expires": "2027-01-18T10:54:54.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "hubspotutk",
+            "value": "e706a49e60e245a5b0659bf5a52683da",
+            "expires": "2027-01-18T10:54:54.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "__hssrc",
+            "value": "1",
+            "expires": "2026-07-22T11:44:55.006Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "__hssc",
+            "value": "225168261.3.1784717090370",
+            "expires": "2026-07-22T11:24:54.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T10:44:50.395Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "CraftSessionId",
+            "value": "79b16dd78a98b8ffba742e236c62d42d",
+            "expires": "2026-07-22T11:39:52.965Z",
+            "domain": "www.raywhite.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-22T10:49:52.967Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          },
+          {
+            "key": "CRAFT_CSRF_TOKEN",
+            "value": "d825cb8144b08efb8a91bd23995af21190595668da58f57e238ac29cf6e81bb0a%3A2%3A%7Bi%3A0%3Bs%3A16%3A%22CRAFT_CSRF_TOKEN%22%3Bi%3A1%3Bs%3A40%3A%22OFfB3TnHJP_XVgxMitbxc6NgFyBlqqHgwy0RlWTm%22%3B%7D",
+            "expires": "2026-07-22T11:39:52.965Z",
+            "domain": "www.raywhite.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-22T10:49:52.967Z",
+            "lastAccessed": "2026-07-22T10:54:55.007Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:34:44.817Z",
+      "createdAt": "2026-07-22T10:44:44.817Z",
+      "usageCount": 4,
+      "maxUsageCount": 50,
+      "errorScore": 6
+    },
+    {
+      "id": "session_vwWwC01PMU",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:39:50.476Z",
+      "createdAt": "2026-07-22T10:49:50.476Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_2ObastUowa",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:44:53.058Z",
+      "createdAt": "2026-07-22T10:54:53.058Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_hRExILgB68",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:49:55.067Z",
+      "createdAt": "2026-07-22T10:59:55.067Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_SzfisWgeVj",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ga_2W1ZR0KBNW",
+            "value": "GS2.1.s1784717998$o1$g1$t1784718302$j59$l0$h0",
+            "expires": "2027-08-26T11:05:02.373Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1449135281.1784717998",
+            "expires": "2027-08-26T11:05:02.435Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.415Z"
+          },
+          {
+            "key": "_hjSessionUser_6661320",
+            "value": "eyJpZCI6IjBjOWU3ZTNkLTUzZGQtNWRhNi05YmQxLTdjNzUxMTM0MGYwYSIsImNyZWF0ZWQiOjE3ODQ3MTc5OTg1MjQsImV4aXN0aW5nIjp0cnVlfQ==",
+            "expires": "2027-07-22T11:05:02.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "_hjSession_6661320",
+            "value": "eyJpZCI6ImE1NmE5OTc1LTQ1MzUtNDQ5ZS1iYTAxLTVmMjgxOTkxMGJkNSIsImMiOjE3ODQ3MTc5OTg1MjUsInMiOjAsInIiOjAsInNiIjowLCJzciI6MCwic2UiOjAsImZzIjoxLCJzcCI6MH0=",
+            "expires": "2026-07-22T11:29:58.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.415Z"
+          },
+          {
+            "key": "_ga_PZT8L9PVCE",
+            "value": "GS2.1.s1784717998$o1$g1$t1784718302$j59$l0$h0",
+            "expires": "2027-08-26T11:05:02.434Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1784717998921.109067776653713045",
+            "expires": "2026-10-20T11:05:02.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.415Z"
+          },
+          {
+            "key": "__hstc",
+            "value": "225168261.b5f5cecc6edd021e7a3f3ea3232da5f9.1784718000693.1784718000693.1784718000693.1",
+            "expires": "2027-01-18T11:05:03.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "hubspotutk",
+            "value": "b5f5cecc6edd021e7a3f3ea3232da5f9",
+            "expires": "2027-01-18T11:05:03.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "__hssrc",
+            "value": "1",
+            "expires": "2026-07-22T11:55:03.415Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "__hssc",
+            "value": "225168261.2.1784718000693",
+            "expires": "2026-07-22T11:35:03.000Z",
+            "domain": "raywhite.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-22T11:00:00.705Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "CraftSessionId",
+            "value": "8a0319471c18b41bea4d7270039cc5e4",
+            "expires": "2026-07-22T11:55:03.415Z",
+            "domain": "www.raywhite.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-22T11:05:03.416Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          },
+          {
+            "key": "CRAFT_CSRF_TOKEN",
+            "value": "68df28bc34c391b0456d210cbb3e0f6cb445545aa94df5b9591e35628e8953cca%3A2%3A%7Bi%3A0%3Bs%3A16%3A%22CRAFT_CSRF_TOKEN%22%3Bi%3A1%3Bs%3A40%3A%227-E5cROixipweKP2U0nONnzYmlenB2PaqkJ-rMWd%22%3B%7D",
+            "expires": "2026-07-22T11:55:03.415Z",
+            "domain": "www.raywhite.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-22T11:05:03.416Z",
+            "lastAccessed": "2026-07-22T11:05:03.416Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:49:55.070Z",
+      "createdAt": "2026-07-22T10:59:55.070Z",
+      "usageCount": 2,
+      "maxUsageCount": 50,
+      "errorScore": 2
+    },
+    {
+      "id": "session_n9xawwtkIV",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-22T11:55:00.883Z",
+      "createdAt": "2026-07-22T11:05:00.883Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}
