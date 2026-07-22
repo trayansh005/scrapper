@@ -37,32 +37,18 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getStartPage() {
-	const val = process.argv[2] ? parseInt(process.argv[2], 10) : 1;
-	if (!Number.isFinite(val) || val < 1) return 1;
-	return Math.floor(val);
-}
-
-const startPage = getStartPage();
-
-function getPageUrl(isRental, pageNum) {
-	const baseUrl = isRental
-		? 'https://www.raywhite.com/listing?address=Sydney%2C+NSW+2000&location=130d0d1006080907120f0b0f100c0f120a0b0a12706d69120c0e0e0e126d475a505b47&type=rent&category=ACR%2COTH%2CHSE%2CRTM'
-		: 'https://www.raywhite.com/listing?address=Sydney%2C+NSW+2000&location=130d0d1006080907120f0b0f100c0f120a0b0a12706d69120c0e0e0e126d475a505b47&type=buy&category=ACR%2COTH%2CHSE%2CRTM%2CAPT';
-
-	return pageNum > 1 ? `${baseUrl}&page=${pageNum}` : baseUrl;
-}
-
 const PROPERTY_TYPES = [
 	{
 		label: 'SALES',
 		isRental: false,
-		baseUrl: getPageUrl(false, startPage),
+		baseUrl:
+			'https://www.raywhite.com/listing?address=Sydney%2C+NSW+2000&location=130d0d1006080907120f0b0f100c0f120a0b0a12706d69120c0e0e0e126d475a505b47&type=buy&category=ACR%2COTH%2CHSE%2CRTM%2CAPT',
 	},
 	{
 		label: 'RENTALS',
 		isRental: true,
-		baseUrl: getPageUrl(true, startPage),
+		baseUrl:
+			'https://www.raywhite.com/listing?address=Sydney%2C+NSW+2000&location=130d0d1006080907120f0b0f100c0f120a0b0a12706d69120c0e0e0e126d475a505b47&type=rent&category=ACR%2COTH%2CHSE%2CRTM',
 	},
 ];
 
@@ -123,7 +109,11 @@ function parseRayWhiteBedrooms(cardText) {
 }
 
 function parseRayWhiteTitle(cardText, headingText = '') {
-	if (headingText && !/^\$\s*[\d,]+/.test(headingText) && !/buyer|price|guide|inspection/i.test(headingText)) {
+	if (
+		headingText &&
+		!/^\$\s*[\d,]+/.test(headingText) &&
+		!/buyer|price|guide|inspection/i.test(headingText)
+	) {
 		const cleanHeading = headingText.replace(/\s*Australia\b/gi, '').trim();
 		if (cleanHeading.length > 5) return cleanHeading.substring(0, 150);
 	}
@@ -135,7 +125,9 @@ function parseRayWhiteTitle(cardText, headingText = '') {
 	const addrMatch =
 		clean.match(/(\d+[\w\s/-]+,\s*[\w\s]+,\s*[\w\s]+\s*\d{4})/i) ||
 		clean.match(/([\w\s/-]+\d+[\w\s/-]+,\s*[\w\s]+,\s*[\w\s]+\s*\d{4})/i) ||
-		clean.match(/([\w\s/-]+,\s*[\w\s]+,\s*(?:New South Wales|NSW|VIC|QLD|SA|WA|TAS|ACT)\s*\d{4})/i);
+		clean.match(
+			/([\w\s/-]+,\s*[\w\s]+,\s*(?:New South Wales|NSW|VIC|QLD|SA|WA|TAS|ACT)\s*\d{4})/i,
+		);
 
 	if (addrMatch) {
 		return addrMatch[1].replace(/\s+/g, ' ').trim().substring(0, 150);
@@ -156,161 +148,176 @@ function parseRayWhiteTitle(cardText, headingText = '') {
 	return fallback ? fallback.substring(0, 150) : 'Property';
 }
 
-async function handleListingPage({ page, request, crawler }) {
-	const { pageNum, label, isRental } = request.userData;
+async function handleListingPage({ page, request }) {
+	const { label, isRental } = request.userData;
 
-	logger.page(pageNum, label, `Processing ${request.url}`);
+	logger.step(`Processing ${label} listings: ${request.url}`);
 
-	await page.waitForTimeout(3500);
+	// Wait for property card elements to render on screen
+	await page
+		.waitForSelector(
+			"a[href*='/nsw/'], a[href*='/qld/'], a[href*='/vic/'], a[href*='/sa/'], a[href*='/wa/'], article, [class*='card']",
+			{ timeout: 15000 },
+		)
+		.catch(() => {});
+	await page.waitForTimeout(2000);
 
-	const itemsToProcess = await page.evaluate(() => {
-		const links = Array.from(document.querySelectorAll('a[href]')).filter((a) => {
-			const href = a.getAttribute('href');
-			return href && /\/(?:nsw|qld|vic|sa|wa|act|nt|tas)\/[a-z0-9-]+\/\d+/i.test(href);
-		});
+	let pageNum = 1;
+	let hasMorePages = true;
 
-		const seenHrefs = new Set();
-		const results = [];
+	while (hasMorePages) {
+		const itemsToProcess = await page.evaluate(() => {
+			const links = Array.from(document.querySelectorAll('a[href]')).filter((a) => {
+				const href = a.getAttribute('href');
+				return href && /\/(?:nsw|qld|vic|sa|wa|act|nt|tas)\/[a-z0-9-]+\/\d+/i.test(href);
+			});
 
-		for (const a of links) {
-			const href = a.getAttribute('href');
-			if (seenHrefs.has(href)) continue;
-			seenHrefs.add(href);
+			const seenHrefs = new Set();
+			const results = [];
 
-			let container =
-				a.closest("article, [class*='card'], [class*='Card'], [class*='listing']") || a.parentElement;
-			while (
-				container &&
-				container.innerText &&
-				container.innerText.length < 50 &&
-				container.parentElement
-			) {
-				container = container.parentElement;
+			for (const a of links) {
+				const href = a.getAttribute('href');
+				if (seenHrefs.has(href)) continue;
+				seenHrefs.add(href);
+
+				let container =
+					a.closest("article, [class*='card'], [class*='Card'], [class*='listing']") || a.parentElement;
+				while (
+					container &&
+					container.innerText &&
+					container.innerText.length < 50 &&
+					container.parentElement
+				) {
+					container = container.parentElement;
+				}
+
+				const fullText = container ? container.innerText.replace(/\s+/g, ' ').trim() : '';
+
+				const headingEl = container
+					? container.querySelector(
+							"h1, h2, h3, h4, h5, [class*='address'], [class*='title']",
+					  )
+					: null;
+				const headingText = headingEl ? headingEl.innerText.trim() : '';
+
+				results.push({
+					href,
+					fullText,
+					headingText,
+				});
 			}
 
-			const fullText = container ? container.innerText.replace(/\s+/g, ' ').trim() : '';
+			return results;
+		});
 
-			const headingEl = container
-				? container.querySelector("h1, h2, h3, h4, h5, [class*='address'], [class*='title']")
-				: null;
-			const headingText = headingEl ? headingEl.innerText.trim() : '';
+		logger.page(pageNum, label, `Found ${itemsToProcess.length} properties on page ${pageNum}`);
 
-			results.push({
-				href,
-				fullText,
-				headingText,
-			});
-		}
+		let newItemsOnThisPage = 0;
 
-		return results;
-	});
+		for (const rawProp of itemsToProcess) {
+			const link = rawProp.href.startsWith('http')
+				? rawProp.href
+				: `https://www.raywhite.com${rawProp.href}`;
 
-	if (itemsToProcess.length === 0) {
-		logger.page(pageNum, label, `No properties found on page ${pageNum}. Ending pagination.`);
-		return;
-	}
+			if (processedUrls.has(link)) {
+				counts.totalSkipped++;
+				continue;
+			}
+			processedUrls.add(link);
+			counts.totalScraped++;
+			newItemsOnThisPage++;
 
-	logger.page(pageNum, label, `Found ${itemsToProcess.length} properties on page ${pageNum}`);
+			const price = formatRayWhitePrice(rawProp.fullText);
+			const bedrooms = parseRayWhiteBedrooms(rawProp.fullText);
+			const title = parseRayWhiteTitle(rawProp.fullText, rawProp.headingText);
 
-	for (const rawProp of itemsToProcess) {
-		const link = rawProp.href.startsWith('http')
-			? rawProp.href
-			: `https://www.raywhite.com${rawProp.href}`;
-
-		if (processedUrls.has(link)) {
-			counts.totalSkipped++;
-			continue;
-		}
-		processedUrls.add(link);
-		counts.totalScraped++;
-
-		const price = formatRayWhitePrice(rawProp.fullText);
-		const bedrooms = parseRayWhiteBedrooms(rawProp.fullText);
-		const title = parseRayWhiteTitle(rawProp.fullText, rawProp.headingText);
-
-		try {
-			const result = await updatePriceByPropertyURLOptimized(
-				link,
-				price,
-				title,
-				bedrooms,
-				AGENT_ID,
-				isRental,
-				CURRENCY,
-			);
-
-			if (result.isExisting && !result.missingData) {
-				if (result.updated) {
-					logger.property(link, price, bedrooms, 'UPDATED', isRental);
-					counts.totalSaved++;
-					if (isRental) counts.savedRentals++;
-					else counts.savedSales++;
-				} else {
-					logger.property(link, price, bedrooms, 'UNCHANGED', isRental);
-				}
-			} else {
-				let lat = null;
-				let lng = null;
-				let detailHtml = null;
-
-				try {
-					const detailPage = await page.context().newPage();
-					await detailPage.goto(link, { waitUntil: 'domcontentloaded', timeout: 30000 });
-					await detailPage.waitForTimeout(1000);
-					detailHtml = await detailPage.content();
-					await detailPage.close();
-				} catch (e) {}
-
-				const coordsResult = await processPropertyWithCoordinates(
+			try {
+				const result = await updatePriceByPropertyURLOptimized(
 					link,
 					price,
 					title,
 					bedrooms,
 					AGENT_ID,
 					isRental,
-					detailHtml,
-					lat,
-					lng,
 					CURRENCY,
 				);
 
-				logger.property(link, price, bedrooms, 'CREATED', isRental, {
-					latitude: coordsResult.latitude,
-					longitude: coordsResult.longitude,
-				});
+				if (result.isExisting && !result.missingData) {
+					if (result.updated) {
+						logger.property(link, price, bedrooms, 'UPDATED', isRental);
+						counts.totalSaved++;
+						if (isRental) counts.savedRentals++;
+						else counts.savedSales++;
+					} else {
+						logger.property(link, price, bedrooms, 'UNCHANGED', isRental);
+					}
+				} else {
+					let lat = null;
+					let lng = null;
+					let detailHtml = null;
 
-				counts.totalSaved++;
-				if (isRental) counts.savedRentals++;
-				else counts.savedSales++;
+					try {
+						const detailPage = await page.context().newPage();
+						await detailPage.goto(link, { waitUntil: 'domcontentloaded', timeout: 30000 });
+						await detailPage.waitForTimeout(1000);
+						detailHtml = await detailPage.content();
+						await detailPage.close();
+					} catch (e) {}
 
-				await sleep(200); // Politeness delay ONLY on CREATED
+					const coordsResult = await processPropertyWithCoordinates(
+						link,
+						price,
+						title,
+						bedrooms,
+						AGENT_ID,
+						isRental,
+						detailHtml,
+						lat,
+						lng,
+						CURRENCY,
+					);
+
+					logger.property(link, price, bedrooms, 'CREATED', isRental, {
+						latitude: coordsResult.latitude,
+						longitude: coordsResult.longitude,
+					});
+
+					counts.totalSaved++;
+					if (isRental) counts.savedRentals++;
+					else counts.savedSales++;
+
+					await sleep(200); // Politeness delay ONLY on CREATED
+				}
+			} catch (err) {
+				logger.error(`Error processing property ${link}: ${err.message}`);
 			}
-		} catch (err) {
-			logger.error(`Error processing property ${link}: ${err.message}`);
 		}
-	}
 
-	// Pagination detection: check if properties exist and try next page
-	const nextPageNum = pageNum + 1;
-	const maxPages = isRental ? 60 : 30; // Safety threshold
+		// Pagination handling via 'Load More' button click
+		const loadMoreBtn = page
+			.locator("button.load-more, button:has-text('Load More'), a:has-text('Load More')")
+			.first();
+		const isLoadMoreVisible = await loadMoreBtn.isVisible().catch(() => false);
 
-	if (nextPageNum <= maxPages && itemsToProcess.length > 0) {
-		const nextUrl = getPageUrl(isRental, nextPageNum);
-		await crawler.addRequests([
-			{
-				url: nextUrl,
-				userData: {
-					pageNum: nextPageNum,
-					isRental,
-					label,
-				},
-			},
-		]);
+		if (isLoadMoreVisible) {
+			pageNum++;
+			logger.page(pageNum, label, `Clicking 'Load More' button for page ${pageNum}...`);
+			await loadMoreBtn.scrollIntoViewIfNeeded().catch(() => {});
+			await loadMoreBtn.click().catch(() => {});
+			await page.waitForTimeout(3000);
+		} else {
+			logger.page(
+				pageNum,
+				label,
+				`No more 'Load More' button found on page ${pageNum}. Ending ${label} pagination.`,
+			);
+			hasMorePages = false;
+		}
 	}
 }
 
 async function run() {
-	logger.step(`Starting RayWhite scraper (Agent ${AGENT_ID}) from page ${startPage}`);
+	logger.step(`Starting RayWhite scraper (Agent ${AGENT_ID})`);
 
 	const crawler = new PlaywrightCrawler({
 		launchContext: {
@@ -342,7 +349,7 @@ async function run() {
 			},
 		],
 		maxConcurrency: 1,
-		requestHandlerTimeoutSecs: 120,
+		requestHandlerTimeoutSecs: 300,
 		navigationTimeoutSecs: 60,
 		maxRequestRetries: 3,
 		requestHandler: handleListingPage,
@@ -354,7 +361,6 @@ async function run() {
 	const initialRequests = PROPERTY_TYPES.map((type) => ({
 		url: type.baseUrl,
 		userData: {
-			pageNum: startPage,
 			isRental: type.isRental,
 			label: type.label,
 		},
@@ -362,12 +368,8 @@ async function run() {
 
 	await crawler.run(initialRequests);
 
-	if (startPage === 1) {
-		logger.step(`Cleaning up removed properties for Agent ${AGENT_ID}`);
-		await updateRemoveStatus(AGENT_ID, scrapeStartTime);
-	} else {
-		logger.step(`Partial run from page ${startPage} - skipping updateRemoveStatus for safety.`);
-	}
+	logger.step(`Cleaning up removed properties for Agent ${AGENT_ID}`);
+	await updateRemoveStatus(AGENT_ID, scrapeStartTime);
 
 	logger.step(`
 ==================================================
