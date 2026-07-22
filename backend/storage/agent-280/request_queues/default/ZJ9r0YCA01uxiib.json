@@ -1,0 +1,9 @@
+{
+	"id": "ZJ9r0YCA01uxiib",
+	"json": "{\"id\":\"ZJ9r0YCA01uxiib\",\"url\":\"https://harcourts.net/au/listings/buy?include-suburb=1&category=residential&listing-category=residential&showSurroundMsg=1&page=341\",\"loadedUrl\":\"https://harcourts.net/au/listings/buy?include-suburb=1&category=residential&listing-category=residential&showSurroundMsg=1&page=341\",\"uniqueKey\":\"https://harcourts.net/au/listings/buy?category=residential&include-suburb=1&listing-category=residential&page=341&showSurroundMsg=1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":341,\"totalPages\":349,\"isRental\":false,\"label\":\"SALES\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-07-22T08:43:59.941Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://harcourts.net/au/listings/buy?category=residential&include-suburb=1&listing-category=residential&page=341&showSurroundMsg=1",
+	"url": "https://harcourts.net/au/listings/buy?include-suburb=1&category=residential&listing-category=residential&showSurroundMsg=1&page=341"
+}

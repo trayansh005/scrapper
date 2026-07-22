@@ -34,6 +34,7 @@ async function updatePriceByPropertyURL(
 	is_rent = false,
 	latitude = null,
 	longitude = null,
+	currency = "€",
 ) {
 	try {
 		if (link) {
@@ -55,9 +56,9 @@ async function updatePriceByPropertyURL(
 				const truncatedTitle = title ? title.substring(0, 150) : "";
 				const [result] = await promisePool.query(
 					`UPDATE ${tableName}
-                    SET property_name = ?, price = ?, latitude = ?, longitude = ?, bedrooms = ?, remove_status = 0, updated_at = NOW()
+                    SET property_name = ?, price = ?, currency = ?, latitude = ?, longitude = ?, bedrooms = ?, remove_status = 0, updated_at = NOW()
                     WHERE property_url = ? AND agent_id = ?`,
-					[truncatedTitle, price, latitude, longitude, bedrooms, linkTrimmed, agent_id],
+					[truncatedTitle, price, currency, latitude, longitude, bedrooms, linkTrimmed, agent_id],
 				);
 
 				if (result.affectedRows > 0) {
@@ -66,7 +67,7 @@ async function updatePriceByPropertyURL(
 							`✅ Updated: ${linkTrimmed.substring(
 								0,
 								50,
-							)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
+							)}... | Price: ${currency}${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
 						);
 					}
 				} else if (DB_VERBOSE_LOGS) {
@@ -74,7 +75,7 @@ async function updatePriceByPropertyURL(
 				}
 			} else {
 				// INSERT new property
-				const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+				const insertQuery = `INSERT INTO ${tableName} (property_name, agent_id, price, currency, bedrooms, property_url, logo, latitude, longitude, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 				const logo = "property_for_sale/logo.png"; // static logo
 				const currentTime = new Date();
@@ -85,6 +86,7 @@ async function updatePriceByPropertyURL(
 					truncatedTitle,
 					agent_id,
 					price,
+					currency,
 					bedrooms,
 					linkTrimmed,
 					logo,
@@ -99,7 +101,7 @@ async function updatePriceByPropertyURL(
 						`✅ Created: ${linkTrimmed.substring(
 							0,
 							50,
-						)}... | Price: £${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
+						)}... | Price: ${currency}${formatPriceUk(price)} | Coords: ${latitude}, ${longitude}`,
 					);
 				}
 			}

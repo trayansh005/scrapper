@@ -20,6 +20,7 @@ async function updatePriceByPropertyURLOptimized(
 	bedrooms,
 	agent_id,
 	is_rent = false,
+	currency = "€",
 ) {
 	let attempts = 0;
 	const maxRetries = 3;
@@ -32,7 +33,7 @@ async function updatePriceByPropertyURLOptimized(
 				}
 
 				const linkTrimmed = link.trim();
-				const formattedPrice = formatPriceUk(price);
+				const formattedPrice = price === "POA" ? "POA" : (formatPriceUk(price) || "POA");
 				const truncatedTitle = title ? title.substring(0, 150) : "";
 
 				// Check if property exists for THIS agent and get current data
@@ -50,14 +51,14 @@ async function updatePriceByPropertyURLOptimized(
 					// UPDATE existing property - always update updated_at, but only log if price changed
 					const [result] = await promisePool.query(
 						`UPDATE ${tableName}
-                        SET property_name = ?, price = ?, remove_status = 0, updated_at = NOW()
+                        SET property_name = ?, price = ?, currency = ?, remove_status = 0, updated_at = NOW()
                         WHERE property_url = ? AND agent_id = ?`,
-						[truncatedTitle, formattedPrice, linkTrimmed, agent_id],
+						[truncatedTitle, formattedPrice, currency, linkTrimmed, agent_id],
 					);
 
 					if (currentPrice !== formattedPrice && DB_VERBOSE_LOGS) {
 						console.log(
-							`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Old: £${currentPrice} -> New: £${formattedPrice}`,
+							`✅ Updated price: ${linkTrimmed.substring(0, 50)}... | Old: ${currency}${currentPrice} -> New: ${currency}${formattedPrice}`,
 						);
 					}
 					return { 
@@ -96,6 +97,7 @@ async function updatePriceByPropertyURLOptimized(
  * @param {string} html - HTML content to extract coordinates from
  * @param {number} manualLat - Optional manual latitude
  * @param {number} manualLon - Optional manual longitude
+ * @param {string} currency - Currency symbol (default '€')
  */
 async function processPropertyWithCoordinates(
 	url,
@@ -107,6 +109,7 @@ async function processPropertyWithCoordinates(
 	html,
 	manualLat = null,
 	manualLon = null,
+	currency = "€",
 ) {
 	const { extractCoordinatesFromHTML, extractBedroomsFromHTML } = require("./property-helpers.js");
 
@@ -136,7 +139,7 @@ async function processPropertyWithCoordinates(
 			finalBedrooms = extractBedroomsFromHTML(textForBedrooms);
 		}
 
-		const formattedPrice = formatPriceUk(price);
+		const formattedPrice = price === "POA" ? "POA" : (formatPriceUk(price) || "POA");
 		// Truncate title to 150 characters to prevent database column size errors
 		const truncatedTitle = title ? title.substring(0, 150) : "";
 
@@ -153,6 +156,7 @@ async function processPropertyWithCoordinates(
 					isRent,
 					latitude,
 					longitude,
+					currency,
 				);
 				break;
 			} catch (error) {
@@ -168,7 +172,7 @@ async function processPropertyWithCoordinates(
 
 		if (DB_VERBOSE_LOGS) {
 			console.log(
-				`✅ New property: ${title} (£${formattedPrice}) - Coords: ${latitude}, ${longitude}${
+				`✅ New property: ${title} (${currency}${formattedPrice}) - Coords: ${latitude}, ${longitude}${
 					finalBedrooms ? `, Beds: ${finalBedrooms}` : ""
 				}`,
 			);

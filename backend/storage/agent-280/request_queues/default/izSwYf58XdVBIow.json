@@ -1,0 +1,9 @@
+{
+	"id": "izSwYf58XdVBIow",
+	"json": "{\"id\":\"izSwYf58XdVBIow\",\"url\":\"https://harcourts.net/au/listings/rent?include-suburb=1&category=residential&listing-category=residential&showSurroundMsg=1&page=12\",\"loadedUrl\":\"https://harcourts.net/au/listings/rent?include-suburb=1&category=residential&listing-category=residential&showSurroundMsg=1&page=12\",\"uniqueKey\":\"https://harcourts.net/au/listings/rent?category=residential&include-suburb=1&listing-category=residential&page=12&showSurroundMsg=1\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"pageNum\":12,\"totalPages\":106,\"isRental\":true,\"label\":\"RENTALS\",\"__crawlee\":{\"state\":4}},\"handledAt\":\"2026-07-22T07:25:01.737Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://harcourts.net/au/listings/rent?category=residential&include-suburb=1&listing-category=residential&page=12&showSurroundMsg=1",
+	"url": "https://harcourts.net/au/listings/rent?include-suburb=1&category=residential&listing-category=residential&showSurroundMsg=1&page=12"
+}
