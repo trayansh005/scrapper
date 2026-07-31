@@ -87,9 +87,25 @@ async function handleListingPage({ page, request, crawler }) {
         // Long wait for Nuxt.js to load listings
         await page.waitForTimeout(8000);
 
-        // Scroll to trigger lazy loading
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await page.waitForTimeout(3000);
+        // Auto-scroll loop to trigger infinite lazy loading until all properties load
+        let prevCount = 0;
+        let sameCountRetries = 0;
+        let scrollAttempts = 0;
+
+        while (sameCountRetries < 3 && scrollAttempts < 35) {
+            scrollAttempts++;
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.waitForTimeout(2000);
+
+            const currentCount = await page.evaluate(() => document.querySelectorAll(".listing__inner, article").length);
+            if (currentCount === prevCount) {
+                sameCountRetries++;
+            } else {
+                sameCountRetries = 0;
+                prevCount = currentCount;
+            }
+        }
+        logger.step(`Auto-scroll completed after ${scrollAttempts} attempts, loaded ${prevCount} cards on DOM`);
 
         const properties = await page.evaluate(() => {
             const results = [];
