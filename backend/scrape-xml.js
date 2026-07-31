@@ -1,5 +1,5 @@
 // Node.js equivalent for fetch_properties.php (Refactored & Optimized)
-// Usage: node backend/scrape-xml.js
+// Usage: node backend/scrape-xml.js [agent_id]
 
 const axios = require("axios");
 const cheerio = require("cheerio");
@@ -208,6 +208,7 @@ async function processAgent(row) {
 
 	const propertiesToProcess = propertiesList.length > 0 ? propertiesList : $("Property");
 	const nowString = getKolkataTimestamp();
+	const seenCoords282 = new Set();
 
 	for (let i = 0; i < propertiesToProcess.length; i++) {
 		const propertyNode = $(propertiesToProcess[i]);
@@ -227,33 +228,32 @@ async function processAgent(row) {
 		const street = propertyNode.find("Address > street").text().trim();
 		const location = propertyNode.find("Address > location").text().trim();
 		const region = propertyNode.find("Address > region").text().trim();
+		const country = propertyNode.find("Address > country").text().trim();
+		const addressFallback = [street, location, region].filter(Boolean).join(" ").trim();
 
-		// property_name fallback logic
-		let property_name_raw = [street, location, region].filter(Boolean).join(" ").trim();
+		// property_name priority logic (<title> first to prevent generic address duplicates)
+		const titleVal = propertyNode.find("title").text().trim();
+		const headlineVal = propertyNode.find("headline").text().trim();
+		const marketingHeadingVal = propertyNode.find("marketingHeading").text().trim();
+		const descHeadlineVal = propertyNode.find("Description > headline").text().trim();
+		const descDescriptionVal = propertyNode.find("Description > description").text().trim();
 
-		if (property_name_raw === "") {
-			const titleVal = propertyNode.find("title").text().trim();
-			const headlineVal = propertyNode.find("headline").text().trim();
-			const marketingHeadingVal = propertyNode.find("marketingHeading").text().trim();
-			const descHeadlineVal = propertyNode.find("Description > headline").text().trim();
-			const descDescriptionVal = propertyNode.find("Description > description").text().trim();
-
-			if (titleVal !== "") {
-				property_name_raw = titleVal;
-			} else if (headlineVal !== "") {
-				property_name_raw = headlineVal;
-			} else if (marketingHeadingVal !== "") {
-				property_name_raw = marketingHeadingVal;
-			} else if (descHeadlineVal !== "") {
-				property_name_raw = descHeadlineVal;
-			} else if (descDescriptionVal !== "") {
-				property_name_raw = descDescriptionVal.substring(0, 150);
-			} else {
-				property_name_raw = "Property ID " + property_id_raw;
-			}
+		let property_name = "";
+		if (titleVal !== "") {
+			property_name = titleVal;
+		} else if (headlineVal !== "") {
+			property_name = headlineVal;
+		} else if (marketingHeadingVal !== "") {
+			property_name = marketingHeadingVal;
+		} else if (descHeadlineVal !== "") {
+			property_name = descHeadlineVal;
+		} else if (addressFallback !== "") {
+			property_name = addressFallback;
+		} else if (descDescriptionVal !== "") {
+			property_name = descDescriptionVal.substring(0, 150);
+		} else {
+			property_name = "Property ID " + property_id_raw;
 		}
-
-		const property_name = property_name_raw;
 
 		// Price parsing
 		const priceVal = propertyNode.find("Price > price").text().trim();
@@ -291,25 +291,72 @@ async function processAgent(row) {
 		const bedrooms = bedroomsVal !== "" ? parseInt(bedroomsVal, 10) : null;
 
 		// Latitude parsing
-		const latitudeVal = propertyNode.find("Address > latitude").text().trim();
-		const latitude = latitudeVal !== "" ? parseFloat(latitudeVal) : null;
+		const latitudeVal = (
+			propertyNode.find("latitude").text() ||
+			propertyNode.find("Address > latitude").text() ||
+			propertyNode.find("lat").text() ||
+			propertyNode.find("Latitude").text()
+		).trim();
+		let latitude = latitudeVal !== "" && !isNaN(parseFloat(latitudeVal)) ? parseFloat(latitudeVal) : null;
 
 		// Longitude parsing
-		const longitudeVal = propertyNode.find("Address > longitude").text().trim();
-		const longitude = longitudeVal !== "" ? parseFloat(longitudeVal) : null;
+		const longitudeVal = (
+			propertyNode.find("longitude").text() ||
+			propertyNode.find("Address > longitude").text() ||
+			propertyNode.find("lng").text() ||
+			propertyNode.find("long").text() ||
+			propertyNode.find("Longitude").text()
+		).trim();
+		let longitude = longitudeVal !== "" && !isNaN(parseFloat(longitudeVal)) ? parseFloat(longitudeVal) : null;
+
+		// Location lookup fallback for missing coordinates
+		if (longitude === null || latitude === null) {
+			const cityCoordsMap = {
+				"limassol, cyprus": { lat: 34.6786, lng: 33.0413 },
+				"alanya, turkey": { lat: 36.5437, lng: 31.9998 },
+				"united arab emirates": { lat: 25.2048, lng: 55.2708 },
+				"dubai, united arab emirates": { lat: 25.2048, lng: 55.2708 },
+				"paphos, cyprus": { lat: 34.7754, lng: 32.4245 },
+				"larnaca, cyprus": { lat: 34.9167, lng: 33.6292 },
+				"larnaka, cyprus": { lat: 34.9167, lng: 33.6292 },
+				"nicosia, cyprus": { lat: 35.1856, lng: 33.3823 },
+				"novi vinodolski, croatia": { lat: 45.1281, lng: 14.7889 },
+				"povljana, croatia": { lat: 44.3467, lng: 15.1156 },
+				"crikvenica, croatia": { lat: 45.1736, lng: 14.6922 },
+				"tulum, mexico": { lat: 20.2114, lng: -87.4654 },
+				"kotor, montenegro": { lat: 42.4244, lng: 18.7712 },
+				"budva, montenegro": { lat: 42.2864, lng: 18.8400 }
+			};
+			const key = `${location}, ${country}`.toLowerCase().trim();
+			const fallback = cityCoordsMap[key] || cityCoordsMap[location.toLowerCase().trim()] || cityCoordsMap[country.toLowerCase().trim()];
+			if (fallback) {
+				if (longitude === null) longitude = fallback.lng;
+				if (latitude === null) latitude = fallback.lat;
+			}
+		}
+
+		// Deduplicate by latitude & longitude for agent 282
+		if (agent_id_raw === "282" && latitude !== null && longitude !== null) {
+			const coordKey = `${latitude},${longitude}`;
+			if (seenCoords282.has(coordKey)) {
+				console.log(`Skipped duplicate lat/long for agent 282: ${coordKey} (property_id: ${property_id_raw})`);
+				skipped++;
+				continue;
+			}
+			seenCoords282.add(coordKey);
+		}
 
 		// Data source URL parsing
 		const dataSourceVal = propertyNode.find("link > dataSource").text().trim();
-		const data_source = dataSourceVal !== "" ? dataSourceVal : null;
+		const linkVal = propertyNode.find("link").text().trim();
+		const data_source = dataSourceVal !== "" ? dataSourceVal : (linkVal !== "" ? linkVal : null);
 
 		const logo = "property_for_sale/logo.png";
 		const remove_status = 0;
 
-		// Decide table based on category
-		const property_table =
-			property_category === "For Sale" || property_category === "Residential For Sale"
-				? "property_for_sale"
-				: "property_for_rent";
+		// Decide table based on category (check if category contains "sale" or does not contain "rent/let")
+		const isSaleCategory = /sale/i.test(property_category) || !/rent|letting|to let/i.test(property_category);
+		const property_table = isSaleCategory ? "property_for_sale" : "property_for_rent";
 
 		// Track XML IDs for end-of-agent cleanup
 		xmlPropertyIdsByTable[property_table][property_id_raw] = true;
@@ -404,11 +451,16 @@ async function processAgent(row) {
 	console.log(`Skipped/Error properties: ${skipped}`);
 }
 
-async function scrapeXml() {
+async function scrapeXml(targetAgentId = null) {
 	let agentsRows;
 	try {
-		const query = "SELECT agent_id, rent_xml FROM agent WHERE rent_xml IS NOT NULL AND rent_xml <> ''";
-		const [rows] = await promisePool.query(query);
+		let query = "SELECT agent_id, rent_xml FROM agent WHERE rent_xml IS NOT NULL AND rent_xml <> ''";
+		const queryParams = [];
+		if (targetAgentId) {
+			query += " AND agent_id = ?";
+			queryParams.push(targetAgentId);
+		}
+		const [rows] = await promisePool.query(query, queryParams);
 		agentsRows = rows;
 	} catch (err) {
 		console.error("Agent Query Error: " + err.message);
@@ -420,14 +472,15 @@ async function scrapeXml() {
 		const AGENT_CONCURRENCY = 3;
 		await mapConcurrent(agentsRows, AGENT_CONCURRENCY, processAgent);
 	} else {
-		console.log("No agents found with valid rent_xml.");
+		console.log(`No agents found with valid rent_xml${targetAgentId ? ` for agent_id: ${targetAgentId}` : ""}.`);
 	}
 
 	await promisePool.end();
 }
 
 if (require.main === module) {
-	scrapeXml()
+	const targetAgentId = process.argv[2] ? process.argv[2].trim() : null;
+	scrapeXml(targetAgentId)
 		.then(() => {
 			console.log("All done!");
 			process.exit(0);
