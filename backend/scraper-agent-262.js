@@ -47,9 +47,15 @@ function blockNonEssentialResources(page) {
 }
 
 function shouldExcludeProperty(statusText, rawText, title) {
-    const text = (statusText + " " + rawText + " " + title || "").toLowerCase();
-    const keywords = ["under offer", "under-offer", "sold", "sold stc", "sstc", "reserved", "let agreed", "let", "rented", "agreed"];
-    return keywords.some(k => text.includes(k));
+    const status = (statusText || "").toLowerCase();
+    const text = (rawText + " " + title || "").toLowerCase();
+
+    if (["sold", "under offer", "let agreed", "reserved", "rented", "sold stc", "sstc"].some(k => status.includes(k))) {
+        return true;
+    }
+
+    const keywordsRegex = /\b(under offer|under-offer|sold|sold stc|sstc|reserved|let agreed|rented)\b/i;
+    return keywordsRegex.test(text);
 }
 
 function normalizePropertyUrl(url) {
@@ -89,20 +95,11 @@ async function handleListingPage({ page, request, crawler }) {
             const results = [];
             const seen = new Set();
 
-            // Very aggressive selectors for this site
-            const cardElements = document.querySelectorAll(`
-                article, 
-                div[class*="property"], 
-                div[class*="listing"], 
-                div[class*="card"], 
-                .nuxt-link, 
-                a[href*="/property/"] ~ div,
-                [class*="item"]
-            `);
+            // Target exact listing card containers
+            const cards = document.querySelectorAll(".listing__inner, article");
 
-            for (const card of cardElements) {
-                const linkEl = card.querySelector('a[href*="/property/"]') || 
-                               card.closest('a[href*="/property/"]');
+            for (const card of cards) {
+                const linkEl = card.querySelector('a[href*="/property/"]');
                 if (!linkEl) continue;
 
                 const href = linkEl.getAttribute("href");
@@ -112,26 +109,31 @@ async function handleListingPage({ page, request, crawler }) {
                 const fullLink = href.startsWith("http") ? href : new URL(href, location.origin).href;
 
                 const rawText = (card.textContent || "").replace(/\s+/g, " ").trim();
-                const titleEl = card.querySelector("h2, h3, .title, .address, strong, .property-title");
-                const title = (titleEl?.textContent || "Property").trim();
 
-                // Status
+                // Title extraction targeting .listing__title or heading tags
+                const titleEl = card.querySelector(".listing__title a, .listing__title, h1, h2, h3");
+                const title = (titleEl?.textContent || "Property").replace(/\s+/g, " ").trim();
+
+                // Status label extraction (.listing__label__container or badge elements)
                 let statusText = "";
-                const statusEls = card.querySelectorAll(".status, .badge, .tag, .flag, .label, [class*='sold'], [class*='offer'], [class*='let']");
-                for (const el of statusEls) {
-                    const txt = (el.textContent || "").trim();
-                    if (txt.length > 2) {
-                        statusText = txt;
-                        break;
-                    }
+                const labelEl = card.querySelector(".listing__label__container, .listing__label, [class*='label'], [class*='status'], [class*='badge']");
+                if (labelEl) {
+                    statusText = labelEl.textContent.replace(/\s+/g, " ").trim();
                 }
 
+                // Price extraction
                 const priceMatch = rawText.match(/£[\d,]+(?:\.\d+)?/);
                 const priceRaw = priceMatch ? priceMatch[0] : "";
 
+                // Bedroom count extraction
                 let bedText = "";
-                const bedMatch = rawText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
-                if (bedMatch) bedText = bedMatch[0];
+                const bedEl = Array.from(card.querySelectorAll(".icons__item__text, .icons__item")).find(el => el.textContent.toLowerCase().includes("bed"));
+                if (bedEl) {
+                    bedText = bedEl.textContent.trim();
+                } else {
+                    const bedMatch = rawText.match(/(\d+)\s*(?:bed|beds|bedroom|bedrooms)/i);
+                    if (bedMatch) bedText = bedMatch[0];
+                }
 
                 results.push({
                     link: fullLink,
