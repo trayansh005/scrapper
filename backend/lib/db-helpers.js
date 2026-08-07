@@ -20,7 +20,7 @@ async function updatePriceByPropertyURLOptimized(
 	bedrooms,
 	agent_id,
 	is_rent = false,
-	currency = "€",
+	currency = "£",
 ) {
 	let attempts = 0;
 	const maxRetries = 3;
@@ -97,7 +97,7 @@ async function updatePriceByPropertyURLOptimized(
  * @param {string} html - HTML content to extract coordinates from
  * @param {number} manualLat - Optional manual latitude
  * @param {number} manualLon - Optional manual longitude
- * @param {string} currency - Currency symbol (default '€')
+ * @param {string} currency - Currency symbol (default '£')
  */
 async function processPropertyWithCoordinates(
 	url,
@@ -109,7 +109,7 @@ async function processPropertyWithCoordinates(
 	html,
 	manualLat = null,
 	manualLon = null,
-	currency = "€",
+	currency = "£",
 ) {
 	const { extractCoordinatesFromHTML, extractBedroomsFromHTML } = require("./property-helpers.js");
 

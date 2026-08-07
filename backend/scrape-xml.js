@@ -265,13 +265,13 @@ async function processAgent(row) {
 						.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
 				: null;
 
-		// Currency parsing (default to €; handles THA/THB, EUR, USD, GBP)
+		// Currency parsing (default to £; handles THA/THB, EUR, USD, GBP)
 		const rawCurrency = (
 			propertyNode.find("Price > currency").text().trim() ||
 			propertyNode.find("currency").text().trim()
 		).toUpperCase();
 
-		let currency = "€";
+		let currency = "£";
 		if (rawCurrency) {
 			if (rawCurrency === "THA" || rawCurrency === "THB" || rawCurrency === "฿") {
 				currency = "฿";

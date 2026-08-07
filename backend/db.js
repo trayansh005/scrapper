@@ -35,7 +35,7 @@ async function updatePriceByPropertyURL(
 	is_rent = false,
 	latitude = null,
 	longitude = null,
-	currency = "€",
+	currency = "£",
 ) {
 	try {
 		if (link) {

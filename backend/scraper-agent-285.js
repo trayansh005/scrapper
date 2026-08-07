@@ -331,7 +331,7 @@ async function runAgent285() {
 			propertyNode.find("currency").text().trim()
 		).toUpperCase();
 
-		let currency = "€";
+		let currency = "£";
 		if (rawCurrency) {
 			if (rawCurrency === "THA" || rawCurrency === "THB" || rawCurrency === "฿") currency = "฿";
 			else if (rawCurrency === "EUR" || rawCurrency === "€") currency = "€";
